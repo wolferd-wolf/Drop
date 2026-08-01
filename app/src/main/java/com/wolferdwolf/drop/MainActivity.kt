@@ -1,32 +1,113 @@
 package com.wolferdwolf.drop
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.wolferdwolf.drop.share.SharedTextParser
 import com.wolferdwolf.drop.ui.theme.DropTheme
 
 class MainActivity : ComponentActivity() {
+    private var sharedText by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        sharedText = savedInstanceState?.getString(STATE_SHARED_TEXT) ?: SharedTextParser.parse(intent)
         setContent {
             DropTheme {
-                DropHomeScreen()
+                sharedText?.let { text ->
+                    SharedTextPreview(
+                        initialText = text,
+                        onDiscard = { sharedText = null },
+                        onContinue = { edited -> sharedText = edited }
+                    )
+                } ?: DropHomeScreen()
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        SharedTextParser.parse(intent)?.let { sharedText = it }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString(STATE_SHARED_TEXT, sharedText)
+        super.onSaveInstanceState(outState)
+    }
+
+    private companion object {
+        const val STATE_SHARED_TEXT = "shared_text"
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SharedTextPreview(
+    initialText: String,
+    onDiscard: () -> Unit,
+    onContinue: (String) -> Unit
+) {
+    var editableText by androidx.compose.runtime.rememberSaveable(initialText) {
+        mutableStateOf(initialText)
+    }
+
+    Scaffold(topBar = { TopAppBar(title = { Text("Share preview") }) }) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Shared text", style = MaterialTheme.typography.labelLarge)
+            OutlinedTextField(
+                value = editableText,
+                onValueChange = { editableText = it.take(SharedTextParser.MAX_SHARED_TEXT_LENGTH) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                label = { Text("Original content") },
+                supportingText = { Text("Review or edit before Drop processes it") }
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(onClick = onDiscard, modifier = Modifier.weight(1f)) {
+                    Text("Discard")
+                }
+                Button(
+                    onClick = { onContinue(editableText.trim()) },
+                    enabled = editableText.isNotBlank(),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Continue")
+                }
             }
         }
     }
@@ -59,7 +140,7 @@ fun DropHomeScreen() {
                     ) {
                         Text("Ready for shared content", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "The first product workflow will accept shared text, extract useful details, and create an action.",
+                            "Share text from another app to preview it safely in Drop.",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
