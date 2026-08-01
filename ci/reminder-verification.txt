@@ -1,0 +1,1 @@
+Reminder validation, scheduling, notification delivery, and confirmation UI verification.
