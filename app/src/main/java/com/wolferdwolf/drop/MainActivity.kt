@@ -24,6 +24,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -72,9 +73,7 @@ fun SharedTextPreview(
     onDiscard: () -> Unit,
     onContinue: (String) -> Unit
 ) {
-    var editableText by androidx.compose.runtime.rememberSaveable(initialText) {
-        mutableStateOf(initialText)
-    }
+    var editableText by rememberSaveable(initialText) { mutableStateOf(initialText) }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Share preview") }) }) { padding ->
         Column(
@@ -116,9 +115,7 @@ fun SharedTextPreview(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DropHomeScreen() {
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("Drop") }) }
-    ) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text("Drop") }) }) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -146,9 +143,7 @@ fun DropHomeScreen() {
                     }
                 }
             }
-            item {
-                Text("No saved actions yet", style = MaterialTheme.typography.bodyLarge)
-            }
+            item { Text("No saved actions yet", style = MaterialTheme.typography.bodyLarge) }
         }
     }
 }
