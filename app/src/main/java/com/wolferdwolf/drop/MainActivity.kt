@@ -35,6 +35,7 @@ import com.wolferdwolf.drop.data.SavedReferenceStore
 import com.wolferdwolf.drop.extraction.ExtractionResult
 import com.wolferdwolf.drop.extraction.ExtractionType
 import com.wolferdwolf.drop.extraction.RuleBasedExtractor
+import com.wolferdwolf.drop.reminder.ReminderActivity
 import com.wolferdwolf.drop.share.SharedTextParser
 import com.wolferdwolf.drop.ui.theme.DropTheme
 
@@ -84,6 +85,12 @@ class MainActivity : ComponentActivity() {
                             results = RuleBasedExtractor.extract(currentText),
                             onBack = { screen = Screen.PREVIEW },
                             onSaveReference = { screen = Screen.SAVE_REFERENCE },
+                            onCreateReminder = {
+                                startActivity(
+                                    Intent(this, ReminderActivity::class.java)
+                                        .putExtra(ReminderActivity.EXTRA_SOURCE_TEXT, currentText)
+                                )
+                            },
                             onDiscard = ::clearFlow
                         )
                     }
@@ -173,6 +180,7 @@ fun ExtractedInformationScreen(
     results: List<ExtractionResult>,
     onBack: () -> Unit,
     onSaveReference: () -> Unit,
+    onCreateReminder: () -> Unit,
     onDiscard: () -> Unit
 ) {
     Scaffold(topBar = { TopAppBar(title = { Text("Extracted information") }) }) { padding ->
@@ -189,7 +197,7 @@ fun ExtractedInformationScreen(
                 )
             }
             if (results.isEmpty()) {
-                item { Text("You can still save the original content as a reference.") }
+                item { Text("You can still save the original content or create a reminder manually.") }
             } else {
                 items(results, key = { "${it.type}-${it.sourceStart}-${it.value}" }) { ExtractionCard(it) }
             }
@@ -202,7 +210,12 @@ fun ExtractedInformationScreen(
                 }
             }
             item {
-                Button(onClick = onSaveReference, modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = onCreateReminder, modifier = Modifier.fillMaxWidth()) {
+                    Text("Create reminder")
+                }
+            }
+            item {
+                OutlinedButton(onClick = onSaveReference, modifier = Modifier.fillMaxWidth()) {
                     Text("Save reference")
                 }
             }
@@ -293,7 +306,7 @@ fun DropHomeScreen(savedReferences: List<SavedReference>, onDelete: (SavedRefere
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Ready for shared content", style = MaterialTheme.typography.titleMedium)
-                        Text("Share text from another app to extract details or save it privately on this device.")
+                        Text("Share text from another app to extract details, create a reminder, or save it privately on this device.")
                     }
                 }
             }
