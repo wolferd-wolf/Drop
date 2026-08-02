@@ -1,0 +1,51 @@
+name: Apply general image review once
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Route image OCR through the general review flow
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          main = Path('app/src/main/java/com/wolferdwolf/drop/MainActivity.kt')
+          text = main.read_text()
+          text = text.replace('import com.wolferdwolf.drop.timetable.TimetableReviewActivity', 'import com.wolferdwolf.drop.image.ImageReviewActivity')
+          text = text.replace('Intent(this, TimetableReviewActivity::class.java).putExtra(TimetableReviewActivity.EXTRA_OCR_TEXT, text)', 'Intent(this, ImageReviewActivity::class.java).putExtra(ImageReviewActivity.EXTRA_OCR_TEXT, text)')
+          main.write_text(text)
+
+          manifest = Path('app/src/main/AndroidManifest.xml')
+          text = manifest.read_text()
+          anchor = '''        <activity
+            android:name=".pdf.PdfImportActivity"
+            android:exported="false" />
+'''
+          image = '''        <activity
+            android:name=".image.ImageReviewActivity"
+            android:exported="false" />
+'''
+          if '.image.ImageReviewActivity' not in text:
+              text = text.replace(anchor, anchor + image)
+          manifest.write_text(text)
+          PY
+          if git diff --quiet; then
+            echo "General image review already applied"
+            exit 0
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/main/java/com/wolferdwolf/drop/MainActivity.kt app/src/main/AndroidManifest.xml
+          git commit -m "Route image OCR through universal intake flow"
+          git push
