@@ -66,6 +66,22 @@ class HomeScreenshotTest {
     }
 
     @Test
+    fun captureDetectedVenueMapsSuggestion() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            assertVisible(device, "Paste text", "Paste text action must be visible").click()
+            val input = assertObject(device, By.clazz("android.widget.EditText"), "Text entry must provide an editable field")
+            input.text = "Annual meeting venue: Sri Balaji Convention Hall, near RTC Bus Station, Gooty 515401"
+            assertVisible(device, "Continue", "Text entry must provide Continue").click()
+            assertVisible(device, "Extract details", "Preview must provide extraction action").click()
+            assertVisibleAfterScroll(device, "See suggested actions", "Extraction must lead to Suggested Actions").click()
+            assertVisible(device, "Open in Maps", "A likely venue must surface Maps as a relevant action")
+            assertVisible(device, "A likely address or venue was detected: Annual meeting venue: Sri Balaji Convention Hall, near RTC Bus Station,", "Maps suggestion must explain the detected venue")
+            capture(device, "/data/local/tmp/drop-maps-suggestion.png")
+        }
+    }
+
+    @Test
     fun captureGeneralImageOcrReviewAndUniversalFlow() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val intent = Intent(context, TimetableReviewActivity::class.java).putExtra(
