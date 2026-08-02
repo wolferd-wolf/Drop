@@ -1,0 +1,1 @@
+Verify offline image OCR, timetable parsing, editable review UI, APK build, and both screenshot artifacts.
