@@ -1,0 +1,1 @@
+Verify visible primary timetable actions, OCR flow, tests, APK, and both UI screenshots.
