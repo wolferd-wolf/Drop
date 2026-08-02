@@ -38,12 +38,16 @@ class ReminderActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val sourceText = intent.getStringExtra(EXTRA_SOURCE_TEXT).orEmpty()
+        val scheduler = ReminderScheduler(applicationContext)
+        val historyStore = ReminderHistoryStore(applicationContext)
         setContent {
             DropTheme {
                 ReminderScreen(
                     sourceText = sourceText,
                     onClose = { finish() },
-                    schedule = { ReminderScheduler(applicationContext).schedule(it) }
+                    schedule = { reminder ->
+                        scheduler.schedule(reminder).onSuccess { historyStore.save(reminder) }
+                    }
                 )
             }
         }
