@@ -30,6 +30,8 @@ object SuggestedActionEngine {
         val types = results.mapTo(mutableSetOf()) { it.type }
         val lower = originalText.lowercase()
         val address = AddressCandidateDetector.detect(originalText)
+        val hasDeadlineLanguage = containsDeadlineLanguage(lower)
+        val hasEventLanguage = containsEventLanguage(lower)
         val relevant = mutableListOf<SuggestedAction>()
 
         relevant += action(
@@ -39,16 +41,23 @@ object SuggestedActionEngine {
             100
         )
 
-        if (ExtractionType.DATE in types || ExtractionType.TIME in types || containsDeadlineLanguage(lower)) {
+        if (ExtractionType.DATE in types || ExtractionType.TIME in types || hasDeadlineLanguage) {
             relevant += action(
                 SuggestedActionType.REMINDER,
                 "Create reminder",
-                "A date, time, or deadline-like phrase was detected.",
+                if (hasDeadlineLanguage) {
+                    "A deadline-like phrase was detected."
+                } else {
+                    "A date or time was detected."
+                },
                 95
             )
         }
 
-        if (ExtractionType.DATE in types && (ExtractionType.TIME in types || containsEventLanguage(lower))) {
+        val isLikelyEvent = ExtractionType.DATE in types && (
+            hasEventLanguage || (ExtractionType.TIME in types && !hasDeadlineLanguage)
+        )
+        if (isLikelyEvent) {
             relevant += action(
                 SuggestedActionType.CALENDAR,
                 "Add calendar event",
@@ -122,11 +131,11 @@ object SuggestedActionEngine {
         return buildList {
             add(action(SuggestedActionType.SAVE_REFERENCE, "Save reference", "Save the imported content in Drop.", 0))
             add(action(SuggestedActionType.REMINDER, "Create reminder", "Choose the reminder title, date, and time.", 0))
-            add(action(SuggestedActionType.CALENDAR, "Add calendar event", "Fill in the event details in your calendar app.", 0))
+            add(action(SuggestedActionType.CALENDAR, "Add calendar event", "Review and edit the event details before opening Calendar.", 0))
             add(action(SuggestedActionType.CHECKLIST, "Create checklist", "Turn the content into an editable checklist.", 0))
-            add(action(SuggestedActionType.MAPS, "Search in Maps", "Search Maps using the imported content.", 0))
+            add(action(SuggestedActionType.MAPS, "Search in Maps", "Review and edit a location before opening Maps.", 0))
             if (ExtractionType.PHONE in types || ExtractionType.EMAIL in types) {
-                add(action(SuggestedActionType.CONTACT, "Save contact", "Use the detected phone number or email address.", 0))
+                add(action(SuggestedActionType.CONTACT, "Save contact", "Review and edit the detected contact details.", 0))
             }
             if (ExtractionType.URL in types) {
                 add(action(SuggestedActionType.OPEN_LINK, "Open link", "Open the detected web link.", 0))
@@ -144,10 +153,10 @@ object SuggestedActionEngine {
         SuggestedAction(type, title, reason, priority)
 
     private fun containsDeadlineLanguage(text: String): Boolean =
-        listOf("deadline", "due date", "last date", "apply by", "before ").any(text::contains)
+        listOf("deadline", "due date", "last date", "apply by", "apply before", "submit by", "before ").any(text::contains)
 
     private fun containsEventLanguage(text: String): Boolean =
-        listOf("event", "meeting", "appointment", "conference", "festival", "class", "interview").any(text::contains)
+        listOf("event", "meeting", "appointment", "conference", "festival", "class", "interview", "launch", "workshop").any(text::contains)
 
     private fun looksLikeChecklist(text: String): Boolean {
         val meaningfulLines = text.lineSequence().map(String::trim).filter(String::isNotBlank).toList()
