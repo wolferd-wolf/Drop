@@ -52,11 +52,11 @@ class HomeScreenshotTest {
             assertVisible(device, "Suggested actions", "Suggested Actions screen must be visible")
             assertVisible(device, "Save reference", "Safe default action must be visible")
             assertVisible(device, "Create reminder", "Relevant reminder action must be visible")
-            assertVisibleAfterScroll(device, "Open link", "A bare domain must unlock the link action")
             capture(device, "/data/local/tmp/drop-suggested-actions.png")
 
             assertVisibleAfterScroll(device, "Choose another action", "Suggested Actions must expose a manual chooser").click()
             assertVisible(device, "All available actions", "Manual action chooser must open")
+            assertVisibleAfterScroll(device, "Open link", "A bare domain must unlock the link action")
             capture(device, "/data/local/tmp/drop-all-actions.png")
             assertVisibleAfterScroll(device, "Create checklist", "Manual checklist action must be available")
             assertVisibleAfterScroll(device, "Search in Maps", "Manual Maps action must be available")
