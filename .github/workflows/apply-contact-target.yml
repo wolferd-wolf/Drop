@@ -6,7 +6,7 @@ on:
     paths:
       - 'verification/contact-confirmation.txt'
 
-dpermissions:
+permissions:
   contents: write
   pull-requests: read
 
