@@ -191,8 +191,8 @@ private fun CalendarConfirmationScreen(
     Scaffold(topBar = { TopAppBar(title = { Text("Add calendar event") }) }) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             item {
                 Text("Confirm event details", style = MaterialTheme.typography.headlineSmall)
@@ -201,16 +201,16 @@ private fun CalendarConfirmationScreen(
             item { OutlinedTextField(title, onTitleChange, Modifier.fillMaxWidth(), label = { Text("Event title") }, singleLine = true) }
             item { OutlinedTextField(date, onDateChange, Modifier.fillMaxWidth(), label = { Text("Date (YYYY-MM-DD)") }, singleLine = true) }
             item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(startTime, onStartTimeChange, Modifier.weight(1f), label = { Text("Start (HH:MM)") }, singleLine = true)
                     OutlinedTextField(endTime, onEndTimeChange, Modifier.weight(1f), label = { Text("End (HH:MM)") }, singleLine = true)
                 }
             }
-            item { OutlinedTextField(venue, onVenueChange, Modifier.fillMaxWidth(), label = { Text("Venue") }, minLines = 2) }
-            item { OutlinedTextField(notes, onNotesChange, Modifier.fillMaxWidth(), label = { Text("Notes") }, minLines = 4) }
+            item { OutlinedTextField(venue, onVenueChange, Modifier.fillMaxWidth(), label = { Text("Venue") }, singleLine = true) }
+            item { OutlinedTextField(notes, onNotesChange, Modifier.fillMaxWidth(), label = { Text("Notes") }, minLines = 2, maxLines = 3) }
             item {
                 Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("Nothing is added automatically", style = MaterialTheme.typography.titleMedium)
                         Text("Drop only passes these edited details to Calendar after you confirm.")
                     }
