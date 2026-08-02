@@ -1,0 +1,1 @@
+verify screenshot capture after shell assertion removal
