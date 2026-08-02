@@ -32,7 +32,11 @@ sealed interface DocumentProfile {
 object DocumentProfileClassifier {
     fun classify(text: String): DocumentProfile {
         TimetableParser.parse(text)?.let { document ->
-            val confidence = (0.65f + document.entries.size.coerceAtMost(7) * 0.05f).coerceAtMost(0.98f)
+            val confidence = when {
+                document.entries.size >= 6 -> 0.95f
+                document.entries.size >= 3 -> 0.80f
+                else -> 0.70f
+            }
             return DocumentProfile.Timetable(document.title, document.entries.size, confidence)
         }
 
