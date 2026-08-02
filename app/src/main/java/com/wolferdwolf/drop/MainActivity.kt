@@ -45,6 +45,7 @@ import com.wolferdwolf.drop.data.SavedReferenceStore
 import com.wolferdwolf.drop.extraction.ExtractionResult
 import com.wolferdwolf.drop.extraction.ExtractionType
 import com.wolferdwolf.drop.extraction.RuleBasedExtractor
+import com.wolferdwolf.drop.maps.MapConfirmationActivity
 import com.wolferdwolf.drop.ocr.ImageOcrProcessor
 import com.wolferdwolf.drop.pdf.PdfImportActivity
 import com.wolferdwolf.drop.reminder.ReminderActivity
@@ -75,11 +76,7 @@ class MainActivity : ComponentActivity() {
         pdfPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             uri?.let {
                 importStatus = null
-                startActivity(
-                    Intent(this, PdfImportActivity::class.java)
-                        .setData(it)
-                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                )
+                startActivity(Intent(this, PdfImportActivity::class.java).setData(it).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
             }
         }
         referenceStore = SavedReferenceStore(applicationContext)
@@ -87,8 +84,7 @@ class MainActivity : ComponentActivity() {
         reminderScheduler = ReminderScheduler(applicationContext)
         refreshHistory()
         sourceText = savedInstanceState?.getString(STATE_TEXT) ?: SharedTextParser.parse(intent)
-        screen = savedInstanceState?.getString(STATE_SCREEN)
-            ?.let { runCatching { Screen.valueOf(it) }.getOrNull() }
+        screen = savedInstanceState?.getString(STATE_SCREEN)?.let { runCatching { Screen.valueOf(it) }.getOrNull() }
             ?: if (sourceText == null) Screen.HOME else Screen.PREVIEW
 
         setContent {
@@ -97,25 +93,20 @@ class MainActivity : ComponentActivity() {
                 val results = text?.let(RuleBasedExtractor::extract).orEmpty()
                 when (screen) {
                     Screen.HOME -> HomeScreen(
-                        importStatus = importStatus,
-                        historyCount = references.size + reminders.size,
-                        onImage = { importStatus = "Reading image offline…"; imagePicker.launch("image/*") },
-                        onPdf = { importStatus = "Select a PDF to read offline"; pdfPicker.launch("application/pdf") },
-                        onText = { screen = Screen.TEXT_ENTRY },
-                        onLink = { screen = Screen.LINK_ENTRY },
-                        onHistory = { refreshHistory(); screen = Screen.HISTORY }
+                        importStatus,
+                        references.size + reminders.size,
+                        { importStatus = "Reading image offline…"; imagePicker.launch("image/*") },
+                        { importStatus = "Select a PDF to read offline"; pdfPicker.launch("application/pdf") },
+                        { screen = Screen.TEXT_ENTRY },
+                        { screen = Screen.LINK_ENTRY },
+                        { refreshHistory(); screen = Screen.HISTORY }
                     )
                     Screen.HISTORY -> HistoryScreen(
-                        references = references,
-                        reminders = reminders,
-                        onBack = { screen = Screen.HOME },
-                        onDeleteReference = { referenceStore.delete(it.id); refreshHistory() },
-                        onCancelReminder = { reminder ->
-                            reminderScheduler.cancel(reminder).onSuccess {
-                                reminderStore.delete(reminder.id)
-                                refreshHistory()
-                            }
-                        }
+                        references,
+                        reminders,
+                        { screen = Screen.HOME },
+                        { referenceStore.delete(it.id); refreshHistory() },
+                        { reminder -> reminderScheduler.cancel(reminder).onSuccess { reminderStore.delete(reminder.id); refreshHistory() } }
                     )
                     Screen.TEXT_ENTRY -> EntryScreen("Paste text", false, { screen = Screen.HOME }, ::beginFlow)
                     Screen.LINK_ENTRY -> EntryScreen("Add link", true, { screen = Screen.HOME }, ::beginFlow)
@@ -124,43 +115,41 @@ class MainActivity : ComponentActivity() {
                         screen = Screen.EXTRACTION
                     }
                     Screen.EXTRACTION -> if (text == null) reset() else ExtractionScreen(
-                        original = text,
-                        results = results,
-                        onBack = { screen = Screen.PREVIEW },
-                        onActions = { screen = Screen.ACTIONS },
-                        onDiscard = ::reset
+                        text,
+                        results,
+                        { screen = Screen.PREVIEW },
+                        { screen = Screen.ACTIONS },
+                        ::reset
                     )
                     Screen.ACTIONS -> if (text == null) reset() else ActionsScreen(
-                        actions = SuggestedActionEngine.suggest(text, results),
-                        error = actionError,
-                        onBack = { screen = Screen.EXTRACTION },
-                        onChooseAnother = { screen = Screen.ALL_ACTIONS },
-                        onAction = { execute(it, text, results) }
+                        SuggestedActionEngine.suggest(text, results),
+                        actionError,
+                        { screen = Screen.EXTRACTION },
+                        { screen = Screen.ALL_ACTIONS },
+                        { execute(it, text, results) }
                     )
                     Screen.ALL_ACTIONS -> if (text == null) reset() else AllActionsScreen(
-                        actions = SuggestedActionEngine.manualActions(results),
-                        onBack = { screen = Screen.ACTIONS },
-                        onAction = { execute(it, text, results) }
+                        SuggestedActionEngine.manualActions(results),
+                        { screen = Screen.ACTIONS },
+                        { execute(it, text, results) }
                     )
                     Screen.SAVE -> if (text == null) reset() else SaveScreen(
-                        value = text,
-                        suggestedTitle = SavedReferenceStore.defaultTitle(text),
-                        onBack = { screen = Screen.ACTIONS },
-                        onSave = { title ->
-                            runCatching { referenceStore.save(title, text) }
-                                .onSuccess { refreshHistory(); reset() }
-                                .exceptionOrNull()?.message
-                        }
-                    )
+                        text,
+                        SavedReferenceStore.defaultTitle(text),
+                        { screen = Screen.ACTIONS }
+                    ) { title ->
+                        runCatching { referenceStore.save(title, text) }
+                            .onSuccess { refreshHistory(); reset() }
+                            .exceptionOrNull()?.message
+                    }
                     Screen.CHECKLIST -> if (text == null) reset() else ChecklistScreen(
-                        value = text,
-                        onBack = { screen = Screen.ACTIONS },
-                        onSave = { value ->
-                            runCatching { referenceStore.save("Checklist", value) }
-                                .onSuccess { refreshHistory(); reset() }
-                                .exceptionOrNull()?.message
-                        }
-                    )
+                        text,
+                        { screen = Screen.ACTIONS }
+                    ) { value ->
+                        runCatching { referenceStore.save("Checklist", value) }
+                            .onSuccess { refreshHistory(); reset() }
+                            .exceptionOrNull()?.message
+                    }
                 }
             }
         }
@@ -213,7 +202,10 @@ class MainActivity : ComponentActivity() {
                     .putExtra(ContactsContract.Intents.Insert.EMAIL, first(results, ExtractionType.EMAIL))
                     .putExtra(ContactsContract.Intents.Insert.NOTES, text)
             )
-            SuggestedActionType.MAPS -> launch(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(text.take(500))}")))
+            SuggestedActionType.MAPS -> startActivity(
+                Intent(this, MapConfirmationActivity::class.java)
+                    .putExtra(MapConfirmationActivity.EXTRA_SOURCE_TEXT, text)
+            )
             SuggestedActionType.OPEN_LINK -> first(results, ExtractionType.URL)
                 ?.let { launch(Intent(Intent.ACTION_VIEW, Uri.parse(normalizeUrl(it)))) } ?: fail("No link was found.")
             SuggestedActionType.EMAIL -> first(results, ExtractionType.EMAIL)
@@ -299,7 +291,13 @@ private fun HomeScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HistoryScreen(references: List<SavedReference>, reminders: List<ReminderRecord>, onBack: () -> Unit, onDeleteReference: (SavedReference) -> Unit, onCancelReminder: (ReminderRecord) -> Unit) {
+private fun HistoryScreen(
+    references: List<SavedReference>,
+    reminders: List<ReminderRecord>,
+    onBack: () -> Unit,
+    onDeleteReference: (SavedReference) -> Unit,
+    onCancelReminder: (ReminderRecord) -> Unit
+) {
     Scaffold(topBar = { TopAppBar(title = { Text("History") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item { Text("Saved actions", style = MaterialTheme.typography.headlineSmall) }
@@ -364,7 +362,13 @@ private fun PreviewScreen(value: String, onDiscard: () -> Unit, onContinue: (Str
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ExtractionScreen(original: String, results: List<ExtractionResult>, onBack: () -> Unit, onActions: () -> Unit, onDiscard: () -> Unit) {
+private fun ExtractionScreen(
+    original: String,
+    results: List<ExtractionResult>,
+    onBack: () -> Unit,
+    onActions: () -> Unit,
+    onDiscard: () -> Unit
+) {
     Scaffold(topBar = { TopAppBar(title = { Text("Extracted information") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { Text(if (results.isEmpty()) "Nothing specific was detected" else "${results.size} useful details found", style = MaterialTheme.typography.headlineSmall) }
@@ -388,7 +392,13 @@ private fun ExtractionScreen(original: String, results: List<ExtractionResult>, 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ActionsScreen(actions: List<SuggestedAction>, error: String?, onBack: () -> Unit, onChooseAnother: () -> Unit, onAction: (SuggestedAction) -> Unit) {
+private fun ActionsScreen(
+    actions: List<SuggestedAction>,
+    error: String?,
+    onBack: () -> Unit,
+    onChooseAnother: () -> Unit,
+    onAction: (SuggestedAction) -> Unit
+) {
     Scaffold(topBar = { TopAppBar(title = { Text("Suggested actions") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { Text("Choose what Drop should do next", style = MaterialTheme.typography.headlineSmall) }
