@@ -126,6 +126,12 @@ class MainActivity : ComponentActivity() {
                         actions = SuggestedActionEngine.suggest(text, results),
                         error = actionError,
                         onBack = { screen = Screen.EXTRACTION },
+                        onChooseAnother = { screen = Screen.ALL_ACTIONS },
+                        onAction = { execute(it, text, results) }
+                    )
+                    Screen.ALL_ACTIONS -> if (text == null) reset() else AllActionsScreen(
+                        actions = SuggestedActionEngine.manualActions(results),
+                        onBack = { screen = Screen.ACTIONS },
                         onAction = { execute(it, text, results) }
                     )
                     Screen.SAVE -> if (text == null) reset() else SaveScreen(
@@ -274,7 +280,7 @@ class MainActivity : ComponentActivity() {
         screen = Screen.HOME
     }
 
-    private enum class Screen { HOME, HISTORY, TEXT_ENTRY, LINK_ENTRY, PREVIEW, EXTRACTION, ACTIONS, SAVE, CHECKLIST }
+    private enum class Screen { HOME, HISTORY, TEXT_ENTRY, LINK_ENTRY, PREVIEW, EXTRACTION, ACTIONS, ALL_ACTIONS, SAVE, CHECKLIST }
 
     private companion object {
         const val STATE_TEXT = "source_text"
@@ -294,11 +300,7 @@ private fun HomeScreen(
     onHistory: () -> Unit
 ) {
     Scaffold(topBar = { TopAppBar(title = { Text("Drop") }) }) { padding ->
-        LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item { Text("Turn anything into the next useful action", style = MaterialTheme.typography.headlineMedium) }
             item {
                 Card(Modifier.fillMaxWidth()) {
@@ -312,40 +314,19 @@ private fun HomeScreen(
                     }
                 }
             }
-            item {
-                OutlinedButton(onClick = onHistory, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (historyCount == 0) "History" else "History ($historyCount)")
-                }
-            }
-            item {
-                Text(
-                    if (historyCount == 0) "No saved actions yet. Import something to begin."
-                    else "$historyCount saved action${if (historyCount == 1) "" else "s"} available in History."
-                )
-            }
+            item { OutlinedButton(onClick = onHistory, modifier = Modifier.fillMaxWidth()) { Text(if (historyCount == 0) "History" else "History ($historyCount)") } }
+            item { Text(if (historyCount == 0) "No saved actions yet. Import something to begin." else "$historyCount saved action${if (historyCount == 1) "" else "s"} available in History.") }
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HistoryScreen(
-    references: List<SavedReference>,
-    reminders: List<ReminderRecord>,
-    onBack: () -> Unit,
-    onDeleteReference: (SavedReference) -> Unit,
-    onCancelReminder: (ReminderRecord) -> Unit
-) {
+private fun HistoryScreen(references: List<SavedReference>, reminders: List<ReminderRecord>, onBack: () -> Unit, onDeleteReference: (SavedReference) -> Unit, onCancelReminder: (ReminderRecord) -> Unit) {
     Scaffold(topBar = { TopAppBar(title = { Text("History") }) }) { padding ->
-        LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
+        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item { Text("Saved actions", style = MaterialTheme.typography.headlineSmall) }
-            if (references.isEmpty() && reminders.isEmpty()) {
-                item { Text("Nothing has been saved yet.") }
-            }
+            if (references.isEmpty() && reminders.isEmpty()) item { Text("Nothing has been saved yet.") }
             if (reminders.isNotEmpty()) item { Text("Scheduled reminders", style = MaterialTheme.typography.titleLarge) }
             items(reminders, key = ReminderRecord::id) { reminder ->
                 Card(Modifier.fillMaxWidth()) {
@@ -379,16 +360,7 @@ private fun EntryScreen(title: String, singleLine: Boolean, onBack: () -> Unit, 
     Scaffold(topBar = { TopAppBar(title = { Text(title) }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item { Text("Add content for Drop to understand and turn into an action.") }
-            item {
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = { value = it.take(SharedTextParser.MAX_SHARED_TEXT_LENGTH) },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(if (singleLine) "Website link" else "Content") },
-                    singleLine = singleLine,
-                    minLines = if (singleLine) 1 else 8
-                )
-            }
+            item { OutlinedTextField(value, { value = it.take(SharedTextParser.MAX_SHARED_TEXT_LENGTH) }, Modifier.fillMaxWidth(), label = { Text(if (singleLine) "Website link" else "Content") }, singleLine = singleLine, minLines = if (singleLine) 1 else 8) }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth(0.48f)) { Text("Back") }
@@ -439,22 +411,40 @@ private fun ExtractionScreen(original: String, results: List<ExtractionResult>, 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ActionsScreen(actions: List<SuggestedAction>, error: String?, onBack: () -> Unit, onAction: (SuggestedAction) -> Unit) {
+private fun ActionsScreen(actions: List<SuggestedAction>, error: String?, onBack: () -> Unit, onChooseAnother: () -> Unit, onAction: (SuggestedAction) -> Unit) {
     Scaffold(topBar = { TopAppBar(title = { Text("Suggested actions") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { Text("Choose what Drop should do next", style = MaterialTheme.typography.headlineSmall) }
             item { Text("Nothing happens until you choose and confirm an action.") }
             error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
-            items(actions, key = { it.type.name }) { action ->
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(action.title, style = MaterialTheme.typography.titleMedium)
-                        Text(action.reason)
-                        Button(onClick = { onAction(action) }, modifier = Modifier.fillMaxWidth()) { Text(action.title) }
-                    }
-                }
-            }
-            item { OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Back") } }
+            items(actions, key = { it.type.name }) { action -> ActionCard(action, onAction) }
+            item { OutlinedButton(onClick = onChooseAnother, modifier = Modifier.fillMaxWidth()) { Text("Choose another action") } }
+            item { Text("Only actions with the required detected data are available.") }
+            item { TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Back") } }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AllActionsScreen(actions: List<SuggestedAction>, onBack: () -> Unit, onAction: (SuggestedAction) -> Unit) {
+    Scaffold(topBar = { TopAppBar(title = { Text("Choose another action") }) }) { padding ->
+        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item { Text("All available actions", style = MaterialTheme.typography.headlineSmall) }
+            item { Text("Manual actions let you fill in missing details. Data-dependent actions only appear when Drop detected what they need.") }
+            items(actions, key = { it.type.name }) { action -> ActionCard(action, onAction) }
+            item { OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Back to suggestions") } }
+        }
+    }
+}
+
+@Composable
+private fun ActionCard(action: SuggestedAction, onAction: (SuggestedAction) -> Unit) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(action.title, style = MaterialTheme.typography.titleMedium)
+            Text(action.reason)
+            Button(onClick = { onAction(action) }, modifier = Modifier.fillMaxWidth()) { Text(action.title) }
         }
     }
 }
