@@ -1,8 +1,8 @@
 package com.wolferdwolf.drop.reminder
 
 import android.content.Context
-import android.util.Base64
 import java.nio.charset.StandardCharsets
+import java.util.Base64
 import java.util.UUID
 
 data class ReminderRecord(
@@ -45,6 +45,8 @@ class ReminderHistoryStore(context: Context) {
 
     internal object Codec {
         private const val VERSION = "1"
+        private val encoder = Base64.getUrlEncoder().withoutPadding()
+        private val decoder = Base64.getUrlDecoder()
 
         fun encode(record: ReminderRecord): String = listOf(
             VERSION,
@@ -67,13 +69,12 @@ class ReminderHistoryStore(context: Context) {
             )
         }.getOrNull()
 
-        private fun encodeText(value: String): String = Base64.encodeToString(
-            value.toByteArray(StandardCharsets.UTF_8),
-            Base64.NO_WRAP or Base64.URL_SAFE
+        private fun encodeText(value: String): String = encoder.encodeToString(
+            value.toByteArray(StandardCharsets.UTF_8)
         )
 
         private fun decodeText(value: String): String = String(
-            Base64.decode(value, Base64.NO_WRAP or Base64.URL_SAFE),
+            decoder.decode(value),
             StandardCharsets.UTF_8
         )
     }
