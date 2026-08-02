@@ -6,20 +6,17 @@ import android.content.Context
 import android.content.Intent
 
 class ReminderScheduler(private val context: Context) {
-    fun schedule(reminder: ReminderValidator.ValidReminder): Result<Unit> = runCatching {
-        val requestCode = requestCode(reminder.title, reminder.triggerAtMillis)
-        val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            requestCode,
-            receiverIntent(reminder.title, reminder.notes, requestCode),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        alarmManager().setAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP,
-            reminder.triggerAtMillis,
-            pendingIntent
-        )
-    }
+    fun schedule(reminder: ReminderValidator.ValidReminder): Result<Unit> = schedule(
+        title = reminder.title,
+        notes = reminder.notes,
+        triggerAtMillis = reminder.triggerAtMillis
+    )
+
+    fun schedule(record: ReminderRecord): Result<Unit> = schedule(
+        title = record.title,
+        notes = record.notes,
+        triggerAtMillis = record.triggerAtMillis
+    )
 
     fun cancel(record: ReminderRecord): Result<Unit> = runCatching {
         val requestCode = requestCode(record.title, record.triggerAtMillis)
@@ -33,6 +30,25 @@ class ReminderScheduler(private val context: Context) {
             alarmManager().cancel(pendingIntent)
             pendingIntent.cancel()
         }
+    }
+
+    private fun schedule(
+        title: String,
+        notes: String,
+        triggerAtMillis: Long
+    ): Result<Unit> = runCatching {
+        val requestCode = requestCode(title, triggerAtMillis)
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            requestCode,
+            receiverIntent(title, notes, requestCode),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        alarmManager().setAndAllowWhileIdle(
+            AlarmManager.RTC_WAKEUP,
+            triggerAtMillis,
+            pendingIntent
+        )
     }
 
     private fun receiverIntent(title: String, notes: String, requestCode: Int) =
