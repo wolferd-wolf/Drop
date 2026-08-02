@@ -56,10 +56,10 @@ class HomeScreenshotTest {
 
             assertVisibleAfterScroll(device, "Choose another action", "Suggested Actions must expose a manual chooser").click()
             assertVisible(device, "All available actions", "Manual action chooser must open")
-            assertVisible(device, "Create checklist", "Manual checklist action must be available")
-            assertVisible(device, "Search in Maps", "Manual Maps action must be available")
-            assertVisibleAfterScroll(device, "Send email", "Detected email must unlock email action")
             capture(device, "/data/local/tmp/drop-all-actions.png")
+            assertVisibleAfterScroll(device, "Create checklist", "Manual checklist action must be available")
+            assertVisibleAfterScroll(device, "Search in Maps", "Manual Maps action must be available")
+            assertVisibleAfterScroll(device, "Send email", "Detected email must unlock email action")
         }
     }
 
