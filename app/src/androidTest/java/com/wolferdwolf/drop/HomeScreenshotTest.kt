@@ -69,8 +69,13 @@ class HomeScreenshotTest {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             assertVisible(device, "Review timetable", "Timetable review must reach the foreground")
             assertVisible(device, "Save as structured timetable", "Structured save action must be visible")
-            assertVisible(device, "Save and create actions", "Bulk action path must be visible")
+            val continueAction = assertVisible(device, "Continue to Drop actions", "OCR timetable must offer the standard Drop action flow")
+            assertVisible(device, "Continuing does not save the timetable. You will review the extracted content before choosing an action.", "Continuation must explain that it does not save")
             capture(device, "/data/local/tmp/drop-timetable.png")
+
+            continueAction.click()
+            assertVisible(device, "Import preview", "OCR timetable must reach the standard preview")
+            assertVisible(device, "Extract details", "OCR timetable preview must reach extraction")
         }
     }
 
