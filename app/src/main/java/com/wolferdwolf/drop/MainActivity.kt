@@ -4,7 +4,6 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.provider.CalendarContract
 import android.provider.ContactsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -40,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.wolferdwolf.drop.actions.SuggestedAction
 import com.wolferdwolf.drop.actions.SuggestedActionEngine
 import com.wolferdwolf.drop.actions.SuggestedActionType
+import com.wolferdwolf.drop.calendar.CalendarConfirmationActivity
 import com.wolferdwolf.drop.data.SavedReference
 import com.wolferdwolf.drop.data.SavedReferenceStore
 import com.wolferdwolf.drop.extraction.ExtractionResult
@@ -191,10 +191,9 @@ class MainActivity : ComponentActivity() {
             SuggestedActionType.SAVE_REFERENCE -> screen = Screen.SAVE
             SuggestedActionType.REMINDER -> startActivity(Intent(this, ReminderActivity::class.java).putExtra(ReminderActivity.EXTRA_SOURCE_TEXT, text))
             SuggestedActionType.CHECKLIST -> screen = Screen.CHECKLIST
-            SuggestedActionType.CALENDAR -> launch(
-                Intent(Intent.ACTION_INSERT).setData(CalendarContract.Events.CONTENT_URI)
-                    .putExtra(CalendarContract.Events.TITLE, SavedReferenceStore.defaultTitle(text))
-                    .putExtra(CalendarContract.Events.DESCRIPTION, text)
+            SuggestedActionType.CALENDAR -> startActivity(
+                Intent(this, CalendarConfirmationActivity::class.java)
+                    .putExtra(CalendarConfirmationActivity.EXTRA_SOURCE_TEXT, text)
             )
             SuggestedActionType.CONTACT -> launch(
                 Intent(Intent.ACTION_INSERT).setType(ContactsContract.Contacts.CONTENT_TYPE)

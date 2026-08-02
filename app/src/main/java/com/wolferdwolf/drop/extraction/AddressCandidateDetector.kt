@@ -15,10 +15,22 @@ object AddressCandidateDetector {
     )
     private val pinCode = Regex("(?<!\\d)[1-9]\\d{5}(?!\\d)")
     private val numberedPremise = Regex("(?i)\\b(?:no\\.?|house|plot|door|flat|shop|room)\\s*#?\\s*[a-z0-9/-]{1,12}\\b")
+    private val labelledLocation = Regex(
+        "(?i)\\b(?:venue|location|address)\\s*:\\s*([^\\n.!?]+)"
+    )
 
     fun detect(text: String): AddressCandidate? {
         val lines = text.lineSequence().map(String::trim).filter(String::isNotBlank).toList()
         if (lines.isEmpty()) return null
+
+        val labelled = labelledLocation.find(text)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.trim()
+            ?.takeIf(String::isNotBlank)
+        if (labelled != null) {
+            return AddressCandidate(labelled.take(300), 0.95f)
+        }
 
         val ranked = lines.mapNotNull { line ->
             val lower = line.lowercase()
