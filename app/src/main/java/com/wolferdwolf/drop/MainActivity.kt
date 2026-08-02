@@ -36,6 +36,9 @@ import com.wolferdwolf.drop.extraction.ExtractionResult
 import com.wolferdwolf.drop.extraction.ExtractionType
 import com.wolferdwolf.drop.extraction.RuleBasedExtractor
 import com.wolferdwolf.drop.reminder.ReminderActivity
+import com.wolferdwolf.drop.reminder.ReminderDisplayFormatter
+import com.wolferdwolf.drop.reminder.ReminderHistoryStore
+import com.wolferdwolf.drop.reminder.ReminderRecord
 import com.wolferdwolf.drop.share.SharedTextParser
 import com.wolferdwolf.drop.ui.theme.DropTheme
 
@@ -43,12 +46,15 @@ class MainActivity : ComponentActivity() {
     private var sharedText by mutableStateOf<String?>(null)
     private var screen by mutableStateOf(Screen.HOME)
     private var savedReferences by mutableStateOf<List<SavedReference>>(emptyList())
+    private var reminders by mutableStateOf<List<ReminderRecord>>(emptyList())
     private lateinit var referenceStore: SavedReferenceStore
+    private lateinit var reminderStore: ReminderHistoryStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         referenceStore = SavedReferenceStore(applicationContext)
-        savedReferences = referenceStore.load()
+        reminderStore = ReminderHistoryStore(applicationContext)
+        refreshHistory()
         sharedText = savedInstanceState?.getString(STATE_SHARED_TEXT) ?: SharedTextParser.parse(intent)
         screen = savedInstanceState?.getString(STATE_SCREEN)
             ?.let { runCatching { Screen.valueOf(it) }.getOrNull() }
@@ -60,69 +66,56 @@ class MainActivity : ComponentActivity() {
                 when (screen) {
                     Screen.HOME -> DropHomeScreen(
                         savedReferences = savedReferences,
-                        onDelete = { reference ->
+                        reminders = reminders,
+                        onDeleteReference = { reference ->
                             referenceStore.delete(reference.id)
-                            savedReferences = referenceStore.load()
+                            refreshHistory()
+                        },
+                        onDeleteReminder = { reminder ->
+                            reminderStore.delete(reminder.id)
+                            refreshHistory()
                         }
                     )
-                    Screen.PREVIEW -> if (currentText == null) {
-                        DropHomeScreen(savedReferences, onDelete = {})
-                    } else {
-                        SharedTextPreview(
-                            initialText = currentText,
-                            onDiscard = ::clearFlow,
-                            onContinue = { edited ->
-                                sharedText = edited
-                                screen = Screen.EXTRACTION
-                            }
-                        )
-                    }
-                    Screen.EXTRACTION -> if (currentText == null) {
-                        clearFlow()
-                    } else {
-                        ExtractedInformationScreen(
-                            originalText = currentText,
-                            results = RuleBasedExtractor.extract(currentText),
-                            onBack = { screen = Screen.PREVIEW },
-                            onSaveReference = { screen = Screen.SAVE_REFERENCE },
-                            onCreateReminder = {
-                                startActivity(
-                                    Intent(this, ReminderActivity::class.java)
-                                        .putExtra(ReminderActivity.EXTRA_SOURCE_TEXT, currentText)
-                                )
-                            },
-                            onDiscard = ::clearFlow
-                        )
-                    }
-                    Screen.SAVE_REFERENCE -> if (currentText == null) {
-                        clearFlow()
-                    } else {
-                        SaveReferenceScreen(
-                            originalText = currentText,
-                            initialTitle = SavedReferenceStore.defaultTitle(currentText),
-                            onBack = { screen = Screen.EXTRACTION },
-                            onSave = { title ->
-                                runCatching { referenceStore.save(title, currentText) }
-                                    .onSuccess {
-                                        savedReferences = referenceStore.load()
-                                        clearFlow()
-                                    }
-                                    .exceptionOrNull()?.message
-                            }
-                        )
-                    }
+                    Screen.PREVIEW -> if (currentText == null) clearFlow() else SharedTextPreview(
+                        initialText = currentText,
+                        onDiscard = ::clearFlow,
+                        onContinue = { edited -> sharedText = edited; screen = Screen.EXTRACTION }
+                    )
+                    Screen.EXTRACTION -> if (currentText == null) clearFlow() else ExtractedInformationScreen(
+                        originalText = currentText,
+                        results = RuleBasedExtractor.extract(currentText),
+                        onBack = { screen = Screen.PREVIEW },
+                        onSaveReference = { screen = Screen.SAVE_REFERENCE },
+                        onCreateReminder = {
+                            startActivity(Intent(this, ReminderActivity::class.java)
+                                .putExtra(ReminderActivity.EXTRA_SOURCE_TEXT, currentText))
+                        },
+                        onDiscard = ::clearFlow
+                    )
+                    Screen.SAVE_REFERENCE -> if (currentText == null) clearFlow() else SaveReferenceScreen(
+                        originalText = currentText,
+                        initialTitle = SavedReferenceStore.defaultTitle(currentText),
+                        onBack = { screen = Screen.EXTRACTION },
+                        onSave = { title ->
+                            runCatching { referenceStore.save(title, currentText) }
+                                .onSuccess { refreshHistory(); clearFlow() }
+                                .exceptionOrNull()?.message
+                        }
+                    )
                 }
             }
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (::referenceStore.isInitialized && ::reminderStore.isInitialized) refreshHistory()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        SharedTextParser.parse(intent)?.let {
-            sharedText = it
-            screen = Screen.PREVIEW
-        }
+        SharedTextParser.parse(intent)?.let { sharedText = it; screen = Screen.PREVIEW }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -131,17 +124,14 @@ class MainActivity : ComponentActivity() {
         super.onSaveInstanceState(outState)
     }
 
-    private fun clearFlow() {
-        sharedText = null
-        screen = Screen.HOME
+    private fun refreshHistory() {
+        savedReferences = referenceStore.load()
+        reminders = reminderStore.load()
     }
 
+    private fun clearFlow() { sharedText = null; screen = Screen.HOME }
     private enum class Screen { HOME, PREVIEW, EXTRACTION, SAVE_REFERENCE }
-
-    private companion object {
-        const val STATE_SHARED_TEXT = "shared_text"
-        const val STATE_SCREEN = "screen"
-    }
+    private companion object { const val STATE_SHARED_TEXT = "shared_text"; const val STATE_SCREEN = "screen" }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -149,10 +139,7 @@ class MainActivity : ComponentActivity() {
 fun SharedTextPreview(initialText: String, onDiscard: () -> Unit, onContinue: (String) -> Unit) {
     var editableText by rememberSaveable(initialText) { mutableStateOf(initialText) }
     Scaffold(topBar = { TopAppBar(title = { Text("Share preview") }) }) { padding ->
-        Column(
-            Modifier.fillMaxSize().padding(padding).padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+        Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("Shared text", style = MaterialTheme.typography.labelLarge)
             OutlinedTextField(
                 value = editableText,
@@ -163,11 +150,7 @@ fun SharedTextPreview(initialText: String, onDiscard: () -> Unit, onContinue: (S
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = onDiscard, modifier = Modifier.weight(1f)) { Text("Discard") }
-                Button(
-                    onClick = { onContinue(editableText.trim()) },
-                    enabled = editableText.isNotBlank(),
-                    modifier = Modifier.weight(1f)
-                ) { Text("Continue") }
+                Button(onClick = { onContinue(editableText.trim()) }, enabled = editableText.isNotBlank(), modifier = Modifier.weight(1f)) { Text("Continue") }
             }
         }
     }
@@ -184,88 +167,35 @@ fun ExtractedInformationScreen(
     onDiscard: () -> Unit
 ) {
     Scaffold(topBar = { TopAppBar(title = { Text("Extracted information") }) }) { padding ->
-        LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            item {
-                Text(
-                    if (results.isEmpty()) "Nothing actionable was found"
-                    else "${results.size} useful detail${if (results.size == 1) "" else "s"} found",
-                    style = MaterialTheme.typography.headlineSmall
-                )
-            }
-            if (results.isEmpty()) {
-                item { Text("You can still save the original content or create a reminder manually.") }
-            } else {
-                items(results, key = { "${it.type}-${it.sourceStart}-${it.value}" }) { ExtractionCard(it) }
-            }
-            item {
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Original text", style = MaterialTheme.typography.titleMedium)
-                        Text(originalText)
-                    }
-                }
-            }
-            item {
-                Button(onClick = onCreateReminder, modifier = Modifier.fillMaxWidth()) {
-                    Text("Create reminder")
-                }
-            }
-            item {
-                OutlinedButton(onClick = onSaveReference, modifier = Modifier.fillMaxWidth()) {
-                    Text("Save reference")
-                }
-            }
-            item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("Edit text") }
-                    TextButton(onClick = onDiscard, modifier = Modifier.weight(1f)) { Text("Discard") }
-                }
-            }
+        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item { Text(if (results.isEmpty()) "Nothing actionable was found" else "${results.size} useful detail${if (results.size == 1) "" else "s"} found", style = MaterialTheme.typography.headlineSmall) }
+            if (results.isEmpty()) item { Text("You can still save the original content or create a reminder manually.") }
+            else items(results, key = { "${it.type}-${it.sourceStart}-${it.value}" }) { ExtractionCard(it) }
+            item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Original text", style = MaterialTheme.typography.titleMedium); Text(originalText) } } }
+            item { Button(onClick = onCreateReminder, modifier = Modifier.fillMaxWidth()) { Text("Create reminder") } }
+            item { OutlinedButton(onClick = onSaveReference, modifier = Modifier.fillMaxWidth()) { Text("Save reference") } }
+            item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("Edit text") }
+                TextButton(onClick = onDiscard, modifier = Modifier.weight(1f)) { Text("Discard") }
+            } }
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SaveReferenceScreen(
-    originalText: String,
-    initialTitle: String,
-    onBack: () -> Unit,
-    onSave: (String) -> String?
-) {
+fun SaveReferenceScreen(originalText: String, initialTitle: String, onBack: () -> Unit, onSave: (String) -> String?) {
     var title by rememberSaveable { mutableStateOf(initialTitle) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     Scaffold(topBar = { TopAppBar(title = { Text("Save reference") }) }) { padding ->
-        Column(
-            Modifier.fillMaxSize().padding(padding).padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+        Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("Confirm before saving", style = MaterialTheme.typography.headlineSmall)
-            OutlinedTextField(
-                value = title,
-                onValueChange = { title = it.take(SavedReferenceStore.MAX_TITLE_LENGTH) },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Title") },
-                supportingText = { Text("${title.length}/${SavedReferenceStore.MAX_TITLE_LENGTH}") }
-            )
-            Card(Modifier.fillMaxWidth().weight(1f)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Content", style = MaterialTheme.typography.titleMedium)
-                    Text(originalText)
-                }
-            }
+            OutlinedTextField(value = title, onValueChange = { title = it.take(SavedReferenceStore.MAX_TITLE_LENGTH) }, modifier = Modifier.fillMaxWidth(), label = { Text("Title") }, supportingText = { Text("${title.length}/${SavedReferenceStore.MAX_TITLE_LENGTH}") })
+            Card(Modifier.fillMaxWidth().weight(1f)) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Content", style = MaterialTheme.typography.titleMedium); Text(originalText) } }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("Back") }
-                Button(
-                    onClick = { error = onSave(title) },
-                    enabled = originalText.isNotBlank(),
-                    modifier = Modifier.weight(1f)
-                ) { Text("Save") }
+                Button(onClick = { error = onSave(title) }, enabled = originalText.isNotBlank(), modifier = Modifier.weight(1f)) { Text("Save") }
             }
         }
     }
@@ -273,13 +203,11 @@ fun SaveReferenceScreen(
 
 @Composable
 private fun ExtractionCard(result: ExtractionResult) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(result.type.displayName(), style = MaterialTheme.typography.labelLarge)
-            Text(result.value, style = MaterialTheme.typography.titleMedium)
-            Text("Confidence ${(result.confidence * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
-        }
-    }
+    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(result.type.displayName(), style = MaterialTheme.typography.labelLarge)
+        Text(result.value, style = MaterialTheme.typography.titleMedium)
+        Text("Confidence ${(result.confidence * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
+    } }
 }
 
 private fun ExtractionType.displayName(): String = when (this) {
@@ -292,37 +220,37 @@ private fun ExtractionType.displayName(): String = when (this) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DropHomeScreen(savedReferences: List<SavedReference>, onDelete: (SavedReference) -> Unit) {
+fun DropHomeScreen(
+    savedReferences: List<SavedReference>,
+    reminders: List<ReminderRecord>,
+    onDeleteReference: (SavedReference) -> Unit,
+    onDeleteReminder: (ReminderRecord) -> Unit
+) {
     Scaffold(topBar = { TopAppBar(title = { Text("Drop") }) }) { padding ->
-        LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                Text("Turn anything on your phone into the next useful action.", style = MaterialTheme.typography.headlineSmall)
-            }
-            item {
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Ready for shared content", style = MaterialTheme.typography.titleMedium)
-                        Text("Share text from another app to extract details, create a reminder, or save it privately on this device.")
-                    }
-                }
+        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            item { Text("Turn anything on your phone into the next useful action.", style = MaterialTheme.typography.headlineSmall) }
+            item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Ready for shared content", style = MaterialTheme.typography.titleMedium)
+                Text("Share text from another app to extract details, create a reminder, or save it privately on this device.")
+            } } }
+            item { Text("Scheduled reminders", style = MaterialTheme.typography.titleLarge) }
+            if (reminders.isEmpty()) item { Text("No scheduled reminders yet") }
+            else items(reminders, key = ReminderRecord::id) { reminder ->
+                Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(reminder.title, style = MaterialTheme.typography.titleMedium)
+                    Text(ReminderDisplayFormatter.format(reminder.triggerAtMillis), style = MaterialTheme.typography.labelLarge)
+                    if (reminder.notes.isNotBlank()) Text(reminder.notes, maxLines = 3)
+                    TextButton(onClick = { onDeleteReminder(reminder) }) { Text("Remove from history") }
+                } }
             }
             item { Text("Saved references", style = MaterialTheme.typography.titleLarge) }
-            if (savedReferences.isEmpty()) {
-                item { Text("No saved references yet") }
-            } else {
-                items(savedReferences, key = SavedReference::id) { reference ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(reference.title, style = MaterialTheme.typography.titleMedium)
-                            Text(reference.originalText, maxLines = 3, style = MaterialTheme.typography.bodyMedium)
-                            TextButton(onClick = { onDelete(reference) }) { Text("Delete") }
-                        }
-                    }
-                }
+            if (savedReferences.isEmpty()) item { Text("No saved references yet") }
+            else items(savedReferences, key = SavedReference::id) { reference ->
+                Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(reference.title, style = MaterialTheme.typography.titleMedium)
+                    Text(reference.originalText, maxLines = 3, style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = { onDeleteReference(reference) }) { Text("Delete") }
+                } }
             }
         }
     }
