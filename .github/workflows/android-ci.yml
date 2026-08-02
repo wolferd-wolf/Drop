@@ -8,33 +8,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: android-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # CONTACT_INTEGRATION_START
-  contact-integration:
-    if: github.event_name == 'pull_request' && github.head_ref == 'feature/editable-contact-confirmation'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-      - name: Apply Contact product patch once
-        run: |
-          if [ ! -f verification/contact-confirmation.txt ]; then exit 0; fi
-          python3 tools/apply_contact_confirmation.py
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add -A
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Add editable Contact confirmation flow'
-          git push origin HEAD:${{ github.head_ref }}
-  # CONTACT_INTEGRATION_END
-
   build-test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -138,6 +118,7 @@ jobs:
             adb pull /data/local/tmp/drop-maps-suggestion.png screenshots/drop-maps-suggestion.png
             adb pull /data/local/tmp/drop-maps-confirmation.png screenshots/drop-maps-confirmation.png
             adb pull /data/local/tmp/drop-calendar-confirmation.png screenshots/drop-calendar-confirmation.png
+            adb pull /data/local/tmp/drop-contact-confirmation.png screenshots/drop-contact-confirmation.png
             adb pull /data/local/tmp/drop-image-review.png screenshots/drop-image-review.png
             adb pull /data/local/tmp/drop-pdf-review.png screenshots/drop-pdf-review.png
             test -s screenshots/drop-home.png
@@ -147,6 +128,7 @@ jobs:
             test -s screenshots/drop-maps-suggestion.png
             test -s screenshots/drop-maps-confirmation.png
             test -s screenshots/drop-calendar-confirmation.png
+            test -s screenshots/drop-contact-confirmation.png
             test -s screenshots/drop-image-review.png
             test -s screenshots/drop-pdf-review.png
 
