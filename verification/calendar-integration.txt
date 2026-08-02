@@ -1,1 +1,1 @@
-Calendar venue isolation applied; run final product verification.
+Apply stable calendar venue verification and rerun final CI.
