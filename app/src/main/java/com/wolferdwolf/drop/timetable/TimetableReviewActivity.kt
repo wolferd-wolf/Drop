@@ -109,9 +109,25 @@ private fun TimetableReviewScreen(
                     value = title,
                     onValueChange = { title = it.take(80) },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Schedule title") }
+                    label = { Text("Schedule title") },
+                    singleLine = true
                 )
             }
+            item {
+                Button(
+                    onClick = { onContinue(title, entries.toList()) },
+                    enabled = entries.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Continue to reminders and calendar") }
+            }
+            item {
+                OutlinedButton(
+                    onClick = { onSave(title, entries.toList()) },
+                    enabled = entries.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Save timetable") }
+            }
+            item { Text("Detected entries", style = MaterialTheme.typography.titleLarge) }
             itemsIndexed(entries, key = { index, _ -> index }) { index, entry ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -134,20 +150,6 @@ private fun TimetableReviewScreen(
                         }
                     }
                 }
-            }
-            item {
-                Button(
-                    onClick = { onSave(title, entries.toList()) },
-                    enabled = entries.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("Save timetable") }
-            }
-            item {
-                Button(
-                    onClick = { onContinue(title, entries.toList()) },
-                    enabled = entries.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("Continue to reminders and calendar") }
             }
             item { OutlinedButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("Cancel") } }
         }
