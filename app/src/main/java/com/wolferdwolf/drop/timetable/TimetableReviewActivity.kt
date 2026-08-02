@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -43,9 +44,8 @@ class TimetableReviewActivity : ComponentActivity() {
 
         setContent {
             DropTheme {
-                if (parsed == null) {
-                    NotTimetableScreen(source, onContinue = { continueWithText(source) }, onClose = ::finish)
-                } else {
+                var reviewStructured by rememberSaveable { mutableStateOf(false) }
+                if (reviewStructured && parsed != null) {
                     TimetableReviewScreen(
                         parsed,
                         onSave = { title, entries ->
@@ -55,6 +55,14 @@ class TimetableReviewActivity : ComponentActivity() {
                         onContinue = { title, entries ->
                             continueWithText(format(title, entries))
                         },
+                        onClose = { reviewStructured = false }
+                    )
+                } else {
+                    ImageTextReviewScreen(
+                        source = source,
+                        timetableAvailable = parsed != null,
+                        onContinue = ::continueWithText,
+                        onReviewTimetable = { reviewStructured = true },
                         onClose = ::finish
                     )
                 }
@@ -88,6 +96,58 @@ class TimetableReviewActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun ImageTextReviewScreen(
+    source: String,
+    timetableAvailable: Boolean,
+    onContinue: (String) -> Unit,
+    onReviewTimetable: () -> Unit,
+    onClose: () -> Unit
+) {
+    var editable by rememberSaveable(source) { mutableStateOf(source) }
+
+    Scaffold(topBar = { TopAppBar(title = { Text("Review image text") }) }) { padding ->
+        LazyColumn(
+            Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Text("Text extracted offline", style = MaterialTheme.typography.headlineSmall)
+                Text("Check and edit the OCR result before Drop extracts details and suggests actions.")
+            }
+            item {
+                OutlinedTextField(
+                    value = editable,
+                    onValueChange = { editable = it.take(MAX_OCR_TEXT_LENGTH) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Extracted image text") },
+                    minLines = 10
+                )
+            }
+            item {
+                Button(
+                    onClick = { onContinue(editable.trim()) },
+                    enabled = editable.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Continue to Drop actions") }
+            }
+            item {
+                Text("Continuing does not save anything. You will still review the import, extracted details, and suggested actions.")
+            }
+            if (timetableAvailable) {
+                item {
+                    OutlinedButton(onClick = onReviewTimetable, modifier = Modifier.fillMaxWidth()) {
+                        Text("Review detected timetable")
+                    }
+                }
+            }
+            item { OutlinedButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("Cancel") } }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun TimetableReviewScreen(
     document: TimetableDocument,
     onSave: (String, List<TimetableEntry>) -> Unit,
@@ -105,8 +165,8 @@ private fun TimetableReviewScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                Text("Structured timetable detected", style = MaterialTheme.typography.headlineSmall)
-                Text("Review every row, then choose whether to continue or save it in Drop.")
+                Text("Optional structured timetable", style = MaterialTheme.typography.headlineSmall)
+                Text("Use this only when you want to edit timetable rows before continuing or saving.")
             }
             item {
                 OutlinedTextField(
@@ -123,9 +183,6 @@ private fun TimetableReviewScreen(
                     enabled = valid,
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Continue to Drop actions") }
-            }
-            item {
-                Text("Continuing does not save the timetable. You will review the extracted content before choosing an action.")
             }
             item {
                 OutlinedButton(
@@ -167,24 +224,9 @@ private fun TimetableReviewScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Add timetable entry") }
             }
-            item { OutlinedButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("Cancel") } }
+            item { OutlinedButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("Back to image text") } }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun NotTimetableScreen(text: String, onContinue: () -> Unit, onClose: () -> Unit) {
-    Scaffold(topBar = { TopAppBar(title = { Text("Review extracted text") }) }) { padding ->
-        LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item { Text("Text was found, but it does not look like a timetable.", style = MaterialTheme.typography.headlineSmall) }
-            item { Card(Modifier.fillMaxWidth()) { Text(text, Modifier.padding(16.dp)) } }
-            item { Button(onClick = onContinue, modifier = Modifier.fillMaxWidth()) { Text("Continue with extracted text") } }
-            item { OutlinedButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("Cancel") } }
-        }
-    }
-}
+private const val MAX_OCR_TEXT_LENGTH = 50_000
