@@ -29,11 +29,11 @@ jobs:
           if [ ! -f verification/contact-confirmation.txt ]; then exit 0; fi
           python3 - <<'PY'
           from pathlib import Path
-          import textwrap
           source = Path('.github/workflows/apply-contact-confirmation.yml').read_text().splitlines()
           start = next(i for i, line in enumerate(source) if "python3 - <<'PY'" in line) + 1
           end = next(i for i in range(start, len(source)) if source[i].strip() == 'PY')
-          script = textwrap.dedent('\n'.join(source[start:end]))
+          raw = source[start:end]
+          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in raw)
           exec(compile(script, 'contact_integration.py', 'exec'))
           ci = Path('.github/workflows/android-ci.yml')
           text = ci.read_text()
