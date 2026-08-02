@@ -39,6 +39,7 @@ import com.wolferdwolf.drop.reminder.ReminderActivity
 import com.wolferdwolf.drop.reminder.ReminderDisplayFormatter
 import com.wolferdwolf.drop.reminder.ReminderHistoryStore
 import com.wolferdwolf.drop.reminder.ReminderRecord
+import com.wolferdwolf.drop.reminder.ReminderScheduler
 import com.wolferdwolf.drop.share.SharedTextParser
 import com.wolferdwolf.drop.ui.theme.DropTheme
 
@@ -49,11 +50,13 @@ class MainActivity : ComponentActivity() {
     private var reminders by mutableStateOf<List<ReminderRecord>>(emptyList())
     private lateinit var referenceStore: SavedReferenceStore
     private lateinit var reminderStore: ReminderHistoryStore
+    private lateinit var reminderScheduler: ReminderScheduler
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         referenceStore = SavedReferenceStore(applicationContext)
         reminderStore = ReminderHistoryStore(applicationContext)
+        reminderScheduler = ReminderScheduler(applicationContext)
         refreshHistory()
         sharedText = savedInstanceState?.getString(STATE_SHARED_TEXT) ?: SharedTextParser.parse(intent)
         screen = savedInstanceState?.getString(STATE_SCREEN)
@@ -72,8 +75,10 @@ class MainActivity : ComponentActivity() {
                             refreshHistory()
                         },
                         onDeleteReminder = { reminder ->
-                            reminderStore.delete(reminder.id)
-                            refreshHistory()
+                            reminderScheduler.cancel(reminder).onSuccess {
+                                reminderStore.delete(reminder.id)
+                                refreshHistory()
+                            }
                         }
                     )
                     Screen.PREVIEW -> if (currentText == null) clearFlow() else SharedTextPreview(
@@ -240,7 +245,7 @@ fun DropHomeScreen(
                     Text(reminder.title, style = MaterialTheme.typography.titleMedium)
                     Text(ReminderDisplayFormatter.format(reminder.triggerAtMillis), style = MaterialTheme.typography.labelLarge)
                     if (reminder.notes.isNotBlank()) Text(reminder.notes, maxLines = 3)
-                    TextButton(onClick = { onDeleteReminder(reminder) }) { Text("Remove from history") }
+                    TextButton(onClick = { onDeleteReminder(reminder) }) { Text("Cancel reminder") }
                 } }
             }
             item { Text("Saved references", style = MaterialTheme.typography.titleLarge) }
