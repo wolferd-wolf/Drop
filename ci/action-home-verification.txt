@@ -1,0 +1,1 @@
+Verification marker for action-first home and emulator screenshot pipeline.
