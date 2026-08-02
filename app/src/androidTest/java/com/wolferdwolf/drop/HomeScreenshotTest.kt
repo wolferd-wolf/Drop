@@ -59,23 +59,27 @@ class HomeScreenshotTest {
     }
 
     @Test
-    fun captureEditableTimetableReviewScreen() {
+    fun captureGeneralImageOcrReviewAndUniversalFlow() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val intent = Intent(context, TimetableReviewActivity::class.java).putExtra(
             TimetableReviewActivity.EXTRA_OCR_TEXT,
-            "Highschool Girls Plus\n9.00 Vadapada\n9.05 Prayer\n10.00 Class\n10.40 Break"
+            "Community health camp on 18 August 2026 at 10:30 AM, Town Hall Road, Gooty. Contact help@example.com or +91 98765 43210."
         )
         ActivityScenario.launch<TimetableReviewActivity>(intent).use {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-            assertVisible(device, "Review timetable", "Timetable review must reach the foreground")
-            assertVisible(device, "Save as structured timetable", "Structured save action must be visible")
-            val continueAction = assertVisible(device, "Continue to Drop actions", "OCR timetable must offer the standard Drop action flow")
-            assertVisible(device, "Continuing does not save the timetable. You will review the extracted content before choosing an action.", "Continuation must explain that it does not save")
-            capture(device, "/data/local/tmp/drop-timetable.png")
+            assertVisible(device, "Review image text", "Image OCR must open a general review screen")
+            assertVisible(device, "Text extracted offline", "Image review must explain offline extraction")
+            val continueAction = assertVisible(device, "Continue to Drop actions", "Image OCR must offer the standard Drop action flow")
+            assertVisible(device, "Continuing does not save anything. You will still review the import, extracted details, and suggested actions.", "Image continuation must explain the confirmation flow")
+            capture(device, "/data/local/tmp/drop-image-review.png")
 
             continueAction.click()
-            assertVisible(device, "Import preview", "OCR timetable must reach the standard preview")
-            assertVisible(device, "Extract details", "OCR timetable preview must reach extraction")
+            assertVisible(device, "Import preview", "Image OCR must reach the standard import preview")
+            assertVisible(device, "Extract details", "Image preview must expose extraction").click()
+            assertVisible(device, "Extracted information", "Image OCR must reach extracted information")
+            assertVisibleAfterScroll(device, "See suggested actions", "Image OCR must reach Suggested Actions").click()
+            assertVisible(device, "Suggested actions", "Image OCR must reach the universal Suggested Actions screen")
+            assertVisible(device, "Save reference", "Image flow must retain the safe default action")
         }
     }
 
