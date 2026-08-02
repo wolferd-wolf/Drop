@@ -9,6 +9,7 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
+import com.wolferdwolf.drop.calendar.CalendarConfirmationActivity
 import com.wolferdwolf.drop.maps.MapConfirmationActivity
 import com.wolferdwolf.drop.pdf.PdfImportActivity
 import com.wolferdwolf.drop.timetable.TimetableReviewActivity
@@ -77,7 +78,7 @@ class HomeScreenshotTest {
             assertVisible(device, "Extract details", "Preview must provide extraction action").click()
             assertVisibleAfterScroll(device, "See suggested actions", "Extraction must lead to Suggested Actions").click()
             assertVisible(device, "Open in Maps", "A likely venue must surface Maps as a relevant action")
-            assertVisible(device, "A likely address or venue was detected: Annual meeting venue: Sri Balaji Convention Hall, near RTC Bus Station,", "Maps suggestion must explain the detected venue")
+            assertVisible(device, "A likely address or venue was detected: Sri Balaji Convention Hall, near RTC Bus Station, Gooty 515401", "Maps suggestion must explain the isolated venue")
             capture(device, "/data/local/tmp/drop-maps-suggestion.png")
         }
     }
@@ -100,6 +101,33 @@ class HomeScreenshotTest {
             assertVisible(device, "Open Maps", "Maps confirmation must provide an explicit launch action")
             assertVisible(device, "Cancel", "Maps confirmation must be reversible")
             capture(device, "/data/local/tmp/drop-maps-confirmation.png")
+        }
+    }
+
+    @Test
+    fun captureEditableCalendarConfirmation() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val source = "Product launch meeting on August 21st, 2026 at 4:00 PM. Venue: MG Road, Vijayawada. Bring the final presentation."
+        val intent = Intent(context, CalendarConfirmationActivity::class.java)
+            .putExtra(CalendarConfirmationActivity.EXTRA_SOURCE_TEXT, source)
+
+        ActivityScenario.launch<CalendarConfirmationActivity>(intent).use {
+            val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            assertVisible(device, "Add calendar event", "Calendar confirmation must reach the foreground")
+            assertVisible(device, "Confirm event details", "Calendar confirmation must explain the review step")
+            assertVisible(device, "Review and edit every field before Drop opens your Calendar app.", "Calendar confirmation must explain control")
+            assertVisible(device, "Date (YYYY-MM-DD)", "Calendar confirmation must expose an editable date")
+            assertVisible(device, "Start (HH:MM)", "Calendar confirmation must expose an editable start time")
+            assertVisible(device, "End (HH:MM)", "Calendar confirmation must expose an editable end time")
+            assertVisible(device, "Venue", "Calendar confirmation must expose an editable venue")
+            assertObject(
+                device,
+                By.clazz("android.widget.EditText").text("MG Road, Vijayawada"),
+                "Venue must contain only the detected location"
+            )
+            assertVisibleAfterScroll(device, "Continue to Calendar", "Calendar confirmation must require explicit continuation")
+            assertVisibleAfterScroll(device, "Cancel", "Calendar confirmation must be reversible")
+            capture(device, "/data/local/tmp/drop-calendar-confirmation.png")
         }
     }
 
