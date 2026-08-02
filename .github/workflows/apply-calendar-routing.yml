@@ -20,8 +20,9 @@ jobs:
       - name: Integrate calendar confirmation
         run: |
           python3 tools/apply_calendar_integration.py
+          git checkout -- .github/workflows/android-ci.yml
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add app/src/main/java/com/wolferdwolf/drop/MainActivity.kt app/src/main/AndroidManifest.xml app/src/androidTest/java/com/wolferdwolf/drop/HomeScreenshotTest.kt .github/workflows/android-ci.yml
+          git add app/src/main/java/com/wolferdwolf/drop/MainActivity.kt app/src/main/AndroidManifest.xml app/src/androidTest/java/com/wolferdwolf/drop/HomeScreenshotTest.kt
           git commit -m 'Route Calendar through editable confirmation'
           git push origin HEAD:${{ github.head_ref }}
