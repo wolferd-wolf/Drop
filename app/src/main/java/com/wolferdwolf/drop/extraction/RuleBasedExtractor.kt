@@ -15,7 +15,9 @@ object RuleBasedExtractor {
         ),
         Rule(
             ExtractionType.URL,
-            Regex("(?i)\\b(?:https?://|www\\.)[^\\s<>()]+"),
+            Regex(
+                "(?i)\\b(?:(?:https?://|www\\.)[^\\s<>()]+|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+(?:com|org|net|in|io|app|co|dev)(?:/[^\\s<>()]*)?)"
+            ),
             0.96f
         ),
         Rule(
@@ -30,12 +32,22 @@ object RuleBasedExtractor {
         ),
         Rule(
             ExtractionType.DATE,
+            Regex("\\b(?:19|20)\\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])\\b"),
+            0.96f
+        ),
+        Rule(
+            ExtractionType.DATE,
             Regex("(?i)\\b(?:0?[1-9]|[12]\\d|3[01])[/-](?:0?[1-9]|1[0-2])[/-](?:\\d{2}|\\d{4})\\b"),
             0.91f
         ),
         Rule(
             ExtractionType.DATE,
-            Regex("(?i)\\b(?:0?[1-9]|[12]\\d|3[01])(?:st|nd|rd|th)?\\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\\s+\\d{2,4})?\\b"),
+            Regex("(?i)\\b(?:0?[1-9]|[12]\\d|3[01])(?:st|nd|rd|th)?\\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:,?\\s+\\d{2,4})?\\b"),
+            0.93f
+        ),
+        Rule(
+            ExtractionType.DATE,
+            Regex("(?i)\\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\s+(?:0?[1-9]|[12]\\d|3[01])(?:st|nd|rd|th)?(?:,?\\s+\\d{2,4})?\\b"),
             0.93f
         ),
         Rule(
@@ -70,11 +82,12 @@ object RuleBasedExtractor {
 
         val candidates = rules.flatMap { rule ->
             rule.regex.findAll(text).map { match ->
+                val value = trimTrailingPunctuation(match.value)
                 ExtractionResult(
                     type = rule.type,
-                    value = trimTrailingPunctuation(match.value),
+                    value = value,
                     sourceStart = match.range.first,
-                    sourceEndExclusive = match.range.last + 1,
+                    sourceEndExclusive = match.range.first + value.length,
                     confidence = rule.confidence
                 )
             }
