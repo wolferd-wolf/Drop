@@ -1,0 +1,1 @@
+Retry the unchanged scoped Calendar venue build after a full-suite emulator accessibility failure.
