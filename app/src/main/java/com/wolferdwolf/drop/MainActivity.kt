@@ -2,12 +2,10 @@ package com.wolferdwolf.drop
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
 import android.provider.CalendarContract
 import android.provider.ContactsContract
-import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
@@ -48,6 +46,7 @@ import com.wolferdwolf.drop.extraction.ExtractionResult
 import com.wolferdwolf.drop.extraction.ExtractionType
 import com.wolferdwolf.drop.extraction.RuleBasedExtractor
 import com.wolferdwolf.drop.ocr.ImageOcrProcessor
+import com.wolferdwolf.drop.pdf.PdfImportActivity
 import com.wolferdwolf.drop.reminder.ReminderActivity
 import com.wolferdwolf.drop.reminder.ReminderDisplayFormatter
 import com.wolferdwolf.drop.reminder.ReminderHistoryStore
@@ -63,7 +62,7 @@ class MainActivity : ComponentActivity() {
     private var references by mutableStateOf<List<SavedReference>>(emptyList())
     private var reminders by mutableStateOf<List<ReminderRecord>>(emptyList())
     private var actionError by mutableStateOf<String?>(null)
-    private var imageStatus by mutableStateOf<String?>(null)
+    private var importStatus by mutableStateOf<String?>(null)
     private lateinit var referenceStore: SavedReferenceStore
     private lateinit var reminderStore: ReminderHistoryStore
     private lateinit var reminderScheduler: ReminderScheduler
@@ -73,7 +72,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         imagePicker = registerForActivityResult(ActivityResultContracts.GetContent()) { it?.let(::processImage) }
-        pdfPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { it?.let { uri -> importDocument(uri, "PDF document") } }
+        pdfPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            uri?.let {
+                importStatus = null
+                startActivity(
+                    Intent(this, PdfImportActivity::class.java)
+                        .setData(it)
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                )
+            }
+        }
         referenceStore = SavedReferenceStore(applicationContext)
         reminderStore = ReminderHistoryStore(applicationContext)
         reminderScheduler = ReminderScheduler(applicationContext)
@@ -89,10 +97,10 @@ class MainActivity : ComponentActivity() {
                 val results = text?.let(RuleBasedExtractor::extract).orEmpty()
                 when (screen) {
                     Screen.HOME -> HomeScreen(
-                        imageStatus = imageStatus,
+                        importStatus = importStatus,
                         historyCount = references.size + reminders.size,
-                        onImage = { imageStatus = "Reading image offline…"; imagePicker.launch("image/*") },
-                        onPdf = { pdfPicker.launch("application/pdf") },
+                        onImage = { importStatus = "Reading image offline…"; imagePicker.launch("image/*") },
+                        onPdf = { importStatus = "Select a PDF to read offline"; pdfPicker.launch("application/pdf") },
                         onText = { screen = Screen.TEXT_ENTRY },
                         onLink = { screen = Screen.LINK_ENTRY },
                         onHistory = { refreshHistory(); screen = Screen.HISTORY }
@@ -176,15 +184,15 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun processImage(uri: Uri) {
-        imageStatus = "Reading image offline…"
+        importStatus = "Reading image offline…"
         ImageOcrProcessor.process(
             this,
             uri,
             onSuccess = { text ->
-                imageStatus = null
+                importStatus = null
                 startActivity(Intent(this, TimetableReviewActivity::class.java).putExtra(TimetableReviewActivity.EXTRA_OCR_TEXT, text))
             },
-            onFailure = { imageStatus = it }
+            onFailure = { importStatus = it }
         )
     }
 
@@ -237,37 +245,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun importDocument(uri: Uri, label: String) {
-        val metadata = metadata(uri)
-        beginFlow(buildString {
-            appendLine("$label imported")
-            appendLine("File: ${metadata.first ?: "Unnamed file"}")
-            appendLine("Size: ${metadata.second?.let(::fileSize) ?: "Unknown size"}")
-            append("Source: $uri")
-        })
-    }
-
-    private fun metadata(uri: Uri): Pair<String?, Long?> {
-        var name: String? = null
-        var size: Long? = null
-        val cursor: Cursor? = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)
-        cursor?.use {
-            if (it.moveToFirst()) {
-                val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                val sizeIndex = it.getColumnIndex(OpenableColumns.SIZE)
-                if (nameIndex >= 0) name = it.getString(nameIndex)
-                if (sizeIndex >= 0 && !it.isNull(sizeIndex)) size = it.getLong(sizeIndex)
-            }
-        }
-        return name to size
-    }
-
-    private fun fileSize(bytes: Long) = when {
-        bytes >= 1_048_576 -> "%.1f MB".format(bytes / 1_048_576.0)
-        bytes >= 1_024 -> "%.1f KB".format(bytes / 1_024.0)
-        else -> "$bytes bytes"
-    }
-
     private fun refreshHistory() {
         references = referenceStore.load()
         reminders = reminderStore.load()
@@ -276,7 +253,7 @@ class MainActivity : ComponentActivity() {
     private fun reset() {
         sourceText = null
         actionError = null
-        imageStatus = null
+        importStatus = null
         screen = Screen.HOME
     }
 
@@ -291,7 +268,7 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeScreen(
-    imageStatus: String?,
+    importStatus: String?,
     historyCount: Int,
     onImage: () -> Unit,
     onPdf: () -> Unit,
@@ -306,8 +283,8 @@ private fun HomeScreen(
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Button(onClick = onImage, modifier = Modifier.fillMaxWidth()) { Text("Import screenshot or image") }
-                        imageStatus?.let { Text(it, color = if (it.startsWith("Reading")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error) }
                         Button(onClick = onPdf, modifier = Modifier.fillMaxWidth()) { Text("Import PDF") }
+                        importStatus?.let { Text(it, color = if (it.contains("offline", true) || it.startsWith("Select")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error) }
                         FilledTonalButton(onClick = onText, modifier = Modifier.fillMaxWidth()) { Text("Paste text") }
                         FilledTonalButton(onClick = onLink, modifier = Modifier.fillMaxWidth()) { Text("Add link") }
                         Text("You can also share content to Drop from WhatsApp, Chrome, Gallery, and Files.")
