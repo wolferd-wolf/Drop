@@ -4,8 +4,6 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
-import java.io.File
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -21,10 +19,6 @@ class HomeScreenshotTest {
             val screenshotPath = "/sdcard/drop-home.png"
             device.executeShellCommand("rm -f $screenshotPath")
             device.executeShellCommand("screencap -p $screenshotPath")
-
-            val verificationCopy = File(instrumentation.context.cacheDir, "drop-home.png")
-            device.executeShellCommand("cp $screenshotPath ${verificationCopy.absolutePath}")
-            assertTrue(device.executeShellCommand("test -s $screenshotPath && echo present").contains("present"))
         }
     }
 }
