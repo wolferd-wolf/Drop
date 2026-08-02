@@ -9,6 +9,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Drop">
         <activity
+            android:name=".timetable.TimetableReviewActivity"
+            android:exported="false" />
+        <activity
             android:name=".reminder.ReminderActivity"
             android:exported="false" />
         <receiver
