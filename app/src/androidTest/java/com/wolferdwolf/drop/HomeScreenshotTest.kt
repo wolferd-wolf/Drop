@@ -44,7 +44,6 @@ class HomeScreenshotTest {
             assertVisible(device, "Add content for Drop to understand and turn into an action.", "Text entry must open")
             val input = assertObject(device, By.clazz("android.widget.EditText"), "Text entry must provide an editable field")
             input.text = "Team meeting on 12 August 2026 at 5:30 PM at MG Road, Vijayawada. Email team@example.com, call +91 98765 43210, or open https://example.com/meeting"
-            device.pressBack()
             assertVisible(device, "Continue", "Text entry must provide Continue").click()
             assertVisible(device, "Import preview", "Imported text must reach a visible preview")
             assertVisible(device, "Review before processing", "Preview must explain the review step")
