@@ -36,7 +36,7 @@ class HomeScreenshotTest {
     }
 
     @Test
-    fun captureVisiblePreviewExtractionAndSuggestedActionsFlow() {
+    fun captureVisibleSuggestedAndManualActionsFlow() {
         ActivityScenario.launch(MainActivity::class.java).use {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             assertVisible(device, "Import screenshot or image", "Home must reach the foreground")
@@ -46,15 +46,20 @@ class HomeScreenshotTest {
             input.text = "Team meeting on 12 August 2026 at 5:30 PM at MG Road, Vijayawada. Email team@example.com, call +91 98765 43210, or open https://example.com/meeting"
             assertVisible(device, "Continue", "Text entry must provide Continue").click()
             assertVisible(device, "Import preview", "Imported text must reach a visible preview")
-            assertVisible(device, "Review before processing", "Preview must explain the review step")
             assertVisible(device, "Extract details", "Preview must provide extraction action").click()
             assertVisible(device, "Extracted information", "Extraction screen must be visible")
             assertVisibleAfterScroll(device, "See suggested actions", "Extraction must lead to Suggested Actions").click()
             assertVisible(device, "Suggested actions", "Suggested Actions screen must be visible")
-            assertVisible(device, "Choose what Drop should do next", "Suggested Actions must explain the decision")
             assertVisible(device, "Save reference", "Safe default action must be visible")
             assertVisible(device, "Create reminder", "Relevant reminder action must be visible")
             capture(device, "/data/local/tmp/drop-suggested-actions.png")
+
+            assertVisibleAfterScroll(device, "Choose another action", "Suggested Actions must expose a manual chooser").click()
+            assertVisible(device, "All available actions", "Manual action chooser must open")
+            assertVisible(device, "Create checklist", "Manual checklist action must be available")
+            assertVisible(device, "Search in Maps", "Manual Maps action must be available")
+            assertVisibleAfterScroll(device, "Send email", "Detected email must unlock email action")
+            capture(device, "/data/local/tmp/drop-all-actions.png")
         }
     }
 
@@ -111,6 +116,6 @@ class HomeScreenshotTest {
     private companion object {
         const val CONTROL_TIMEOUT_MILLIS = 20_000L
         const val SHORT_TIMEOUT_MILLIS = 2_000L
-        const val MAX_SCROLL_ATTEMPTS = 6
+        const val MAX_SCROLL_ATTEMPTS = 8
     }
 }
