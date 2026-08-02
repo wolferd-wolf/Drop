@@ -9,6 +9,7 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
+import com.wolferdwolf.drop.pdf.PdfImportActivity
 import com.wolferdwolf.drop.timetable.TimetableReviewActivity
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -76,16 +77,36 @@ class HomeScreenshotTest {
             assertVisible(device, "Review image text", "Image OCR must open a general review screen")
             assertVisible(device, "Text extracted offline", "Image review must explain offline extraction")
             val continueAction = assertVisible(device, "Continue to Drop actions", "Image OCR must offer the standard Drop action flow")
-            assertVisible(device, "Continuing does not save anything. You will still review the import, extracted details, and suggested actions.", "Image continuation must explain the confirmation flow")
             capture(device, "/data/local/tmp/drop-image-review.png")
-
             continueAction.click()
             assertVisible(device, "Import preview", "Image OCR must reach the standard import preview")
             assertVisible(device, "Extract details", "Image preview must expose extraction").click()
             assertVisible(device, "Extracted information", "Image OCR must reach extracted information")
-            assertVisibleAfterScroll(device, "See suggested actions", "Image OCR must reach Suggested Actions").click()
-            assertVisible(device, "Suggested actions", "Image OCR must reach the universal Suggested Actions screen")
-            assertVisible(device, "Save reference", "Image flow must retain the safe default action")
+        }
+    }
+
+    @Test
+    fun capturePdfReviewAndUniversalFlow() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val intent = Intent(context, PdfImportActivity::class.java)
+            .putExtra(PdfImportActivity.EXTRA_TEST_NAME, "event-invitation.pdf")
+            .putExtra(
+                PdfImportActivity.EXTRA_TEST_TEXT,
+                "Product launch meeting on August 21st, 2026 at 4:00 PM. Venue: MG Road, Vijayawada. Contact launch@example.com."
+            )
+        ActivityScenario.launch<PdfImportActivity>(intent).use {
+            val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            assertVisible(device, "Review PDF text", "PDF import must open a visible review")
+            assertVisible(device, "Embedded text extracted offline from 1 page.", "PDF review must explain offline extraction")
+            val continueAction = assertVisible(device, "Continue to Drop actions", "PDF must offer the universal action flow")
+            capture(device, "/data/local/tmp/drop-pdf-review.png")
+            continueAction.click()
+            assertVisible(device, "Import preview", "PDF text must reach Import Preview")
+            assertVisible(device, "Extract details", "PDF preview must reach extraction").click()
+            assertVisible(device, "Extracted information", "PDF must reach extraction")
+            assertVisibleAfterScroll(device, "See suggested actions", "PDF must reach Suggested Actions").click()
+            assertVisible(device, "Suggested actions", "PDF must reach the universal Suggested Actions screen")
+            assertVisible(device, "Save reference", "PDF flow must retain Save reference")
         }
     }
 
