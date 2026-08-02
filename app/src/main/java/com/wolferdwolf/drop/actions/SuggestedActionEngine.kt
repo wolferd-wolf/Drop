@@ -23,16 +23,14 @@ data class SuggestedAction(
 )
 
 object SuggestedActionEngine {
-    private const val MAX_VISIBLE_ACTIONS = 5
     private const val MAX_RELEVANT_ACTIONS = 4
-    private const val MANUAL_PRIORITY = 40
 
     fun suggest(originalText: String, results: List<ExtractionResult>): List<SuggestedAction> {
         val types = results.mapTo(mutableSetOf()) { it.type }
         val lower = originalText.lowercase()
         val relevant = mutableListOf<SuggestedAction>()
 
-        relevant += SuggestedAction(
+        relevant += action(
             SuggestedActionType.SAVE_REFERENCE,
             "Save reference",
             "Keep the original content and extracted details in Drop.",
@@ -40,7 +38,7 @@ object SuggestedActionEngine {
         )
 
         if (ExtractionType.DATE in types || ExtractionType.TIME in types || containsDeadlineLanguage(lower)) {
-            relevant += SuggestedAction(
+            relevant += action(
                 SuggestedActionType.REMINDER,
                 "Create reminder",
                 "A date, time, or deadline-like phrase was detected.",
@@ -49,7 +47,7 @@ object SuggestedActionEngine {
         }
 
         if (ExtractionType.DATE in types && (ExtractionType.TIME in types || containsEventLanguage(lower))) {
-            relevant += SuggestedAction(
+            relevant += action(
                 SuggestedActionType.CALENDAR,
                 "Add calendar event",
                 "The content looks like it may describe an event.",
@@ -58,7 +56,7 @@ object SuggestedActionEngine {
         }
 
         if (looksLikeChecklist(originalText)) {
-            relevant += SuggestedAction(
+            relevant += action(
                 SuggestedActionType.CHECKLIST,
                 "Create checklist",
                 "The content contains several list-like lines.",
@@ -67,7 +65,7 @@ object SuggestedActionEngine {
         }
 
         if (ExtractionType.PHONE in types || ExtractionType.EMAIL in types) {
-            relevant += SuggestedAction(
+            relevant += action(
                 SuggestedActionType.CONTACT,
                 "Save contact",
                 "A phone number or email address was detected.",
@@ -76,7 +74,7 @@ object SuggestedActionEngine {
         }
 
         if (looksLikeAddress(lower)) {
-            relevant += SuggestedAction(
+            relevant += action(
                 SuggestedActionType.MAPS,
                 "Open in Maps",
                 "The content contains address or venue language.",
@@ -85,7 +83,7 @@ object SuggestedActionEngine {
         }
 
         if (ExtractionType.URL in types) {
-            relevant += SuggestedAction(
+            relevant += action(
                 SuggestedActionType.OPEN_LINK,
                 "Open link",
                 "A web link was detected.",
@@ -94,7 +92,7 @@ object SuggestedActionEngine {
         }
 
         if (ExtractionType.EMAIL in types) {
-            relevant += SuggestedAction(
+            relevant += action(
                 SuggestedActionType.EMAIL,
                 "Send email",
                 "An email address was detected.",
@@ -103,7 +101,7 @@ object SuggestedActionEngine {
         }
 
         if (ExtractionType.PHONE in types) {
-            relevant += SuggestedAction(
+            relevant += action(
                 SuggestedActionType.CALL,
                 "Call number",
                 "A phone number was detected.",
@@ -111,58 +109,37 @@ object SuggestedActionEngine {
             )
         }
 
-        val ranked = relevant
+        return relevant
             .distinctBy(SuggestedAction::type)
             .sortedByDescending(SuggestedAction::priority)
             .take(MAX_RELEVANT_ACTIONS)
-            .toMutableList()
-
-        manualChoice(originalText, ranked.mapTo(mutableSetOf(), SuggestedAction::type))?.let(ranked::add)
-        return ranked.take(MAX_VISIBLE_ACTIONS)
     }
 
-    private fun manualChoice(text: String, visibleTypes: Set<SuggestedActionType>): SuggestedAction? {
-        val candidates = buildList {
-            if (SuggestedActionType.CHECKLIST !in visibleTypes) add(
-                SuggestedAction(
-                    SuggestedActionType.CHECKLIST,
-                    "Create checklist manually",
-                    "Manual choice: turn the imported content into an editable checklist.",
-                    MANUAL_PRIORITY
-                )
-            )
-            if (SuggestedActionType.REMINDER !in visibleTypes) add(
-                SuggestedAction(
-                    SuggestedActionType.REMINDER,
-                    "Set a reminder manually",
-                    "Manual choice: choose the reminder date and time yourself.",
-                    MANUAL_PRIORITY
-                )
-            )
-            if (SuggestedActionType.CALENDAR !in visibleTypes) add(
-                SuggestedAction(
-                    SuggestedActionType.CALENDAR,
-                    "Create event manually",
-                    "Manual choice: fill in the calendar event details yourself.",
-                    MANUAL_PRIORITY
-                )
-            )
-            if (SuggestedActionType.MAPS !in visibleTypes) add(
-                SuggestedAction(
-                    SuggestedActionType.MAPS,
-                    "Search in Maps manually",
-                    "Manual choice: search Maps using the imported content.",
-                    MANUAL_PRIORITY
-                )
-            )
-        }
-
-        return when {
-            looksLikeChecklist(text) -> candidates.firstOrNull { it.type == SuggestedActionType.REMINDER }
-            containsEventLanguage(text.lowercase()) -> candidates.firstOrNull { it.type == SuggestedActionType.CHECKLIST }
-            else -> candidates.firstOrNull()
+    fun manualActions(results: List<ExtractionResult>): List<SuggestedAction> {
+        val types = results.mapTo(mutableSetOf()) { it.type }
+        return buildList {
+            add(action(SuggestedActionType.SAVE_REFERENCE, "Save reference", "Save the imported content in Drop.", 0))
+            add(action(SuggestedActionType.REMINDER, "Create reminder", "Choose the reminder title, date, and time.", 0))
+            add(action(SuggestedActionType.CALENDAR, "Add calendar event", "Fill in the event details in your calendar app.", 0))
+            add(action(SuggestedActionType.CHECKLIST, "Create checklist", "Turn the content into an editable checklist.", 0))
+            add(action(SuggestedActionType.MAPS, "Search in Maps", "Search Maps using the imported content.", 0))
+            if (ExtractionType.PHONE in types || ExtractionType.EMAIL in types) {
+                add(action(SuggestedActionType.CONTACT, "Save contact", "Use the detected phone number or email address.", 0))
+            }
+            if (ExtractionType.URL in types) {
+                add(action(SuggestedActionType.OPEN_LINK, "Open link", "Open the detected web link.", 0))
+            }
+            if (ExtractionType.EMAIL in types) {
+                add(action(SuggestedActionType.EMAIL, "Send email", "Compose an email to the detected address.", 0))
+            }
+            if (ExtractionType.PHONE in types) {
+                add(action(SuggestedActionType.CALL, "Call number", "Open the dialer with the detected number.", 0))
+            }
         }
     }
+
+    private fun action(type: SuggestedActionType, title: String, reason: String, priority: Int) =
+        SuggestedAction(type, title, reason, priority)
 
     private fun containsDeadlineLanguage(text: String): Boolean =
         listOf("deadline", "due date", "last date", "apply by", "before ").any(text::contains)
