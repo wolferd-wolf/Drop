@@ -51,7 +51,8 @@ class CalendarConfirmationActivity : ComponentActivity() {
         val initialDate = normalizeDate(date)
         val initialStart = normalizeTime(time)
         val initialEnd = initialStart.takeIf(String::isNotBlank)?.let(::oneHourLater).orEmpty()
-        val initialVenue = AddressCandidateDetector.detect(source)?.value.orEmpty()
+        val initialVenue = labelledVenue(source)
+            ?: AddressCandidateDetector.detect(source)?.value.orEmpty()
 
         setContent {
             DropTheme {
@@ -130,6 +131,14 @@ class CalendarConfirmationActivity : ComponentActivity() {
         private const val DATE_LENGTH = 10
         private const val TIME_LENGTH = 5
         private const val ONE_HOUR_MILLIS = 3_600_000L
+        private val LABELLED_VENUE = Regex("(?i)\\b(?:venue|location|address)\\s*:\\s*([^\\n.!?]+)")
+
+        internal fun labelledVenue(source: String): String? = LABELLED_VENUE.find(source)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.trim()
+            ?.take(MAX_VENUE_LENGTH)
+            ?.takeIf(String::isNotBlank)
 
         internal fun normalizeDate(value: String): String {
             val formats = listOf(
