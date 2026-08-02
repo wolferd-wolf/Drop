@@ -9,6 +9,7 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
+import com.wolferdwolf.drop.maps.MapConfirmationActivity
 import com.wolferdwolf.drop.pdf.PdfImportActivity
 import com.wolferdwolf.drop.timetable.TimetableReviewActivity
 import org.junit.Assert.assertNotNull
@@ -78,6 +79,27 @@ class HomeScreenshotTest {
             assertVisible(device, "Open in Maps", "A likely venue must surface Maps as a relevant action")
             assertVisible(device, "A likely address or venue was detected: Annual meeting venue: Sri Balaji Convention Hall, near RTC Bus Station,", "Maps suggestion must explain the detected venue")
             capture(device, "/data/local/tmp/drop-maps-suggestion.png")
+        }
+    }
+
+    @Test
+    fun captureEditableMapsConfirmation() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val source = "Annual meeting\nVenue: Sri Balaji Convention Hall, near RTC Bus Station, Gooty 515401\nBring your registration receipt."
+        val intent = Intent(context, MapConfirmationActivity::class.java)
+            .putExtra(MapConfirmationActivity.EXTRA_SOURCE_TEXT, source)
+
+        ActivityScenario.launch<MapConfirmationActivity>(intent).use {
+            val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            assertVisible(device, "Open in Maps", "Maps confirmation must reach the foreground")
+            assertVisible(device, "Confirm the location", "Maps confirmation must explain the review step")
+            assertVisible(device, "Drop detected a likely address or venue. Edit it before opening another app.", "Maps confirmation must explain why it is shown")
+            val field = assertObject(device, By.clazz("android.widget.EditText"), "Maps confirmation must provide an editable address field")
+            assertTrue(field.text.contains("Sri Balaji Convention Hall"))
+            assertTrue(!field.text.contains("Bring your registration receipt"))
+            assertVisible(device, "Open Maps", "Maps confirmation must provide an explicit launch action")
+            assertVisible(device, "Cancel", "Maps confirmation must be reversible")
+            capture(device, "/data/local/tmp/drop-maps-confirmation.png")
         }
     }
 
