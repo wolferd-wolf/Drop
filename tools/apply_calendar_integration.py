@@ -1,80 +1,48 @@
 from pathlib import Path
 
-main = Path('app/src/main/java/com/wolferdwolf/drop/MainActivity.kt')
-text = main.read_text()
-text = text.replace('import android.provider.CalendarContract\n', '')
-text = text.replace(
-    'import com.wolferdwolf.drop.actions.SuggestedActionType\n',
-    'import com.wolferdwolf.drop.actions.SuggestedActionType\nimport com.wolferdwolf.drop.calendar.CalendarConfirmationActivity\n'
-)
-old = '''            SuggestedActionType.CALENDAR -> launch(
-                Intent(Intent.ACTION_INSERT).setData(CalendarContract.Events.CONTENT_URI)
-                    .putExtra(CalendarContract.Events.TITLE, SavedReferenceStore.defaultTitle(text))
-                    .putExtra(CalendarContract.Events.DESCRIPTION, text)
-            )'''
-new = '''            SuggestedActionType.CALENDAR -> startActivity(
-                Intent(this, CalendarConfirmationActivity::class.java)
-                    .putExtra(CalendarConfirmationActivity.EXTRA_SOURCE_TEXT, text)
-            )'''
-if old not in text:
-    raise SystemExit('Calendar routing block not found')
-main.write_text(text.replace(old, new))
+activity = Path('app/src/main/java/com/wolferdwolf/drop/calendar/CalendarConfirmationActivity.kt')
+text = activity.read_text()
+old = '        val initialVenue = AddressCandidateDetector.detect(source)?.value.orEmpty()\n'
+new = '        val initialVenue = isolateVenue(source, AddressCandidateDetector.detect(source)?.value.orEmpty())\n'
+if old in text:
+    text = text.replace(old, new)
+elif new not in text:
+    raise SystemExit('Calendar venue initialization not found')
 
-manifest = Path('app/src/main/AndroidManifest.xml')
-text = manifest.read_text()
-marker = '        <activity\n            android:name=".maps.MapConfirmationActivity"\n            android:exported="false" />\n'
-addition = '        <activity\n            android:name=".calendar.CalendarConfirmationActivity"\n            android:exported="false" />\n'
-if addition not in text:
+marker = '        internal fun normalizeDate(value: String): String {\n'
+helper = '''        internal fun isolateVenue(source: String, detected: String): String {
+            val labelled = Regex(
+                "(?i)\\b(?:venue|location|address)\\s*:\\s*([^\\n.!?]+)"
+            ).find(source)?.groupValues?.getOrNull(1)?.trim()
+            if (!labelled.isNullOrBlank()) return labelled.take(MAX_VENUE_LENGTH)
+
+            return detected
+                .lineSequence()
+                .map(String::trim)
+                .firstOrNull(String::isNotBlank)
+                .orEmpty()
+                .substringBefore(Regex("[.!?](?:\\s|$)"))
+                .trim()
+                .take(MAX_VENUE_LENGTH)
+        }
+
+'''
+if 'internal fun isolateVenue(' not in text:
     if marker not in text:
-        raise SystemExit('Manifest activity marker not found')
-    text = text.replace(marker, addition + marker)
-manifest.write_text(text)
+        raise SystemExit('Calendar helper insertion marker not found')
+    text = text.replace(marker, helper + marker)
+activity.write_text(text)
 
 test = Path('app/src/androidTest/java/com/wolferdwolf/drop/HomeScreenshotTest.kt')
 text = test.read_text()
-text = text.replace(
-    'import com.wolferdwolf.drop.maps.MapConfirmationActivity\n',
-    'import com.wolferdwolf.drop.calendar.CalendarConfirmationActivity\nimport com.wolferdwolf.drop.maps.MapConfirmationActivity\n'
-)
-marker = '    @Test\n    fun captureGeneralImageOcrReviewAndUniversalFlow() {'
-calendar_test = '''    @Test
-    fun captureEditableCalendarConfirmation() {
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val source = "Product launch meeting on August 21st, 2026 at 4:00 PM. Venue: MG Road, Vijayawada. Bring the final presentation."
-        val intent = Intent(context, CalendarConfirmationActivity::class.java)
-            .putExtra(CalendarConfirmationActivity.EXTRA_SOURCE_TEXT, source)
-
-        ActivityScenario.launch<CalendarConfirmationActivity>(intent).use {
-            val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-            assertVisible(device, "Add calendar event", "Calendar confirmation must reach the foreground")
-            assertVisible(device, "Confirm event details", "Calendar confirmation must explain the review step")
-            assertVisible(device, "Review and edit every field before Drop opens your Calendar app.", "Calendar confirmation must explain control")
-            assertVisible(device, "Date (YYYY-MM-DD)", "Calendar confirmation must expose an editable date")
-            assertVisible(device, "Start (HH:MM)", "Calendar confirmation must expose an editable start time")
-            assertVisible(device, "End (HH:MM)", "Calendar confirmation must expose an editable end time")
-            assertVisible(device, "Venue", "Calendar confirmation must expose an editable venue")
-            assertVisibleAfterScroll(device, "Continue to Calendar", "Calendar confirmation must require explicit continuation")
-            assertVisibleAfterScroll(device, "Cancel", "Calendar confirmation must be reversible")
-            capture(device, "/data/local/tmp/drop-calendar-confirmation.png")
-        }
-    }
-
+needle = '            assertVisible(device, "Venue", "Calendar confirmation must expose an editable venue")\n'
+addition = '''            val calendarFields = device.findObjects(By.clazz("android.widget.EditText"))
+            assertTrue("Calendar form must expose title, date, start, end, venue, and notes", calendarFields.size >= 6)
+            assertTrue("Venue must contain only the detected location", calendarFields[4].text == "MG Road, Vijayawada")
+            assertTrue("Venue must exclude unrelated notes", !calendarFields[4].text.contains("final presentation"))
 '''
-if 'fun captureEditableCalendarConfirmation()' not in text:
-    if marker not in text:
-        raise SystemExit('Instrumentation insertion marker not found')
-    text = text.replace(marker, calendar_test + marker)
+if addition not in text:
+    if needle not in text:
+        raise SystemExit('Calendar instrumentation marker not found')
+    text = text.replace(needle, needle + addition)
 test.write_text(text)
-
-workflow = Path('.github/workflows/android-ci.yml')
-text = workflow.read_text()
-pull_marker = '            adb pull /data/local/tmp/drop-maps-confirmation.png screenshots/drop-maps-confirmation.png\n'
-pull_line = '            adb pull /data/local/tmp/drop-calendar-confirmation.png screenshots/drop-calendar-confirmation.png\n'
-check_marker = '            test -s screenshots/drop-maps-confirmation.png\n'
-check_line = '            test -s screenshots/drop-calendar-confirmation.png\n'
-if pull_line not in text:
-    if pull_marker not in text or check_marker not in text:
-        raise SystemExit('Screenshot workflow marker not found')
-    text = text.replace(pull_marker, pull_marker + pull_line)
-    text = text.replace(check_marker, check_marker + check_line)
-workflow.write_text(text)
