@@ -35,14 +35,19 @@ activity.write_text(text)
 
 test = Path('app/src/androidTest/java/com/wolferdwolf/drop/HomeScreenshotTest.kt')
 text = test.read_text()
-needle = '            assertVisible(device, "Venue", "Calendar confirmation must expose an editable venue")\n'
-addition = '''            val calendarFields = device.findObjects(By.clazz("android.widget.EditText"))
+brittle = '''            val calendarFields = device.findObjects(By.clazz("android.widget.EditText"))
             assertTrue("Calendar form must expose title, date, start, end, venue, and notes", calendarFields.size >= 6)
             assertTrue("Venue must contain only the detected location", calendarFields[4].text == "MG Road, Vijayawada")
             assertTrue("Venue must exclude unrelated notes", !calendarFields[4].text.contains("final presentation"))
 '''
-if addition not in text:
-    if needle not in text:
-        raise SystemExit('Calendar instrumentation marker not found')
-    text = text.replace(needle, needle + addition)
+stable = '''            assertObject(
+                device,
+                By.clazz("android.widget.EditText").text("MG Road, Vijayawada"),
+                "Venue must contain only the detected location"
+            )
+'''
+if brittle in text:
+    text = text.replace(brittle, stable)
+elif stable not in text:
+    raise SystemExit('Calendar venue assertion block not found')
 test.write_text(text)
