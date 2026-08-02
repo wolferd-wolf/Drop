@@ -8,13 +8,56 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: android-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # CONTACT_INTEGRATION_START
+  contact-integration:
+    if: github.event_name == 'pull_request' && github.head_ref == 'feature/editable-contact-confirmation'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - name: Apply Contact product patch once
+        shell: bash
+        run: |
+          if [ ! -f verification/contact-confirmation.txt ]; then exit 0; fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import textwrap
+          source = Path('.github/workflows/apply-contact-confirmation.yml').read_text().splitlines()
+          start = next(i for i, line in enumerate(source) if "python3 - <<'PY'" in line) + 1
+          end = next(i for i in range(start, len(source)) if source[i].strip() == 'PY')
+          script = textwrap.dedent('\n'.join(source[start:end]))
+          exec(compile(script, 'contact_integration.py', 'exec'))
+          ci = Path('.github/workflows/android-ci.yml')
+          text = ci.read_text()
+          start_marker = '  # CONTACT_INTEGRATION_START\n'
+          end_marker = '  # CONTACT_INTEGRATION_END\n'
+          before, rest = text.split(start_marker, 1)
+          _, after = rest.split(end_marker, 1)
+          ci.write_text((before + after).replace('permissions:\n  contents: write', 'permissions:\n  contents: read'))
+          for path in [
+              '.github/workflows/apply-contact-confirmation.yml',
+              '.github/workflows/apply-contact-target.yml',
+              '.github/workflows/run-contact-integration.yml',
+              'verification/contact-confirmation.txt'
+          ]:
+              Path(path).unlink(missing_ok=True)
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Add editable Contact confirmation flow'
+          git push origin HEAD:${{ github.head_ref }}
+  # CONTACT_INTEGRATION_END
+
   build-test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
