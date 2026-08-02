@@ -1,0 +1,1 @@
+Verify structured document classification, timetable persistence, editable timetable actions, unit tests, lint, APK, and UI screenshots.
