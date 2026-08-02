@@ -1,0 +1,1 @@
+Verification-only marker for the compact Calendar confirmation viewport. Do not merge this file.
