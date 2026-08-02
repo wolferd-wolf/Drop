@@ -50,6 +50,7 @@ class HomeScreenshotTest {
                 "Text entry must provide an editable field"
             )
             input.text = "Team meeting on 12 August 2026 at 5:30 PM at MG Road, Vijayawada. Email team@example.com, call +91 98765 43210, or open https://example.com/meeting"
+            device.pressBack()
             assertVisible(device, "Continue", "Text entry must provide Continue").click()
 
             assertVisible(device, "Import preview", "Imported text must reach a visible preview")
@@ -57,7 +58,7 @@ class HomeScreenshotTest {
             assertVisible(device, "Extract details", "Preview must provide extraction action").click()
 
             assertVisible(device, "Extracted information", "Extraction screen must be visible")
-            assertVisible(device, "See suggested actions", "Extraction must lead to Suggested Actions").click()
+            assertVisibleAfterScroll(device, "See suggested actions", "Extraction must lead to Suggested Actions").click()
 
             assertVisible(device, "Suggested actions", "Suggested Actions screen must be visible")
             assertVisible(device, "Choose what Drop should do next", "Suggested Actions must explain the decision")
@@ -94,11 +95,29 @@ class HomeScreenshotTest {
         assertNotNull(message, device.wait(Until.findObject(By.text(text)), CONTROL_TIMEOUT_MILLIS))
             .let { device.findObject(By.text(text)) }
 
+    private fun assertVisibleAfterScroll(device: UiDevice, text: String, message: String): UiObject2 {
+        device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT_MILLIS)?.let { return it }
+        repeat(MAX_SCROLL_ATTEMPTS) {
+            device.swipe(
+                device.displayWidth / 2,
+                device.displayHeight * 3 / 4,
+                device.displayWidth / 2,
+                device.displayHeight / 4,
+                20
+            )
+            device.waitForIdle()
+            device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT_MILLIS)?.let { return it }
+        }
+        return assertNotNull(message, device.findObject(By.text(text)))
+    }
+
     private fun assertObject(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
         assertNotNull(message, device.wait(Until.findObject(selector), CONTROL_TIMEOUT_MILLIS))
             .let { device.findObject(selector) }
 
     private companion object {
         const val CONTROL_TIMEOUT_MILLIS = 20_000L
+        const val SHORT_TIMEOUT_MILLIS = 2_000L
+        const val MAX_SCROLL_ATTEMPTS = 6
     }
 }
