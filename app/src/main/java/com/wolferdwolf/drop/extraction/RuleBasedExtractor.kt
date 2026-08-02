@@ -40,7 +40,7 @@ object RuleBasedExtractor {
         ),
         Rule(
             ExtractionType.DATE,
-            Regex("(?i)\\b(?:today|tomorrow|day after tomorrow|tonight)\\b"),
+            Regex("(?i)\\b(?:day after tomorrow|today|tonight|(?<!after )tomorrow)\\b"),
             0.90f
         ),
         Rule(
