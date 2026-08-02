@@ -1,5 +1,6 @@
 package com.wolferdwolf.drop.actions
 
+import com.wolferdwolf.drop.extraction.AddressCandidateDetector
 import com.wolferdwolf.drop.extraction.ExtractionResult
 import com.wolferdwolf.drop.extraction.ExtractionType
 
@@ -28,6 +29,7 @@ object SuggestedActionEngine {
     fun suggest(originalText: String, results: List<ExtractionResult>): List<SuggestedAction> {
         val types = results.mapTo(mutableSetOf()) { it.type }
         val lower = originalText.lowercase()
+        val address = AddressCandidateDetector.detect(originalText)
         val relevant = mutableListOf<SuggestedAction>()
 
         relevant += action(
@@ -73,11 +75,11 @@ object SuggestedActionEngine {
             )
         }
 
-        if (looksLikeAddress(lower)) {
+        if (address != null) {
             relevant += action(
                 SuggestedActionType.MAPS,
                 "Open in Maps",
-                "The content contains address or venue language.",
+                "A likely address or venue was detected: ${address.value.take(72)}",
                 78
             )
         }
@@ -154,7 +156,4 @@ object SuggestedActionEngine {
         }
         return meaningfulLines.size >= 3 && (marked >= 2 || meaningfulLines.size >= 5)
     }
-
-    private fun looksLikeAddress(text: String): Boolean =
-        listOf("address", "venue", "road", "street", "nagar", "colony", "building", "near ", "opposite", "district").any(text::contains)
 }
