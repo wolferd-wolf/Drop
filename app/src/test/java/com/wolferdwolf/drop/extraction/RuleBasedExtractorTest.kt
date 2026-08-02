@@ -27,6 +27,28 @@ class RuleBasedExtractorTest {
     }
 
     @Test
+    fun extractsRelativeDatesWeekdaysAndNaturalTimes() {
+        val results = RuleBasedExtractor.extract(
+            "Call tomorrow at noon, review this Friday, and submit the day after tomorrow at midnight."
+        )
+
+        assertTrue(results.any { it.type == ExtractionType.DATE && it.value.equals("tomorrow", true) })
+        assertTrue(results.any { it.type == ExtractionType.DATE && it.value.equals("this Friday", true) })
+        assertTrue(results.any { it.type == ExtractionType.DATE && it.value.equals("day after tomorrow", true) })
+        assertTrue(results.any { it.type == ExtractionType.TIME && it.value.equals("noon", true) })
+        assertTrue(results.any { it.type == ExtractionType.TIME && it.value.equals("midnight", true) })
+    }
+
+    @Test
+    fun keepsLongerRelativeDateInsteadOfNestedTomorrow() {
+        val dates = RuleBasedExtractor.extract("Remind me day after tomorrow")
+            .filter { it.type == ExtractionType.DATE }
+
+        assertEquals(1, dates.size)
+        assertEquals("day after tomorrow", dates.single().value, true)
+    }
+
+    @Test
     fun preservesSourceRanges() {
         val text = "Email hello@drop.app now"
         val result = RuleBasedExtractor.extract(text).single()
