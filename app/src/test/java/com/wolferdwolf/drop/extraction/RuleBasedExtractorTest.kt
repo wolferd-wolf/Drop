@@ -45,7 +45,7 @@ class RuleBasedExtractorTest {
             .filter { it.type == ExtractionType.DATE }
 
         assertEquals(1, dates.size)
-        assertEquals("day after tomorrow", dates.single().value, true)
+        assertTrue(dates.single().value.equals("day after tomorrow", ignoreCase = true))
     }
 
     @Test
