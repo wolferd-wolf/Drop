@@ -28,7 +28,6 @@ class HomeScreenshotTest {
             assertVisible(device, "Add link", "Add link action must be visible on Home")
             val history = assertVisible(device, "History", "History control must be visible on Home")
             capture(device, "/data/local/tmp/drop-home.png")
-
             history.click()
             assertVisible(device, "Saved actions", "History screen must open from Home")
             assertVisible(device, "Back to Home", "History screen must provide a visible return action")
@@ -42,20 +41,15 @@ class HomeScreenshotTest {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             assertVisible(device, "Import screenshot or image", "Home must reach the foreground")
             assertVisible(device, "Paste text", "Paste text action must be visible").click()
-
             assertVisible(device, "Add content for Drop to understand and turn into an action.", "Text entry must open")
             val input = assertObject(device, By.clazz("android.widget.EditText"), "Text entry must provide an editable field")
             input.text = "Team meeting on 12 August 2026 at 5:30 PM at MG Road, Vijayawada. Email team@example.com, call +91 98765 43210, or open https://example.com/meeting"
-            device.pressBack()
             assertVisible(device, "Continue", "Text entry must provide Continue").click()
-
             assertVisible(device, "Import preview", "Imported text must reach a visible preview")
             assertVisible(device, "Review before processing", "Preview must explain the review step")
             assertVisible(device, "Extract details", "Preview must provide extraction action").click()
-
             assertVisible(device, "Extracted information", "Extraction screen must be visible")
             assertVisibleAfterScroll(device, "See suggested actions", "Extraction must lead to Suggested Actions").click()
-
             assertVisible(device, "Suggested actions", "Suggested Actions screen must be visible")
             assertVisible(device, "Choose what Drop should do next", "Suggested Actions must explain the decision")
             assertVisible(device, "Save reference", "Safe default action must be visible")
