@@ -44,11 +44,7 @@ class HomeScreenshotTest {
             assertVisible(device, "Paste text", "Paste text action must be visible").click()
 
             assertVisible(device, "Add content for Drop to understand and turn into an action.", "Text entry must open")
-            val input = assertObject(
-                device,
-                By.clazz("android.widget.EditText"),
-                "Text entry must provide an editable field"
-            )
+            val input = assertObject(device, By.clazz("android.widget.EditText"), "Text entry must provide an editable field")
             input.text = "Team meeting on 12 August 2026 at 5:30 PM at MG Road, Vijayawada. Email team@example.com, call +91 98765 43210, or open https://example.com/meeting"
             device.pressBack()
             assertVisible(device, "Continue", "Text entry must provide Continue").click()
@@ -98,17 +94,11 @@ class HomeScreenshotTest {
     private fun assertVisibleAfterScroll(device: UiDevice, text: String, message: String): UiObject2 {
         device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT_MILLIS)?.let { return it }
         repeat(MAX_SCROLL_ATTEMPTS) {
-            device.swipe(
-                device.displayWidth / 2,
-                device.displayHeight * 3 / 4,
-                device.displayWidth / 2,
-                device.displayHeight / 4,
-                20
-            )
+            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
             device.waitForIdle()
             device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT_MILLIS)?.let { return it }
         }
-        return assertNotNull(message, device.findObject(By.text(text)))
+        return device.findObject(By.text(text)) ?: throw AssertionError(message)
     }
 
     private fun assertObject(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
