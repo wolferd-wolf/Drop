@@ -9,7 +9,7 @@ import org.junit.Test
 
 class SuggestedActionEngineTest {
     @Test
-    fun richContentReturnsOnlyTheHighestRankedRelevantActions() {
+    fun jobDeadlineSuppressesFalseCalendarAndKeepsApplicationLinkVisible() {
         val text = "Apply before 12 August 2026 at 5:30 PM. Email jobs@example.com or visit https://example.com/jobs"
         val results = listOf(
             result(ExtractionType.DATE, "12 August 2026"),
@@ -24,10 +24,25 @@ class SuggestedActionEngineTest {
         assertEquals(4, actions.size)
         assertEquals(SuggestedActionType.SAVE_REFERENCE, types[0])
         assertEquals(SuggestedActionType.REMINDER, types[1])
-        assertEquals(SuggestedActionType.CALENDAR, types[2])
-        assertEquals(SuggestedActionType.CONTACT, types[3])
+        assertEquals(SuggestedActionType.CONTACT, types[2])
+        assertEquals(SuggestedActionType.OPEN_LINK, types[3])
+        assertFalse(SuggestedActionType.CALENDAR in types)
+        assertTrue(actions.first { it.type == SuggestedActionType.REMINDER }.reason.contains("deadline", true))
         assertEquals(actions.size, types.distinct().size)
-        assertFalse(actions.any { it.reason.startsWith("Manual choice:") })
+    }
+
+    @Test
+    fun realEventWithDateAndTimeStillOffersCalendar() {
+        val text = "Product launch meeting on 12 August 2026 at 5:30 PM"
+        val results = listOf(
+            result(ExtractionType.DATE, "12 August 2026"),
+            result(ExtractionType.TIME, "5:30 PM")
+        )
+
+        val types = SuggestedActionEngine.suggest(text, results).map { it.type }
+
+        assertTrue(SuggestedActionType.CALENDAR in types)
+        assertTrue(SuggestedActionType.REMINDER in types)
     }
 
     @Test
