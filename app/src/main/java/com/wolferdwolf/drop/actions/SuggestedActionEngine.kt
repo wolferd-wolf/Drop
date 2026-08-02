@@ -79,7 +79,7 @@ object SuggestedActionEngine {
             relevant += action(
                 SuggestedActionType.MAPS,
                 "Open in Maps",
-                "A likely address or venue was detected: ${address.value.take(72)}",
+                "A likely address or venue was detected: ${address.value.take(71)}",
                 78
             )
         }
