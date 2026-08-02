@@ -12,6 +12,9 @@
             android:name=".calendar.CalendarConfirmationActivity"
             android:exported="false" />
         <activity
+            android:name=".contact.ContactConfirmationActivity"
+            android:exported="false" />
+        <activity
             android:name=".maps.MapConfirmationActivity"
             android:exported="false" />
         <activity
