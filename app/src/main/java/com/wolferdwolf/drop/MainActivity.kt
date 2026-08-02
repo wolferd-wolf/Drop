@@ -4,7 +4,6 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.provider.ContactsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
@@ -40,6 +39,7 @@ import com.wolferdwolf.drop.actions.SuggestedAction
 import com.wolferdwolf.drop.actions.SuggestedActionEngine
 import com.wolferdwolf.drop.actions.SuggestedActionType
 import com.wolferdwolf.drop.calendar.CalendarConfirmationActivity
+import com.wolferdwolf.drop.contact.ContactConfirmationActivity
 import com.wolferdwolf.drop.data.SavedReference
 import com.wolferdwolf.drop.data.SavedReferenceStore
 import com.wolferdwolf.drop.extraction.ExtractionResult
@@ -195,11 +195,9 @@ class MainActivity : ComponentActivity() {
                 Intent(this, CalendarConfirmationActivity::class.java)
                     .putExtra(CalendarConfirmationActivity.EXTRA_SOURCE_TEXT, text)
             )
-            SuggestedActionType.CONTACT -> launch(
-                Intent(Intent.ACTION_INSERT).setType(ContactsContract.Contacts.CONTENT_TYPE)
-                    .putExtra(ContactsContract.Intents.Insert.PHONE, first(results, ExtractionType.PHONE))
-                    .putExtra(ContactsContract.Intents.Insert.EMAIL, first(results, ExtractionType.EMAIL))
-                    .putExtra(ContactsContract.Intents.Insert.NOTES, text)
+            SuggestedActionType.CONTACT -> startActivity(
+                Intent(this, ContactConfirmationActivity::class.java)
+                    .putExtra(ContactConfirmationActivity.EXTRA_SOURCE_TEXT, text)
             )
             SuggestedActionType.MAPS -> startActivity(
                 Intent(this, MapConfirmationActivity::class.java)
