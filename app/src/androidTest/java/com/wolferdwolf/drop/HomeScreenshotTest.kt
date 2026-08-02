@@ -1,6 +1,5 @@
 package com.wolferdwolf.drop
 
-import android.content.Context
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -19,13 +18,13 @@ class HomeScreenshotTest {
             val device = UiDevice.getInstance(instrumentation)
             device.waitForIdle()
 
-            val context: Context = instrumentation.targetContext
-            val directory = File(context.getExternalFilesDir(null), "screenshots")
-            assertTrue(directory.exists() || directory.mkdirs())
+            val screenshotPath = "/sdcard/drop-home.png"
+            device.executeShellCommand("rm -f $screenshotPath")
+            device.executeShellCommand("screencap -p $screenshotPath")
 
-            val screenshot = File(directory, "drop-home.png")
-            assertTrue(device.takeScreenshot(screenshot))
-            assertTrue(screenshot.exists() && screenshot.length() > 0)
+            val verificationCopy = File(instrumentation.context.cacheDir, "drop-home.png")
+            device.executeShellCommand("cp $screenshotPath ${verificationCopy.absolutePath}")
+            assertTrue(device.executeShellCommand("test -s $screenshotPath && echo present").contains("present"))
         }
     }
 }
