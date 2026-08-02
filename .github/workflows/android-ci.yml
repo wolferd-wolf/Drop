@@ -111,7 +111,7 @@ jobs:
           script: |
             gradle connectedDebugAndroidTest --stacktrace
             mkdir -p screenshots
-            adb pull /sdcard/Android/data/com.wolferdwolf.drop/files/screenshots/drop-home.png screenshots/drop-home.png
+            adb pull /sdcard/drop-home.png screenshots/drop-home.png
             test -s screenshots/drop-home.png
 
       - name: Upload UI screenshots
