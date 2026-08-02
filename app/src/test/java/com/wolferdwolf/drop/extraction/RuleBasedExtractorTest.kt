@@ -27,6 +27,16 @@ class RuleBasedExtractorTest {
     }
 
     @Test
+    fun extractsIsoMonthFirstAndBareDomainInputs() {
+        val text = "Launch 2026-08-18, review August 21st, 2026, and open drop.app/launch."
+        val results = RuleBasedExtractor.extract(text)
+
+        assertTrue(results.any { it.type == ExtractionType.DATE && it.value == "2026-08-18" })
+        assertTrue(results.any { it.type == ExtractionType.DATE && it.value == "August 21st, 2026" })
+        assertTrue(results.any { it.type == ExtractionType.URL && it.value == "drop.app/launch" })
+    }
+
+    @Test
     fun extractsRelativeDatesWeekdaysAndNaturalTimes() {
         val results = RuleBasedExtractor.extract(
             "Call tomorrow at noon, review this Friday, and submit the day after tomorrow at midnight."
@@ -49,11 +59,21 @@ class RuleBasedExtractorTest {
     }
 
     @Test
-    fun preservesSourceRanges() {
-        val text = "Email hello@drop.app now"
-        val result = RuleBasedExtractor.extract(text).single()
+    fun preservesExactSourceRangesAfterTrailingPunctuationIsTrimmed() {
+        val text = "Open https://drop.app/info, then email hello@drop.app."
+        val results = RuleBasedExtractor.extract(text)
 
-        assertEquals("hello@drop.app", text.substring(result.sourceStart, result.sourceEndExclusive))
+        results.forEach { result ->
+            assertEquals(result.value, text.substring(result.sourceStart, result.sourceEndExclusive))
+        }
+    }
+
+    @Test
+    fun emailDoesNotAlsoCreateNestedDomainResult() {
+        val results = RuleBasedExtractor.extract("Email hello@drop.app")
+
+        assertEquals(1, results.size)
+        assertEquals(ExtractionType.EMAIL, results.single().type)
     }
 
     @Test
