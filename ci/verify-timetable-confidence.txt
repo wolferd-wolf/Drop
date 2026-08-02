@@ -1,0 +1,1 @@
+Verification-only marker for timetable classifier, suggested actions, APK, lint, reports, and screenshot gates.
