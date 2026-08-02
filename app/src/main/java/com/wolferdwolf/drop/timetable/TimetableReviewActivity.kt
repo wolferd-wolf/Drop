@@ -53,7 +53,6 @@ class TimetableReviewActivity : ComponentActivity() {
                             finish()
                         },
                         onContinue = { title, entries ->
-                            store.save(title, entries, source)
                             continueWithText(format(title, entries))
                         },
                         onClose = ::finish
@@ -107,7 +106,7 @@ private fun TimetableReviewScreen(
         ) {
             item {
                 Text("Structured timetable detected", style = MaterialTheme.typography.headlineSmall)
-                Text("Drop will keep every row editable instead of flattening this image into a note.")
+                Text("Review every row, then choose whether to continue or save it in Drop.")
             }
             item {
                 OutlinedTextField(
@@ -123,7 +122,10 @@ private fun TimetableReviewScreen(
                     onClick = { onContinue(title, entries.toList()) },
                     enabled = valid,
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("Save and create actions") }
+                ) { Text("Continue to Drop actions") }
+            }
+            item {
+                Text("Continuing does not save the timetable. You will review the extracted content before choosing an action.")
             }
             item {
                 OutlinedButton(
