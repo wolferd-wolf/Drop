@@ -1,0 +1,1 @@
+Verify the exact main-branch Calendar confirmation build through the full Android quality gate.
