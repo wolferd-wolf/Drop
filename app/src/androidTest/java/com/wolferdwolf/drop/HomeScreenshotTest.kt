@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import com.wolferdwolf.drop.timetable.TimetableReviewActivity
 import org.junit.Assert.assertNotNull
@@ -36,6 +37,37 @@ class HomeScreenshotTest {
     }
 
     @Test
+    fun captureVisiblePreviewExtractionAndSuggestedActionsFlow() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            assertVisible(device, "Import screenshot or image", "Home must reach the foreground")
+            assertVisible(device, "Paste text", "Paste text action must be visible").click()
+
+            assertVisible(device, "Add content for Drop to understand and turn into an action.", "Text entry must open")
+            val input = assertObject(
+                device,
+                By.clazz("android.widget.EditText"),
+                "Text entry must provide an editable field"
+            )
+            input.text = "Team meeting on 12 August 2026 at 5:30 PM at MG Road, Vijayawada. Email team@example.com, call +91 98765 43210, or open https://example.com/meeting"
+            assertVisible(device, "Continue", "Text entry must provide Continue").click()
+
+            assertVisible(device, "Import preview", "Imported text must reach a visible preview")
+            assertVisible(device, "Review before processing", "Preview must explain the review step")
+            assertVisible(device, "Extract details", "Preview must provide extraction action").click()
+
+            assertVisible(device, "Extracted information", "Extraction screen must be visible")
+            assertVisible(device, "See suggested actions", "Extraction must lead to Suggested Actions").click()
+
+            assertVisible(device, "Suggested actions", "Suggested Actions screen must be visible")
+            assertVisible(device, "Choose what Drop should do next", "Suggested Actions must explain the decision")
+            assertVisible(device, "Save reference", "Safe default action must be visible")
+            assertVisible(device, "Create reminder", "Relevant reminder action must be visible")
+            capture(device, "/data/local/tmp/drop-suggested-actions.png")
+        }
+    }
+
+    @Test
     fun captureEditableTimetableReviewScreen() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val intent = Intent(context, TimetableReviewActivity::class.java).putExtra(
@@ -58,9 +90,13 @@ class HomeScreenshotTest {
         assertTrue(device.executeShellCommand("ls -l $path").contains(path.substringAfterLast('/')))
     }
 
-    private fun assertVisible(device: UiDevice, text: String, message: String) =
+    private fun assertVisible(device: UiDevice, text: String, message: String): UiObject2 =
         assertNotNull(message, device.wait(Until.findObject(By.text(text)), CONTROL_TIMEOUT_MILLIS))
             .let { device.findObject(By.text(text)) }
+
+    private fun assertObject(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
+        assertNotNull(message, device.wait(Until.findObject(selector), CONTROL_TIMEOUT_MILLIS))
+            .let { device.findObject(selector) }
 
     private companion object {
         const val CONTROL_TIMEOUT_MILLIS = 20_000L
