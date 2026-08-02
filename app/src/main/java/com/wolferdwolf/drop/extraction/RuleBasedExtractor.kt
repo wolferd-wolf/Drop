@@ -39,6 +39,16 @@ object RuleBasedExtractor {
             0.93f
         ),
         Rule(
+            ExtractionType.DATE,
+            Regex("(?i)\\b(?:today|tomorrow|day after tomorrow|tonight)\\b"),
+            0.90f
+        ),
+        Rule(
+            ExtractionType.DATE,
+            Regex("(?i)\\b(?:(?:this|next)\\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b"),
+            0.88f
+        ),
+        Rule(
             ExtractionType.TIME,
             Regex("(?i)\\b(?:1[0-2]|0?[1-9])(?::[0-5]\\d)?\\s?(?:am|pm)\\b"),
             0.95f
@@ -47,6 +57,11 @@ object RuleBasedExtractor {
             ExtractionType.TIME,
             Regex("(?<!\\d)(?:[01]?\\d|2[0-3]):[0-5]\\d(?!\\d)"),
             0.92f
+        ),
+        Rule(
+            ExtractionType.TIME,
+            Regex("(?i)\\b(?:noon|midnight)\\b"),
+            0.90f
         )
     )
 
