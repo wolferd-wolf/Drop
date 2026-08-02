@@ -21,9 +21,8 @@ class HomeScreenshotTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             scenario.onActivity { activity -> assertTrue(!activity.isFinishing) }
-            waitForDrop(device)
+            assertVisible(device, "Import screenshot or image", "Home must reach the foreground")
             capture(device, "/data/local/tmp/drop-home.png")
-            assertVisible(device, "Import screenshot or image", "Import image action must be visible on Home")
             assertVisible(device, "Import PDF", "Import PDF action must be visible on Home")
             assertVisible(device, "Paste text", "Paste text action must be visible on Home")
             assertVisible(device, "Add link", "Add link action must be visible on Home")
@@ -39,23 +38,15 @@ class HomeScreenshotTest {
         )
         ActivityScenario.launch<TimetableReviewActivity>(intent).use {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-            waitForDrop(device)
-            assertVisible(device, "Review timetable", "Timetable review title must be visible")
-            assertVisible(device, "Save timetable", "Save timetable action must be visible")
-            assertVisible(device, "Continue to reminders and calendar", "Follow-up action must be visible")
+            assertVisible(device, "Review timetable", "Timetable review must reach the foreground")
+            assertVisible(device, "Save as structured timetable", "Structured save action must be visible")
+            assertVisible(device, "Save and create actions", "Bulk action path must be visible")
             capture(device, "/data/local/tmp/drop-timetable.png")
         }
     }
 
-    private fun waitForDrop(device: UiDevice) {
-        assertTrue(
-            "Drop window must reach the foreground",
-            device.wait(Until.hasObject(By.pkg(APP_PACKAGE).depth(0)), WINDOW_TIMEOUT_MILLIS)
-        )
-        device.waitForIdle()
-    }
-
     private fun capture(device: UiDevice, path: String) {
+        device.waitForIdle()
         device.executeShellCommand("rm -f $path")
         device.executeShellCommand("screencap -p $path")
         assertTrue(device.executeShellCommand("ls -l $path").contains(path.substringAfterLast('/')))
@@ -66,8 +57,6 @@ class HomeScreenshotTest {
     }
 
     private companion object {
-        const val APP_PACKAGE = "com.wolferdwolf.drop"
-        const val WINDOW_TIMEOUT_MILLIS = 20_000L
-        const val CONTROL_TIMEOUT_MILLIS = 10_000L
+        const val CONTROL_TIMEOUT_MILLIS = 20_000L
     }
 }
