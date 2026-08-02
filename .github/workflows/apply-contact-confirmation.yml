@@ -1,0 +1,320 @@
+name: Apply contact confirmation integration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'verification/contact-confirmation.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout verification branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - name: Integrate editable Contact confirmation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          contact = Path('app/src/main/java/com/wolferdwolf/drop/contact/ContactConfirmationActivity.kt')
+          contact.parent.mkdir(parents=True, exist_ok=True)
+          contact.write_text(r'''package com.wolferdwolf.drop.contact
+
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.os.Bundle
+import android.provider.ContactsContract
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.wolferdwolf.drop.extraction.ExtractionType
+import com.wolferdwolf.drop.extraction.RuleBasedExtractor
+import com.wolferdwolf.drop.ui.theme.DropTheme
+
+class ContactConfirmationActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val source = intent.getStringExtra(EXTRA_SOURCE_TEXT).orEmpty()
+        val extracted = RuleBasedExtractor.extract(source)
+        val initialPhone = extracted.firstOrNull { it.type == ExtractionType.PHONE }?.value.orEmpty()
+        val initialEmail = extracted.firstOrNull { it.type == ExtractionType.EMAIL }?.value.orEmpty()
+        val initialName = labelledValue(source, NAME_LABELS)
+        val initialCompany = labelledValue(source, COMPANY_LABELS)
+
+        setContent {
+            DropTheme {
+                var name by rememberSaveable { mutableStateOf(initialName) }
+                var phone by rememberSaveable { mutableStateOf(initialPhone) }
+                var email by rememberSaveable { mutableStateOf(initialEmail) }
+                var company by rememberSaveable { mutableStateOf(initialCompany) }
+                var notes by rememberSaveable { mutableStateOf(source.take(MAX_NOTES_LENGTH)) }
+                var error by rememberSaveable { mutableStateOf<String?>(null) }
+
+                ContactConfirmationScreen(
+                    name = name,
+                    phone = phone,
+                    email = email,
+                    company = company,
+                    notes = notes,
+                    error = error,
+                    onNameChange = { name = it.take(MAX_NAME_LENGTH) },
+                    onPhoneChange = { phone = it.take(MAX_PHONE_LENGTH) },
+                    onEmailChange = { email = it.take(MAX_EMAIL_LENGTH) },
+                    onCompanyChange = { company = it.take(MAX_COMPANY_LENGTH) },
+                    onNotesChange = { notes = it.take(MAX_NOTES_LENGTH) },
+                    onContinue = { error = validateAndLaunch(name, phone, email, company, notes) },
+                    onCancel = ::finish
+                )
+            }
+        }
+    }
+
+    private fun validateAndLaunch(
+        name: String,
+        phone: String,
+        email: String,
+        company: String,
+        notes: String
+    ): String? {
+        if (name.isBlank() && phone.isBlank() && email.isBlank()) {
+            return "Enter a name, phone number, or email address."
+        }
+        if (email.isNotBlank() && !EMAIL_PATTERN.matches(email.trim())) {
+            return "Enter a valid email address."
+        }
+        if (phone.isNotBlank() && phone.count(Char::isDigit) !in 8..15) {
+            return "Enter a phone number containing 8 to 15 digits."
+        }
+
+        val contactIntent = Intent(Intent.ACTION_INSERT)
+            .setType(ContactsContract.Contacts.CONTENT_TYPE)
+            .putExtra(ContactsContract.Intents.Insert.NAME, name.trim())
+            .putExtra(ContactsContract.Intents.Insert.PHONE, phone.trim())
+            .putExtra(ContactsContract.Intents.Insert.EMAIL, email.trim())
+            .putExtra(ContactsContract.Intents.Insert.COMPANY, company.trim())
+            .putExtra(ContactsContract.Intents.Insert.NOTES, notes.trim())
+
+        return try {
+            if (contactIntent.resolveActivity(packageManager) == null) {
+                "No compatible Contacts app is installed."
+            } else {
+                startActivity(contactIntent)
+                null
+            }
+        } catch (_: ActivityNotFoundException) {
+            "No compatible Contacts app is installed."
+        } catch (_: SecurityException) {
+            "Android blocked this action. Check device settings and try again."
+        }
+    }
+
+    companion object {
+        const val EXTRA_SOURCE_TEXT = "source_text"
+        private const val MAX_NAME_LENGTH = 120
+        private const val MAX_PHONE_LENGTH = 40
+        private const val MAX_EMAIL_LENGTH = 254
+        private const val MAX_COMPANY_LENGTH = 160
+        private const val MAX_NOTES_LENGTH = 5_000
+        private val EMAIL_PATTERN = Regex("^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$", RegexOption.IGNORE_CASE)
+        private val NAME_LABELS = listOf("name", "contact", "person")
+        private val COMPANY_LABELS = listOf("company", "organisation", "organization", "business")
+
+        internal fun labelledValue(source: String, labels: List<String>): String {
+            val alternatives = labels.joinToString("|") { Regex.escape(it) }
+            return Regex("(?im)^\\s*(?:$alternatives)\\s*:\\s*([^\\n]+)")
+                .find(source)
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.trim()
+                .orEmpty()
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ContactConfirmationScreen(
+    name: String,
+    phone: String,
+    email: String,
+    company: String,
+    notes: String,
+    error: String?,
+    onNameChange: (String) -> Unit,
+    onPhoneChange: (String) -> Unit,
+    onEmailChange: (String) -> Unit,
+    onCompanyChange: (String) -> Unit,
+    onNotesChange: (String) -> Unit,
+    onContinue: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Scaffold(topBar = { TopAppBar(title = { Text("Save contact") }) }) { padding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item {
+                Text("Confirm contact details", style = MaterialTheme.typography.headlineSmall)
+                Text("Review and edit every field before Drop opens your Contacts app.")
+            }
+            item { OutlinedTextField(name, onNameChange, Modifier.fillMaxWidth(), label = { Text("Name") }, singleLine = true) }
+            item { OutlinedTextField(phone, onPhoneChange, Modifier.fillMaxWidth(), label = { Text("Phone") }, singleLine = true) }
+            item { OutlinedTextField(email, onEmailChange, Modifier.fillMaxWidth(), label = { Text("Email") }, singleLine = true) }
+            item { OutlinedTextField(company, onCompanyChange, Modifier.fillMaxWidth(), label = { Text("Company") }, singleLine = true) }
+            item { OutlinedTextField(notes, onNotesChange, Modifier.fillMaxWidth(), label = { Text("Notes") }, minLines = 2, maxLines = 3) }
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Nothing is saved automatically", style = MaterialTheme.typography.titleMedium)
+                        Text("Drop only passes these edited details to Contacts after you confirm.")
+                    }
+                }
+            }
+            error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
+            item { Button(onClick = onContinue, modifier = Modifier.fillMaxWidth()) { Text("Continue to Contacts") } }
+            item { OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Cancel") } }
+        }
+    }
+}
+''')
+
+          main = Path('app/src/main/java/com/wolferdwolf/drop/MainActivity.kt')
+          text = main.read_text()
+          text = text.replace('import android.provider.ContactsContract\n', '')
+          text = text.replace(
+              'import com.wolferdwolf.drop.calendar.CalendarConfirmationActivity\n',
+              'import com.wolferdwolf.drop.calendar.CalendarConfirmationActivity\nimport com.wolferdwolf.drop.contact.ContactConfirmationActivity\n'
+          )
+          old = '''            SuggestedActionType.CONTACT -> launch(
+                Intent(Intent.ACTION_INSERT).setType(ContactsContract.Contacts.CONTENT_TYPE)
+                    .putExtra(ContactsContract.Intents.Insert.PHONE, first(results, ExtractionType.PHONE))
+                    .putExtra(ContactsContract.Intents.Insert.EMAIL, first(results, ExtractionType.EMAIL))
+                    .putExtra(ContactsContract.Intents.Insert.NOTES, text)
+            )'''
+          new = '''            SuggestedActionType.CONTACT -> startActivity(
+                Intent(this, ContactConfirmationActivity::class.java)
+                    .putExtra(ContactConfirmationActivity.EXTRA_SOURCE_TEXT, text)
+            )'''
+          if old not in text:
+              raise SystemExit('Contact routing block not found')
+          main.write_text(text.replace(old, new))
+
+          manifest = Path('app/src/main/AndroidManifest.xml')
+          text = manifest.read_text()
+          marker = '        <activity\n            android:name=".calendar.CalendarConfirmationActivity"\n            android:exported="false" />\n'
+          addition = '        <activity\n            android:name=".contact.ContactConfirmationActivity"\n            android:exported="false" />\n'
+          if addition not in text:
+              if marker not in text:
+                  raise SystemExit('Manifest marker not found')
+              text = text.replace(marker, marker + addition)
+          manifest.write_text(text)
+
+          unit = Path('app/src/test/java/com/wolferdwolf/drop/contact/ContactConfirmationActivityTest.kt')
+          unit.parent.mkdir(parents=True, exist_ok=True)
+          unit.write_text(r'''package com.wolferdwolf.drop.contact
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class ContactConfirmationActivityTest {
+    @Test
+    fun extractsExplicitNameAndCompanyLabels() {
+        val source = "Name: Priya Reddy\nCompany: Wolf Labs\nPhone: +91 98765 43210"
+        assertEquals("Priya Reddy", ContactConfirmationActivity.labelledValue(source, listOf("name", "contact", "person")))
+        assertEquals("Wolf Labs", ContactConfirmationActivity.labelledValue(source, listOf("company", "organisation", "organization", "business")))
+    }
+
+    @Test
+    fun doesNotGuessUnlabelledNames() {
+        assertEquals("", ContactConfirmationActivity.labelledValue("Call Priya tomorrow", listOf("name", "contact", "person")))
+    }
+}
+''')
+
+          test = Path('app/src/androidTest/java/com/wolferdwolf/drop/HomeScreenshotTest.kt')
+          text = test.read_text()
+          text = text.replace(
+              'import com.wolferdwolf.drop.calendar.CalendarConfirmationActivity\n',
+              'import com.wolferdwolf.drop.calendar.CalendarConfirmationActivity\nimport com.wolferdwolf.drop.contact.ContactConfirmationActivity\n'
+          )
+          marker = '    @Test\n    fun captureGeneralImageOcrReviewAndUniversalFlow() {'
+          contact_test = r'''    @Test
+    fun captureEditableContactConfirmation() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val source = "Name: Priya Reddy\nCompany: Wolf Labs\nPhone: +91 98765 43210\nEmail: priya@example.com\nMet at the launch event."
+        val intent = Intent(context, ContactConfirmationActivity::class.java)
+            .putExtra(ContactConfirmationActivity.EXTRA_SOURCE_TEXT, source)
+
+        ActivityScenario.launch<ContactConfirmationActivity>(intent).use {
+            val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            assertVisible(device, "Save contact", "Contact confirmation must reach the foreground")
+            assertVisible(device, "Confirm contact details", "Contact confirmation must explain the review step")
+            assertVisible(device, "Review and edit every field before Drop opens your Contacts app.", "Contact confirmation must explain control")
+            assertObject(device, By.clazz("android.widget.EditText").text("Priya Reddy"), "Detected name must be editable")
+            assertObject(device, By.clazz("android.widget.EditText").text("+91 98765 43210"), "Detected phone must be editable")
+            assertObject(device, By.clazz("android.widget.EditText").text("priya@example.com"), "Detected email must be editable")
+            assertObject(device, By.clazz("android.widget.EditText").text("Wolf Labs"), "Detected company must be editable")
+            assertVisibleAfterScroll(device, "Continue to Contacts", "Contact confirmation must require explicit continuation")
+            assertVisibleAfterScroll(device, "Cancel", "Contact confirmation must be reversible")
+            capture(device, "/data/local/tmp/drop-contact-confirmation.png")
+        }
+    }
+
+'''
+          if 'fun captureEditableContactConfirmation()' not in text:
+              if marker not in text:
+                  raise SystemExit('Instrumentation insertion marker not found')
+              text = text.replace(marker, contact_test + marker)
+          test.write_text(text)
+
+          ci = Path('.github/workflows/android-ci.yml')
+          text = ci.read_text()
+          pull_marker = '            adb pull /data/local/tmp/drop-calendar-confirmation.png screenshots/drop-calendar-confirmation.png\n'
+          pull_line = '            adb pull /data/local/tmp/drop-contact-confirmation.png screenshots/drop-contact-confirmation.png\n'
+          check_marker = '            test -s screenshots/drop-calendar-confirmation.png\n'
+          check_line = '            test -s screenshots/drop-contact-confirmation.png\n'
+          if pull_line not in text:
+              if pull_marker not in text or check_marker not in text:
+                  raise SystemExit('Screenshot workflow marker not found')
+              text = text.replace(pull_marker, pull_marker + pull_line)
+              text = text.replace(check_marker, check_marker + check_line)
+          ci.write_text(text)
+
+          Path('verification/contact-confirmation.txt').unlink(missing_ok=True)
+          Path('.github/workflows/apply-contact-confirmation.yml').unlink(missing_ok=True)
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'Add editable Contact confirmation flow'
+          git push origin HEAD:${{ github.head_ref }}
