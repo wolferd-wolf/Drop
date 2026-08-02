@@ -113,9 +113,11 @@ jobs:
             mkdir -p screenshots
             adb pull /data/local/tmp/drop-home.png screenshots/drop-home.png
             adb pull /data/local/tmp/drop-history.png screenshots/drop-history.png
+            adb pull /data/local/tmp/drop-suggested-actions.png screenshots/drop-suggested-actions.png
             adb pull /data/local/tmp/drop-timetable.png screenshots/drop-timetable.png
             test -s screenshots/drop-home.png
             test -s screenshots/drop-history.png
+            test -s screenshots/drop-suggested-actions.png
             test -s screenshots/drop-timetable.png
 
       - name: Upload UI screenshots
