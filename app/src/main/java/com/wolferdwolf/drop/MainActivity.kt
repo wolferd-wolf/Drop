@@ -97,9 +97,9 @@ class MainActivity : ComponentActivity() {
                         onText = { screen = Screen.TEXT_ENTRY },
                         onLink = { screen = Screen.LINK_ENTRY },
                         onDeleteReference = { referenceStore.delete(it.id); refreshHistory() },
-                        onCancelReminder = {
-                            reminderScheduler.cancel(it).onSuccess {
-                                reminderStore.delete(it.id)
+                        onCancelReminder = { reminder ->
+                            reminderScheduler.cancel(reminder).onSuccess {
+                                reminderStore.delete(reminder.id)
                                 refreshHistory()
                             }
                         }
