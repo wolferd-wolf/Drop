@@ -1,6 +1,7 @@
 package com.wolferdwolf.drop.extraction
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -16,6 +17,34 @@ class RuleBasedExtractorTest {
         assertTrue(results.any { it.type == ExtractionType.DATE && it.value == "15/08/2026" })
         assertTrue(results.any { it.type == ExtractionType.TIME && it.value.equals("7:30 PM", true) })
         assertTrue(results.any { it.type == ExtractionType.URL && it.value == "https://drop.app/info" })
+    }
+
+    @Test
+    fun extractsInternationalAndFormattedPhoneNumbers() {
+        val text = "US +1 (415) 555-2671, UK +44 20 7946 0958, office (040) 2345 6789."
+        val phones = RuleBasedExtractor.extract(text).filter { it.type == ExtractionType.PHONE }
+
+        assertTrue(phones.any { it.value == "+1 (415) 555-2671" })
+        assertTrue(phones.any { it.value == "+44 20 7946 0958" })
+        assertTrue(phones.any { it.value == "(040) 2345 6789" })
+    }
+
+    @Test
+    fun deduplicatesEquivalentPhoneFormatting() {
+        val text = "Primary +91 98765 43210. Repeat: +91-98765-43210."
+        val phones = RuleBasedExtractor.extract(text).filter { it.type == ExtractionType.PHONE }
+
+        assertEquals(1, phones.size)
+    }
+
+    @Test
+    fun doesNotTreatDatesTimesOrShortNumbersAsPhones() {
+        val text = "Invoice 12345 dated 15/08/2026 at 18:45. PIN 515401."
+        val results = RuleBasedExtractor.extract(text)
+
+        assertFalse(results.any { it.type == ExtractionType.PHONE })
+        assertTrue(results.any { it.type == ExtractionType.DATE })
+        assertTrue(results.any { it.type == ExtractionType.TIME })
     }
 
     @Test
