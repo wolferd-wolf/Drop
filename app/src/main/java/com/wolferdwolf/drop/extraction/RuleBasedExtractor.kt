@@ -22,13 +22,18 @@ object RuleBasedExtractor {
         ),
         Rule(
             ExtractionType.PHONE,
-            Regex("(?<!\\d)(?:\\+91[-\\s]?)?[6-9]\\d{4}[-\\s]?\\d{5}(?!\\d)"),
-            0.94f
+            Regex("(?<![\\d/])(?:\\+91[-.\\s]?)?[6-9]\\d{4}[-.\\s]?\\d{5}(?![\\d/])"),
+            0.96f
         ),
         Rule(
             ExtractionType.PHONE,
-            Regex("(?<!\\d)\\+?[1-9]\\d{0,2}[-\\s]?(?:\\(?\\d{2,4}\\)?[-\\s]?)?\\d{3,4}[-\\s]?\\d{4}(?!\\d)"),
-            0.82f
+            Regex("(?<![\\d/])(?:\\+|00)[1-9]\\d{0,2}[\\s.-]?(?:\\(\\d{1,4}\\)[\\s.-]?)?(?:\\d[\\s.-]?){6,12}\\d(?![\\d/])"),
+            0.90f
+        ),
+        Rule(
+            ExtractionType.PHONE,
+            Regex("(?<![\\d/])(?:\\(\\d{2,4}\\)[\\s.-]?)?(?:\\d[\\s.-]?){7,11}\\d(?![\\d/])"),
+            0.80f
         ),
         Rule(
             ExtractionType.DATE,
@@ -81,8 +86,9 @@ object RuleBasedExtractor {
         if (text.isBlank()) return emptyList()
 
         val candidates = rules.flatMap { rule ->
-            rule.regex.findAll(text).map { match ->
+            rule.regex.findAll(text).mapNotNull { match ->
                 val value = trimTrailingPunctuation(match.value)
+                if (!isAllowed(rule.type, value)) return@mapNotNull null
                 ExtractionResult(
                     type = rule.type,
                     value = value,
@@ -98,7 +104,7 @@ object RuleBasedExtractor {
             .sortedWith(compareBy<ExtractionResult> { it.sourceStart }.thenByDescending { it.confidence })
             .fold(mutableListOf()) { accepted, candidate ->
                 val duplicate = accepted.any {
-                    it.type == candidate.type && it.value.equals(candidate.value, ignoreCase = true)
+                    it.type == candidate.type && normalizedValue(it) == normalizedValue(candidate)
                 }
                 val overlappingLowerConfidence = accepted.any {
                     rangesOverlap(it, candidate) && it.confidence >= candidate.confidence
@@ -106,6 +112,20 @@ object RuleBasedExtractor {
                 if (!duplicate && !overlappingLowerConfidence) accepted += candidate
                 accepted
             }
+    }
+
+    private fun isAllowed(type: ExtractionType, value: String): Boolean {
+        if (type != ExtractionType.PHONE) return true
+        val digits = value.count(Char::isDigit)
+        if (digits !in 8..15) return false
+        if (value.matches(Regex("\\d{1,4}[-/]\\d{1,2}[-/]\\d{1,4}"))) return false
+        if (value.matches(Regex("\\d{1,2}:\\d{2}"))) return false
+        return true
+    }
+
+    private fun normalizedValue(result: ExtractionResult): String = when (result.type) {
+        ExtractionType.PHONE -> result.value.filter(Char::isDigit)
+        else -> result.value.lowercase()
     }
 
     private fun rangesOverlap(a: ExtractionResult, b: ExtractionResult): Boolean =
