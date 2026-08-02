@@ -43,7 +43,7 @@ class HomeScreenshotTest {
             assertVisible(device, "Paste text", "Paste text action must be visible").click()
             assertVisible(device, "Add content for Drop to understand and turn into an action.", "Text entry must open")
             val input = assertObject(device, By.clazz("android.widget.EditText"), "Text entry must provide an editable field")
-            input.text = "Team meeting on 12 August 2026 at 5:30 PM at MG Road, Vijayawada. Email team@example.com, call +91 98765 43210, or open https://example.com/meeting"
+            input.text = "Team meeting on 2026-08-12 at 5:30 PM at MG Road, Vijayawada. Email team@example.com, call +91 98765 43210, or open drop.app/meeting"
             assertVisible(device, "Continue", "Text entry must provide Continue").click()
             assertVisible(device, "Import preview", "Imported text must reach a visible preview")
             assertVisible(device, "Extract details", "Preview must provide extraction action").click()
@@ -52,6 +52,7 @@ class HomeScreenshotTest {
             assertVisible(device, "Suggested actions", "Suggested Actions screen must be visible")
             assertVisible(device, "Save reference", "Safe default action must be visible")
             assertVisible(device, "Create reminder", "Relevant reminder action must be visible")
+            assertVisibleAfterScroll(device, "Open link", "A bare domain must unlock the link action")
             capture(device, "/data/local/tmp/drop-suggested-actions.png")
 
             assertVisibleAfterScroll(device, "Choose another action", "Suggested Actions must expose a manual chooser").click()
