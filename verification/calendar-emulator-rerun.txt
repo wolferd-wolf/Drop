@@ -1,0 +1,1 @@
+Retry the unchanged Calendar confirmation build after the emulator accessibility service failed to expose all Compose UI text.
