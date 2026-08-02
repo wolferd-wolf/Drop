@@ -1,1 +1,1 @@
-Apply stable calendar venue verification and rerun final CI.
+Calendar venue selector corrected; run authoritative final CI.
