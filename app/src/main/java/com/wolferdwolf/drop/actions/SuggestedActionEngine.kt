@@ -23,12 +23,16 @@ data class SuggestedAction(
 )
 
 object SuggestedActionEngine {
+    private const val MAX_VISIBLE_ACTIONS = 5
+    private const val MAX_RELEVANT_ACTIONS = 4
+    private const val MANUAL_PRIORITY = 40
+
     fun suggest(originalText: String, results: List<ExtractionResult>): List<SuggestedAction> {
         val types = results.mapTo(mutableSetOf()) { it.type }
         val lower = originalText.lowercase()
-        val actions = mutableListOf<SuggestedAction>()
+        val relevant = mutableListOf<SuggestedAction>()
 
-        actions += SuggestedAction(
+        relevant += SuggestedAction(
             SuggestedActionType.SAVE_REFERENCE,
             "Save reference",
             "Keep the original content and extracted details in Drop.",
@@ -36,7 +40,7 @@ object SuggestedActionEngine {
         )
 
         if (ExtractionType.DATE in types || ExtractionType.TIME in types || containsDeadlineLanguage(lower)) {
-            actions += SuggestedAction(
+            relevant += SuggestedAction(
                 SuggestedActionType.REMINDER,
                 "Create reminder",
                 "A date, time, or deadline-like phrase was detected.",
@@ -45,7 +49,7 @@ object SuggestedActionEngine {
         }
 
         if (ExtractionType.DATE in types && (ExtractionType.TIME in types || containsEventLanguage(lower))) {
-            actions += SuggestedAction(
+            relevant += SuggestedAction(
                 SuggestedActionType.CALENDAR,
                 "Add calendar event",
                 "The content looks like it may describe an event.",
@@ -54,7 +58,7 @@ object SuggestedActionEngine {
         }
 
         if (looksLikeChecklist(originalText)) {
-            actions += SuggestedAction(
+            relevant += SuggestedAction(
                 SuggestedActionType.CHECKLIST,
                 "Create checklist",
                 "The content contains several list-like lines.",
@@ -63,7 +67,7 @@ object SuggestedActionEngine {
         }
 
         if (ExtractionType.PHONE in types || ExtractionType.EMAIL in types) {
-            actions += SuggestedAction(
+            relevant += SuggestedAction(
                 SuggestedActionType.CONTACT,
                 "Save contact",
                 "A phone number or email address was detected.",
@@ -72,7 +76,7 @@ object SuggestedActionEngine {
         }
 
         if (looksLikeAddress(lower)) {
-            actions += SuggestedAction(
+            relevant += SuggestedAction(
                 SuggestedActionType.MAPS,
                 "Open in Maps",
                 "The content contains address or venue language.",
@@ -81,7 +85,7 @@ object SuggestedActionEngine {
         }
 
         if (ExtractionType.URL in types) {
-            actions += SuggestedAction(
+            relevant += SuggestedAction(
                 SuggestedActionType.OPEN_LINK,
                 "Open link",
                 "A web link was detected.",
@@ -90,7 +94,7 @@ object SuggestedActionEngine {
         }
 
         if (ExtractionType.EMAIL in types) {
-            actions += SuggestedAction(
+            relevant += SuggestedAction(
                 SuggestedActionType.EMAIL,
                 "Send email",
                 "An email address was detected.",
@@ -99,7 +103,7 @@ object SuggestedActionEngine {
         }
 
         if (ExtractionType.PHONE in types) {
-            actions += SuggestedAction(
+            relevant += SuggestedAction(
                 SuggestedActionType.CALL,
                 "Call number",
                 "A phone number was detected.",
@@ -107,42 +111,56 @@ object SuggestedActionEngine {
             )
         }
 
-        addManualChoiceIfMissing(
-            actions,
-            SuggestedActionType.REMINDER,
-            "Create reminder",
-            "Manual choice: set a reminder even though no clear deadline was detected."
-        )
-        addManualChoiceIfMissing(
-            actions,
-            SuggestedActionType.CALENDAR,
-            "Add calendar event",
-            "Manual choice: create an event and fill in its details yourself."
-        )
-        addManualChoiceIfMissing(
-            actions,
-            SuggestedActionType.CHECKLIST,
-            "Create checklist",
-            "Manual choice: turn the imported content into an editable checklist."
-        )
-        addManualChoiceIfMissing(
-            actions,
-            SuggestedActionType.MAPS,
-            "Open in Maps",
-            "Manual choice: search Maps using the imported content."
-        )
+        val ranked = relevant
+            .distinctBy(SuggestedAction::type)
+            .sortedByDescending(SuggestedAction::priority)
+            .take(MAX_RELEVANT_ACTIONS)
+            .toMutableList()
 
-        return actions.sortedByDescending(SuggestedAction::priority)
+        manualChoice(originalText, ranked.mapTo(mutableSetOf(), SuggestedAction::type))?.let(ranked::add)
+        return ranked.take(MAX_VISIBLE_ACTIONS)
     }
 
-    private fun addManualChoiceIfMissing(
-        actions: MutableList<SuggestedAction>,
-        type: SuggestedActionType,
-        title: String,
-        reason: String
-    ) {
-        if (actions.none { it.type == type }) {
-            actions += SuggestedAction(type, title, reason, 40)
+    private fun manualChoice(text: String, visibleTypes: Set<SuggestedActionType>): SuggestedAction? {
+        val candidates = buildList {
+            if (SuggestedActionType.CHECKLIST !in visibleTypes) add(
+                SuggestedAction(
+                    SuggestedActionType.CHECKLIST,
+                    "Create checklist manually",
+                    "Manual choice: turn the imported content into an editable checklist.",
+                    MANUAL_PRIORITY
+                )
+            )
+            if (SuggestedActionType.REMINDER !in visibleTypes) add(
+                SuggestedAction(
+                    SuggestedActionType.REMINDER,
+                    "Set a reminder manually",
+                    "Manual choice: choose the reminder date and time yourself.",
+                    MANUAL_PRIORITY
+                )
+            )
+            if (SuggestedActionType.CALENDAR !in visibleTypes) add(
+                SuggestedAction(
+                    SuggestedActionType.CALENDAR,
+                    "Create event manually",
+                    "Manual choice: fill in the calendar event details yourself.",
+                    MANUAL_PRIORITY
+                )
+            )
+            if (SuggestedActionType.MAPS !in visibleTypes) add(
+                SuggestedAction(
+                    SuggestedActionType.MAPS,
+                    "Search in Maps manually",
+                    "Manual choice: search Maps using the imported content.",
+                    MANUAL_PRIORITY
+                )
+            )
+        }
+
+        return when {
+            looksLikeChecklist(text) -> candidates.firstOrNull { it.type == SuggestedActionType.REMINDER }
+            containsEventLanguage(text.lowercase()) -> candidates.firstOrNull { it.type == SuggestedActionType.CHECKLIST }
+            else -> candidates.firstOrNull()
         }
     }
 
