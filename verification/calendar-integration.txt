@@ -1,1 +1,1 @@
-Calendar confirmation venue isolation verification.
+Calendar venue isolation applied; run final product verification.
