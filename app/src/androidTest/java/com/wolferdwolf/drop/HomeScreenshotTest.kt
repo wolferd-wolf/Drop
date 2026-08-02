@@ -78,7 +78,7 @@ class HomeScreenshotTest {
             assertVisible(device, "Extract details", "Preview must provide extraction action").click()
             assertVisibleAfterScroll(device, "See suggested actions", "Extraction must lead to Suggested Actions").click()
             assertVisible(device, "Open in Maps", "A likely venue must surface Maps as a relevant action")
-            assertVisible(device, "A likely address or venue was detected: Annual meeting venue: Sri Balaji Convention Hall, near RTC Bus Station,", "Maps suggestion must explain the detected venue")
+            assertVisible(device, "A likely address or venue was detected: Sri Balaji Convention Hall, near RTC Bus Station, Gooty 515401", "Maps suggestion must explain the isolated venue")
             capture(device, "/data/local/tmp/drop-maps-suggestion.png")
         }
     }
