@@ -1,1 +1,1 @@
-Calendar confirmation integration verification retry.
+Calendar confirmation venue isolation verification.
