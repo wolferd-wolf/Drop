@@ -128,3 +128,4 @@ jobs:
           git add app/src .github/workflows/android-ci.yml
           git commit -m "Extract prices and currencies across Drop inputs"
           git push
+          # trigger 2
