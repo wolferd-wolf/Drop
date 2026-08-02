@@ -21,6 +21,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,7 +32,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.wolferdwolf.drop.MainActivity
-import com.wolferdwolf.drop.data.SavedReferenceStore
 import com.wolferdwolf.drop.ui.theme.DropTheme
 
 class TimetableReviewActivity : ComponentActivity() {
@@ -39,6 +39,7 @@ class TimetableReviewActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val source = intent.getStringExtra(EXTRA_OCR_TEXT).orEmpty()
         val parsed = TimetableParser.parse(source)
+        val store = SavedTimetableStore(applicationContext)
 
         setContent {
             DropTheme {
@@ -48,10 +49,13 @@ class TimetableReviewActivity : ComponentActivity() {
                     TimetableReviewScreen(
                         parsed,
                         onSave = { title, entries ->
-                            SavedReferenceStore(applicationContext).save(title, format(title, entries))
+                            store.save(title, entries, source)
                             finish()
                         },
-                        onContinue = { title, entries -> continueWithText(format(title, entries)) },
+                        onContinue = { title, entries ->
+                            store.save(title, entries, source)
+                            continueWithText(format(title, entries))
+                        },
                         onClose = ::finish
                     )
                 }
@@ -93,6 +97,7 @@ private fun TimetableReviewScreen(
 ) {
     var title by remember { mutableStateOf(document.title) }
     val entries = remember { mutableStateListOf(*document.entries.toTypedArray()) }
+    val valid = entries.isNotEmpty() && entries.all { TimetableParser.normalizeTime(it.time) != null }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Review timetable") }) }) { padding ->
         LazyColumn(
@@ -101,8 +106,8 @@ private fun TimetableReviewScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                Text("Timetable detected", style = MaterialTheme.typography.headlineSmall)
-                Text("Check every time and label. Handwriting can be read incorrectly.")
+                Text("Structured timetable detected", style = MaterialTheme.typography.headlineSmall)
+                Text("Drop will keep every row editable instead of flattening this image into a note.")
             }
             item {
                 OutlinedTextField(
@@ -116,17 +121,18 @@ private fun TimetableReviewScreen(
             item {
                 Button(
                     onClick = { onContinue(title, entries.toList()) },
-                    enabled = entries.isNotEmpty(),
+                    enabled = valid,
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("Continue to reminders and calendar") }
+                ) { Text("Save and create actions") }
             }
             item {
                 OutlinedButton(
                     onClick = { onSave(title, entries.toList()) },
-                    enabled = entries.isNotEmpty(),
+                    enabled = valid,
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("Save timetable") }
+                ) { Text("Save as structured timetable") }
             }
+            if (!valid) item { Text("Every entry needs a valid 24-hour time such as 09:30.", color = MaterialTheme.colorScheme.error) }
             item { Text("Detected entries", style = MaterialTheme.typography.titleLarge) }
             itemsIndexed(entries, key = { index, _ -> index }) { index, entry ->
                 Card(Modifier.fillMaxWidth()) {
@@ -138,7 +144,8 @@ private fun TimetableReviewScreen(
                                 onValueChange = { entries[index] = entry.copy(time = it.take(5)) },
                                 modifier = Modifier.fillMaxWidth(0.32f),
                                 label = { Text("Time") },
-                                singleLine = true
+                                singleLine = true,
+                                isError = TimetableParser.normalizeTime(entry.time) == null
                             )
                             OutlinedTextField(
                                 value = entry.label,
@@ -148,8 +155,15 @@ private fun TimetableReviewScreen(
                                 singleLine = true
                             )
                         }
+                        TextButton(onClick = { entries.removeAt(index) }) { Text("Remove entry") }
                     }
                 }
+            }
+            item {
+                OutlinedButton(
+                    onClick = { entries += TimetableEntry("09:00", "") },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Add timetable entry") }
             }
             item { OutlinedButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("Cancel") } }
         }
