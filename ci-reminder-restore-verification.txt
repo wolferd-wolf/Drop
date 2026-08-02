@@ -1,0 +1,1 @@
+Triggers CI verification for reminder restoration after reboot.
