@@ -1,1 +1,1 @@
-Calendar venue selector corrected; run authoritative final CI.
+Apply the Calendar venue isolation fix and rerun the authoritative Android quality gate.
