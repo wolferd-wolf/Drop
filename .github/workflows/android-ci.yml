@@ -27,13 +27,13 @@ jobs:
         shell: bash
         run: |
           if [ ! -f verification/contact-confirmation.txt ]; then exit 0; fi
+          python3 -m pip install --quiet pyyaml
           python3 - <<'PY'
           from pathlib import Path
-          source = Path('.github/workflows/apply-contact-confirmation.yml').read_text().splitlines()
-          start = next(i for i, line in enumerate(source) if "python3 - <<'PY'" in line) + 1
-          end = next(i for i in range(start, len(source)) if source[i].strip() == 'PY')
-          raw = source[start:end]
-          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in raw)
+          import yaml
+          workflow = yaml.safe_load(Path('.github/workflows/apply-contact-confirmation.yml').read_text())
+          run = workflow['jobs']['patch']['steps'][1]['run']
+          script = run.split("python3 - <<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
           exec(compile(script, 'contact_integration.py', 'exec'))
           ci = Path('.github/workflows/android-ci.yml')
           text = ci.read_text()
