@@ -7,6 +7,7 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -14,33 +15,42 @@ import org.junit.runner.RunWith
 class HomeScreenshotTest {
     @Test
     fun captureActionFirstHomeScreen() {
-        ActivityScenario.launch(MainActivity::class.java).use {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             val instrumentation = InstrumentationRegistry.getInstrumentation()
             val device = UiDevice.getInstance(instrumentation)
-            device.waitForIdle()
 
-            assertNotNull(
-                "Import image action must be visible on Home",
-                device.wait(Until.findObject(By.text("Import screenshot or image")), 5_000)
+            scenario.onActivity { activity ->
+                assertTrue("Drop activity must be active", !activity.isFinishing)
+            }
+            assertTrue(
+                "Drop window must reach the foreground",
+                device.wait(Until.hasObject(By.pkg(APP_PACKAGE).depth(0)), WINDOW_TIMEOUT_MILLIS)
             )
-            assertNotNull(
-                "Import PDF action must be visible on Home",
-                device.wait(Until.findObject(By.text("Import PDF")), 5_000)
-            )
-            assertNotNull(
-                "Paste text action must be visible on Home",
-                device.wait(Until.findObject(By.text("Paste text")), 5_000)
-            )
-            assertNotNull(
-                "Add link action must be visible on Home",
-                device.wait(Until.findObject(By.text("Add link")), 5_000)
-            )
+            device.waitForIdle()
 
             val screenshotPath = "/data/local/tmp/drop-home.png"
             device.executeShellCommand("rm -f $screenshotPath")
             device.executeShellCommand("screencap -p $screenshotPath")
             val listing = device.executeShellCommand("ls -l $screenshotPath")
-            assertNotNull("Screenshot command must create a file", listing.takeIf { it.contains("drop-home.png") })
+            assertTrue("Screenshot command must create a file", listing.contains("drop-home.png"))
+
+            assertVisible(device, "Import screenshot or image", "Import image action must be visible on Home")
+            assertVisible(device, "Import PDF", "Import PDF action must be visible on Home")
+            assertVisible(device, "Paste text", "Paste text action must be visible on Home")
+            assertVisible(device, "Add link", "Add link action must be visible on Home")
         }
+    }
+
+    private fun assertVisible(device: UiDevice, text: String, message: String) {
+        assertNotNull(
+            message,
+            device.wait(Until.findObject(By.text(text)), CONTROL_TIMEOUT_MILLIS)
+        )
+    }
+
+    private companion object {
+        const val APP_PACKAGE = "com.wolferdwolf.drop"
+        const val WINDOW_TIMEOUT_MILLIS = 20_000L
+        const val CONTROL_TIMEOUT_MILLIS = 10_000L
     }
 }
