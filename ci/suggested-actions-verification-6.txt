@@ -1,0 +1,1 @@
+Verification after moving screenshot capture to shell-owned temp storage.
