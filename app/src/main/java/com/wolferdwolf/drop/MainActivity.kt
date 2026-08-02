@@ -47,12 +47,14 @@ import com.wolferdwolf.drop.data.SavedReferenceStore
 import com.wolferdwolf.drop.extraction.ExtractionResult
 import com.wolferdwolf.drop.extraction.ExtractionType
 import com.wolferdwolf.drop.extraction.RuleBasedExtractor
+import com.wolferdwolf.drop.ocr.ImageOcrProcessor
 import com.wolferdwolf.drop.reminder.ReminderActivity
 import com.wolferdwolf.drop.reminder.ReminderDisplayFormatter
 import com.wolferdwolf.drop.reminder.ReminderHistoryStore
 import com.wolferdwolf.drop.reminder.ReminderRecord
 import com.wolferdwolf.drop.reminder.ReminderScheduler
 import com.wolferdwolf.drop.share.SharedTextParser
+import com.wolferdwolf.drop.timetable.TimetableReviewActivity
 import com.wolferdwolf.drop.ui.theme.DropTheme
 
 class MainActivity : ComponentActivity() {
@@ -61,6 +63,7 @@ class MainActivity : ComponentActivity() {
     private var references by mutableStateOf<List<SavedReference>>(emptyList())
     private var reminders by mutableStateOf<List<ReminderRecord>>(emptyList())
     private var actionError by mutableStateOf<String?>(null)
+    private var imageStatus by mutableStateOf<String?>(null)
     private lateinit var referenceStore: SavedReferenceStore
     private lateinit var reminderStore: ReminderHistoryStore
     private lateinit var reminderScheduler: ReminderScheduler
@@ -70,7 +73,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         imagePicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-            uri?.let { importDocument(it, "Image or screenshot") }
+            uri?.let(::processImage)
         }
         pdfPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             uri?.let { importDocument(it, "PDF document") }
@@ -92,7 +95,8 @@ class MainActivity : ComponentActivity() {
                     Screen.HOME -> HomeScreen(
                         references,
                         reminders,
-                        onImage = { imagePicker.launch("image/*") },
+                        imageStatus,
+                        onImage = { imageStatus = "Reading image offline…"; imagePicker.launch("image/*") },
                         onPdf = { pdfPicker.launch("application/pdf") },
                         onText = { screen = Screen.TEXT_ENTRY },
                         onLink = { screen = Screen.LINK_ENTRY },
@@ -162,6 +166,22 @@ class MainActivity : ComponentActivity() {
         outState.putString(STATE_TEXT, sourceText)
         outState.putString(STATE_SCREEN, screen.name)
         super.onSaveInstanceState(outState)
+    }
+
+    private fun processImage(uri: Uri) {
+        imageStatus = "Reading image offline…"
+        ImageOcrProcessor.process(
+            this,
+            uri,
+            onSuccess = { text ->
+                imageStatus = null
+                startActivity(
+                    Intent(this, TimetableReviewActivity::class.java)
+                        .putExtra(TimetableReviewActivity.EXTRA_OCR_TEXT, text)
+                )
+            },
+            onFailure = { message -> imageStatus = message }
+        )
     }
 
     private fun execute(action: SuggestedAction, text: String, results: List<ExtractionResult>) {
@@ -271,6 +291,7 @@ class MainActivity : ComponentActivity() {
     private fun reset() {
         sourceText = null
         actionError = null
+        imageStatus = null
         screen = Screen.HOME
     }
 
@@ -479,6 +500,7 @@ private fun ChecklistScreen(value: String, onBack: () -> Unit, onSave: (String) 
 private fun HomeScreen(
     references: List<SavedReference>,
     reminders: List<ReminderRecord>,
+    imageStatus: String?,
     onImage: () -> Unit,
     onPdf: () -> Unit,
     onText: () -> Unit,
@@ -497,6 +519,7 @@ private fun HomeScreen(
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Button(onClick = onImage, modifier = Modifier.fillMaxWidth()) { Text("Import screenshot or image") }
+                        imageStatus?.let { Text(it, color = if (it.startsWith("Reading")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error) }
                         Button(onClick = onPdf, modifier = Modifier.fillMaxWidth()) { Text("Import PDF") }
                         FilledTonalButton(onClick = onText, modifier = Modifier.fillMaxWidth()) { Text("Paste text") }
                         FilledTonalButton(onClick = onLink, modifier = Modifier.fillMaxWidth()) { Text("Add link") }
