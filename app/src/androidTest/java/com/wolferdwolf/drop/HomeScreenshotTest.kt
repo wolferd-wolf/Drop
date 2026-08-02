@@ -1,11 +1,14 @@
 package com.wolferdwolf.drop
 
+import android.content.Intent
 import androidx.test.core.app.ActivityScenario
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
+import com.wolferdwolf.drop.timetable.TimetableReviewActivity
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,24 +19,10 @@ class HomeScreenshotTest {
     @Test
     fun captureActionFirstHomeScreen() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            val instrumentation = InstrumentationRegistry.getInstrumentation()
-            val device = UiDevice.getInstance(instrumentation)
-
-            scenario.onActivity { activity ->
-                assertTrue("Drop activity must be active", !activity.isFinishing)
-            }
-            assertTrue(
-                "Drop window must reach the foreground",
-                device.wait(Until.hasObject(By.pkg(APP_PACKAGE).depth(0)), WINDOW_TIMEOUT_MILLIS)
-            )
-            device.waitForIdle()
-
-            val screenshotPath = "/data/local/tmp/drop-home.png"
-            device.executeShellCommand("rm -f $screenshotPath")
-            device.executeShellCommand("screencap -p $screenshotPath")
-            val listing = device.executeShellCommand("ls -l $screenshotPath")
-            assertTrue("Screenshot command must create a file", listing.contains("drop-home.png"))
-
+            val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            scenario.onActivity { activity -> assertTrue(!activity.isFinishing) }
+            waitForDrop(device)
+            capture(device, "/data/local/tmp/drop-home.png")
             assertVisible(device, "Import screenshot or image", "Import image action must be visible on Home")
             assertVisible(device, "Import PDF", "Import PDF action must be visible on Home")
             assertVisible(device, "Paste text", "Paste text action must be visible on Home")
@@ -41,11 +30,39 @@ class HomeScreenshotTest {
         }
     }
 
-    private fun assertVisible(device: UiDevice, text: String, message: String) {
-        assertNotNull(
-            message,
-            device.wait(Until.findObject(By.text(text)), CONTROL_TIMEOUT_MILLIS)
+    @Test
+    fun captureEditableTimetableReviewScreen() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val intent = Intent(context, TimetableReviewActivity::class.java).putExtra(
+            TimetableReviewActivity.EXTRA_OCR_TEXT,
+            "Highschool Girls Plus\n9.00 Vadapada\n9.05 Prayer\n10.00 Class\n10.40 Break"
         )
+        ActivityScenario.launch<TimetableReviewActivity>(intent).use {
+            val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            waitForDrop(device)
+            assertVisible(device, "Review timetable", "Timetable review title must be visible")
+            assertVisible(device, "Save timetable", "Save timetable action must be visible")
+            assertVisible(device, "Continue to reminders and calendar", "Follow-up action must be visible")
+            capture(device, "/data/local/tmp/drop-timetable.png")
+        }
+    }
+
+    private fun waitForDrop(device: UiDevice) {
+        assertTrue(
+            "Drop window must reach the foreground",
+            device.wait(Until.hasObject(By.pkg(APP_PACKAGE).depth(0)), WINDOW_TIMEOUT_MILLIS)
+        )
+        device.waitForIdle()
+    }
+
+    private fun capture(device: UiDevice, path: String) {
+        device.executeShellCommand("rm -f $path")
+        device.executeShellCommand("screencap -p $path")
+        assertTrue(device.executeShellCommand("ls -l $path").contains(path.substringAfterLast('/')))
+    }
+
+    private fun assertVisible(device: UiDevice, text: String, message: String) {
+        assertNotNull(message, device.wait(Until.findObject(By.text(text)), CONTROL_TIMEOUT_MILLIS))
     }
 
     private companion object {
