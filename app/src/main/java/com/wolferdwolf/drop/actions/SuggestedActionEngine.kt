@@ -107,16 +107,43 @@ object SuggestedActionEngine {
             )
         }
 
-        if (actions.none { it.type == SuggestedActionType.REMINDER }) {
-            actions += SuggestedAction(
-                SuggestedActionType.REMINDER,
-                "Create reminder",
-                "You can create a reminder manually from this content.",
-                60
-            )
-        }
+        addManualChoiceIfMissing(
+            actions,
+            SuggestedActionType.REMINDER,
+            "Create reminder",
+            "Manual choice: set a reminder even though no clear deadline was detected."
+        )
+        addManualChoiceIfMissing(
+            actions,
+            SuggestedActionType.CALENDAR,
+            "Add calendar event",
+            "Manual choice: create an event and fill in its details yourself."
+        )
+        addManualChoiceIfMissing(
+            actions,
+            SuggestedActionType.CHECKLIST,
+            "Create checklist",
+            "Manual choice: turn the imported content into an editable checklist."
+        )
+        addManualChoiceIfMissing(
+            actions,
+            SuggestedActionType.MAPS,
+            "Open in Maps",
+            "Manual choice: search Maps using the imported content."
+        )
 
-        return actions.sortedByDescending(SuggestedAction::priority).take(6)
+        return actions.sortedByDescending(SuggestedAction::priority)
+    }
+
+    private fun addManualChoiceIfMissing(
+        actions: MutableList<SuggestedAction>,
+        type: SuggestedActionType,
+        title: String,
+        reason: String
+    ) {
+        if (actions.none { it.type == type }) {
+            actions += SuggestedAction(type, title, reason, 40)
+        }
     }
 
     private fun containsDeadlineLanguage(text: String): Boolean =
