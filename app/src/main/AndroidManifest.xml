@@ -9,6 +9,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Drop">
         <activity
+            android:name=".maps.MapConfirmationActivity"
+            android:exported="false" />
+        <activity
             android:name=".pdf.PdfImportActivity"
             android:exported="false" />
         <activity
