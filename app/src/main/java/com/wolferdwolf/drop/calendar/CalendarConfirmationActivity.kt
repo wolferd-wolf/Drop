@@ -79,7 +79,7 @@ class CalendarConfirmationActivity : ComponentActivity() {
                     onVenueChange = { venue = it.take(MAX_VENUE_LENGTH) },
                     onNotesChange = { notes = it.take(MAX_NOTES_LENGTH) },
                     onAdd = {
-                        error = validateAndLaunch(title, eventDate, startTime, endTime, venue, notes)
+                        error = validateLaunchAndRecord(title, eventDate, startTime, endTime, venue, notes)
                     },
                     onCancel = ::finish
                 )
@@ -87,7 +87,7 @@ class CalendarConfirmationActivity : ComponentActivity() {
         }
     }
 
-    private fun validateAndLaunch(
+    private fun validateLaunchAndRecord(
         title: String,
         date: String,
         startTime: String,
@@ -95,31 +95,45 @@ class CalendarConfirmationActivity : ComponentActivity() {
         venue: String,
         notes: String
     ): String? {
-        if (title.trim().isBlank()) return "Enter an event title."
-        val start = parseDateTime(date.trim(), startTime.trim()) ?: return "Use a valid date and start time, such as 2026-08-21 and 16:00."
-        val end = if (endTime.isBlank()) start + ONE_HOUR_MILLIS else parseDateTime(date.trim(), endTime.trim())
+        val cleanTitle = title.trim()
+        val cleanDate = date.trim()
+        val cleanStartTime = startTime.trim()
+        val cleanEndTime = endTime.trim()
+        val cleanVenue = venue.trim()
+        val cleanNotes = notes.trim()
+
+        if (cleanTitle.isBlank()) return "Enter an event title."
+        val start = parseDateTime(cleanDate, cleanStartTime)
+            ?: return "Use a valid date and start time, such as 2026-08-21 and 16:00."
+        val end = if (cleanEndTime.isBlank()) start + ONE_HOUR_MILLIS else parseDateTime(cleanDate, cleanEndTime)
             ?: return "Use a valid end time, such as 17:00."
         if (end <= start) return "End time must be after the start time."
 
         val calendarIntent = Intent(Intent.ACTION_INSERT)
             .setData(CalendarContract.Events.CONTENT_URI)
-            .putExtra(CalendarContract.Events.TITLE, title.trim())
+            .putExtra(CalendarContract.Events.TITLE, cleanTitle)
             .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, start)
             .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, end)
-            .putExtra(CalendarContract.Events.EVENT_LOCATION, venue.trim())
-            .putExtra(CalendarContract.Events.DESCRIPTION, notes.trim())
+            .putExtra(CalendarContract.Events.EVENT_LOCATION, cleanVenue)
+            .putExtra(CalendarContract.Events.DESCRIPTION, cleanNotes)
 
         return try {
             if (calendarIntent.resolveActivity(packageManager) == null) {
                 "No compatible Calendar app is installed."
             } else {
                 startActivity(calendarIntent)
+                SavedReferenceStore(applicationContext).save(
+                    historyTitle(cleanTitle),
+                    historyContent(cleanTitle, cleanDate, cleanStartTime, cleanEndTime, cleanVenue, cleanNotes)
+                )
                 null
             }
         } catch (_: ActivityNotFoundException) {
             "No compatible Calendar app is installed."
         } catch (_: SecurityException) {
             "Android blocked this action. Check device settings and try again."
+        } catch (_: Exception) {
+            "The Calendar app opened, but Drop could not record this action in History."
         }
     }
 
@@ -168,6 +182,25 @@ class CalendarConfirmationActivity : ComponentActivity() {
 
         internal fun parseDateTime(date: String, time: String): Long? =
             parseStrict("$date $time", "yyyy-MM-dd HH:mm")?.time
+
+        internal fun historyTitle(title: String): String = "Calendar: ${title.trim().take(80)}"
+
+        internal fun historyContent(
+            title: String,
+            date: String,
+            startTime: String,
+            endTime: String,
+            venue: String,
+            notes: String
+        ): String = buildString {
+            append("Status: Opened in Calendar app\n")
+            append("Event: ").append(title.trim()).append('\n')
+            append("Date: ").append(date.trim()).append('\n')
+            append("Start: ").append(startTime.trim()).append('\n')
+            if (endTime.isNotBlank()) append("End: ").append(endTime.trim()).append('\n')
+            if (venue.isNotBlank()) append("Venue: ").append(venue.trim()).append('\n')
+            if (notes.isNotBlank()) append("\n").append(notes.trim())
+        }.take(MAX_NOTES_LENGTH)
 
         private fun parseStrict(value: String, pattern: String): Date? {
             val format = SimpleDateFormat(pattern, Locale.US).apply { isLenient = false }
@@ -221,7 +254,7 @@ private fun CalendarConfirmationScreen(
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("Nothing is added automatically", style = MaterialTheme.typography.titleMedium)
-                        Text("Drop only passes these edited details to Calendar after you confirm.")
+                        Text("Drop only passes these edited details to Calendar after you confirm. You still choose whether to save the event. A record is added to History after the Calendar app opens.")
                     }
                 }
             }
