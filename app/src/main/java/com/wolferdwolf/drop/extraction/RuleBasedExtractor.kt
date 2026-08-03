@@ -87,6 +87,16 @@ object RuleBasedExtractor {
         ),
         Rule(
             ExtractionType.TIME,
+            Regex("(?i)(?<![\\d.])(?:1[0-2]|0?[1-9])\\.[0-5]\\d\\s?(?:am|pm)\\b"),
+            0.94f
+        ),
+        Rule(
+            ExtractionType.TIME,
+            Regex("(?i)(?<!\\d)(?:[01]?\\d|2[0-3])h[0-5]\\d(?!\\d)"),
+            0.92f
+        ),
+        Rule(
+            ExtractionType.TIME,
             Regex("(?<!\\d)(?:[01]?\\d|2[0-3]):[0-5]\\d(?!\\d)"),
             0.92f
         ),
