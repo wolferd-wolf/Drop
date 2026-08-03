@@ -472,4 +472,5 @@ private fun ExtractionType.label() = when (this) {
     ExtractionType.URL -> "Web link"
     ExtractionType.DATE -> "Date"
     ExtractionType.TIME -> "Time"
+    ExtractionType.PRICE -> "Price"
 }
