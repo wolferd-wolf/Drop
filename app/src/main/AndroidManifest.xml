@@ -26,6 +26,20 @@
         <activity
             android:name=".reminder.ReminderActivity"
             android:exported="false" />
+        <activity
+            android:name=".share.SharedStreamActivity"
+            android:exported="true">
+            <intent-filter android:label="Drop">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter android:label="Drop">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+        </activity>
         <receiver
             android:name=".reminder.ReminderReceiver"
             android:exported="false" />
