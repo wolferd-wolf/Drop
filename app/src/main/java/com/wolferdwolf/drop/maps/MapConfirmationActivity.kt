@@ -28,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.wolferdwolf.drop.data.SavedReferenceStore
 import com.wolferdwolf.drop.extraction.AddressCandidateDetector
 import com.wolferdwolf.drop.ui.theme.DropTheme
 
@@ -51,7 +52,7 @@ class MapConfirmationActivity : ComponentActivity() {
                         if (clean.isBlank()) {
                             error = "Enter an address or place to search."
                         } else {
-                            error = launchMaps(clean)
+                            error = launchMapsAndRecord(clean)
                         }
                     },
                     onCancel = ::finish
@@ -60,25 +61,40 @@ class MapConfirmationActivity : ComponentActivity() {
         }
     }
 
-    private fun launchMaps(query: String): String? {
-        val mapsIntent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(query)}"))
+    private fun launchMapsAndRecord(query: String): String? {
+        val cleanQuery = query.trim()
+        val mapsIntent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(cleanQuery)}"))
         return try {
             if (mapsIntent.resolveActivity(packageManager) == null) {
                 "No compatible Maps app is installed."
             } else {
                 startActivity(mapsIntent)
+                SavedReferenceStore(applicationContext).save(
+                    historyTitle(cleanQuery),
+                    historyContent(cleanQuery)
+                )
                 null
             }
         } catch (_: ActivityNotFoundException) {
             "No compatible Maps app is installed."
         } catch (_: SecurityException) {
             "Android blocked this action. Check device settings and try again."
+        } catch (_: Exception) {
+            "Maps opened, but Drop could not record this action in History."
         }
     }
 
     companion object {
         const val EXTRA_SOURCE_TEXT = "source_text"
         const val MAX_QUERY_LENGTH = 500
+
+        internal fun historyTitle(query: String): String =
+            "Maps: ${query.trim().take(80)}"
+
+        internal fun historyContent(query: String): String = buildString {
+            append("Status: Opened in Maps app\n")
+            append("Location: ").append(query.trim())
+        }.take(MAX_QUERY_LENGTH)
     }
 }
 
@@ -114,7 +130,7 @@ private fun MapConfirmationScreen(
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("You stay in control", style = MaterialTheme.typography.titleMedium)
-                        Text("Drop does not open Maps until you confirm. Your imported content remains on this device.")
+                        Text("Drop does not open Maps until you confirm. Your imported content remains on this device. A record is added to History after Maps opens.")
                     }
                 }
             }
