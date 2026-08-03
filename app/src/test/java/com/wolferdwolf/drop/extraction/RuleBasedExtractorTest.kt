@@ -20,6 +20,35 @@ class RuleBasedExtractorTest {
     }
 
     @Test
+    fun extractsIndianAndInternationalPrices() {
+        val text = "Total ₹1,25,499.50, deposit Rs. 2,000, plan USD 19.99, fee 35 EUR, and ticket £12."
+        val prices = RuleBasedExtractor.extract(text).filter { it.type == ExtractionType.PRICE }
+
+        assertTrue(prices.any { it.value == "₹1,25,499.50" })
+        assertTrue(prices.any { it.value == "Rs. 2,000" })
+        assertTrue(prices.any { it.value == "USD 19.99" })
+        assertTrue(prices.any { it.value == "35 EUR" })
+        assertTrue(prices.any { it.value == "£12" })
+    }
+
+    @Test
+    fun priceExtractionRequiresAnExplicitCurrency() {
+        val text = "Invoice 12345, quantity 250, PIN 515401, date 15/08/2026, time 18:45."
+        val results = RuleBasedExtractor.extract(text)
+
+        assertFalse(results.any { it.type == ExtractionType.PRICE })
+    }
+
+    @Test
+    fun priceSourceRangesRemainExact() {
+        val text = "Pay INR 12,500.00 today."
+        val price = RuleBasedExtractor.extract(text).single { it.type == ExtractionType.PRICE }
+
+        assertEquals("INR 12,500.00", price.value)
+        assertEquals(price.value, text.substring(price.sourceStart, price.sourceEndExclusive))
+    }
+
+    @Test
     fun extractsInternationalAndFormattedPhoneNumbers() {
         val text = "US +1 (415) 555-2671, UK +44 20 7946 0958, office (040) 2345 6789."
         val phones = RuleBasedExtractor.extract(text).filter { it.type == ExtractionType.PHONE }
