@@ -59,4 +59,4 @@ jobs:
           git commit -m 'Integrate Open Link confirmation on current main [open-link-patched]'
           git push origin HEAD:automation/open-link-history-current-main
 
-# retrigger integration
+# trigger patch workflow now
