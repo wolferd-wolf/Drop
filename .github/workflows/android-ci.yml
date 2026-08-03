@@ -18,31 +18,24 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
-
       - name: Run unit tests
         run: gradle testDebugUnitTest --stacktrace
-
       - name: Run Android lint
         run: gradle lintDebug --stacktrace
-
       - name: Build debug APK and instrumentation tests
         run: gradle assembleDebug assembleDebugAndroidTest --stacktrace
-
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -50,7 +43,6 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
-
       - name: Upload unit test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -61,7 +53,6 @@ jobs:
             app/build/test-results/testDebugUnitTest/**
           if-no-files-found: warn
           retention-days: 14
-
       - name: Upload lint reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -78,60 +69,46 @@ jobs:
     needs: build-test
     runs-on: ubuntu-latest
     timeout-minutes: 35
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
-
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-
       - name: Run emulator screenshot test
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 34
           target: google_apis
           arch: x86_64
           profile: pixel_6
           disable-animations: true
           script: |
+            adb shell input keyevent KEYCODE_WAKEUP
+            adb shell wm dismiss-keyguard || true
+            adb shell input keyevent 82
+            adb shell settings put system screen_off_timeout 2147483647
+            adb shell settings put global stay_on_while_plugged_in 3
+            adb shell am start -a android.intent.action.MAIN -c android.intent.category.HOME
+            adb shell am force-stop com.wolferdwolf.drop || true
+            sleep 2
             gradle connectedDebugAndroidTest --stacktrace
             mkdir -p screenshots
-            adb pull /data/local/tmp/drop-home.png screenshots/drop-home.png
-            adb pull /data/local/tmp/drop-history.png screenshots/drop-history.png
-            adb pull /data/local/tmp/drop-suggested-actions.png screenshots/drop-suggested-actions.png
-            adb pull /data/local/tmp/drop-all-actions.png screenshots/drop-all-actions.png
-            adb pull /data/local/tmp/drop-maps-suggestion.png screenshots/drop-maps-suggestion.png
-            adb pull /data/local/tmp/drop-maps-confirmation.png screenshots/drop-maps-confirmation.png
-            adb pull /data/local/tmp/drop-calendar-confirmation.png screenshots/drop-calendar-confirmation.png
-            adb pull /data/local/tmp/drop-contact-confirmation.png screenshots/drop-contact-confirmation.png
-            adb pull /data/local/tmp/drop-image-review.png screenshots/drop-image-review.png
-            adb pull /data/local/tmp/drop-pdf-review.png screenshots/drop-pdf-review.png
-            test -s screenshots/drop-home.png
-            test -s screenshots/drop-history.png
-            test -s screenshots/drop-suggested-actions.png
-            test -s screenshots/drop-all-actions.png
-            test -s screenshots/drop-maps-suggestion.png
-            test -s screenshots/drop-maps-confirmation.png
-            test -s screenshots/drop-calendar-confirmation.png
-            test -s screenshots/drop-contact-confirmation.png
-            test -s screenshots/drop-image-review.png
-            test -s screenshots/drop-pdf-review.png
-
+            for name in home history suggested-actions all-actions maps-suggestion maps-confirmation calendar-confirmation contact-confirmation image-review pdf-review open-link-confirmation; do
+              adb pull "/data/local/tmp/drop-$name.png" "screenshots/drop-$name.png"
+              test -s "screenshots/drop-$name.png"
+            done
       - name: Upload UI screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -140,7 +117,6 @@ jobs:
           path: screenshots/**
           if-no-files-found: error
           retention-days: 14
-
       - name: Upload instrumentation test reports
         if: always()
         uses: actions/upload-artifact@v4

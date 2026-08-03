@@ -1,6 +1,5 @@
 package com.wolferdwolf.drop
 
-import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -45,6 +44,7 @@ import com.wolferdwolf.drop.data.SavedReferenceStore
 import com.wolferdwolf.drop.extraction.ExtractionResult
 import com.wolferdwolf.drop.extraction.ExtractionType
 import com.wolferdwolf.drop.extraction.RuleBasedExtractor
+import com.wolferdwolf.drop.link.OpenLinkConfirmationActivity
 import com.wolferdwolf.drop.maps.MapConfirmationActivity
 import com.wolferdwolf.drop.ocr.ImageOcrProcessor
 import com.wolferdwolf.drop.pdf.PdfImportActivity
@@ -190,40 +190,30 @@ class MainActivity : ComponentActivity() {
             SuggestedActionType.SAVE_REFERENCE -> screen = Screen.SAVE
             SuggestedActionType.REMINDER -> startActivity(Intent(this, ReminderActivity::class.java).putExtra(ReminderActivity.EXTRA_SOURCE_TEXT, text))
             SuggestedActionType.CHECKLIST -> screen = Screen.CHECKLIST
-            SuggestedActionType.CALENDAR -> startActivity(
-                Intent(this, CalendarConfirmationActivity::class.java)
-                    .putExtra(CalendarConfirmationActivity.EXTRA_SOURCE_TEXT, text)
-            )
-            SuggestedActionType.CONTACT -> startActivity(
-                Intent(this, ContactConfirmationActivity::class.java)
-                    .putExtra(ContactConfirmationActivity.EXTRA_SOURCE_TEXT, text)
-            )
-            SuggestedActionType.MAPS -> startActivity(
-                Intent(this, MapConfirmationActivity::class.java)
-                    .putExtra(MapConfirmationActivity.EXTRA_SOURCE_TEXT, text)
-            )
-            SuggestedActionType.OPEN_LINK -> first(results, ExtractionType.URL)
-                ?.let { launch(Intent(Intent.ACTION_VIEW, Uri.parse(normalizeUrl(it)))) } ?: fail("No link was found.")
-            SuggestedActionType.EMAIL -> first(results, ExtractionType.EMAIL)
-                ?.let { launch(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:${Uri.encode(it)}"))) } ?: fail("No email address was found.")
-            SuggestedActionType.CALL -> first(results, ExtractionType.PHONE)
-                ?.let { launch(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(it)}"))) } ?: fail("No phone number was found.")
+            SuggestedActionType.CALENDAR -> startActivity(Intent(this, CalendarConfirmationActivity::class.java).putExtra(CalendarConfirmationActivity.EXTRA_SOURCE_TEXT, text))
+            SuggestedActionType.CONTACT -> startActivity(Intent(this, ContactConfirmationActivity::class.java).putExtra(ContactConfirmationActivity.EXTRA_SOURCE_TEXT, text))
+            SuggestedActionType.MAPS -> startActivity(Intent(this, MapConfirmationActivity::class.java).putExtra(MapConfirmationActivity.EXTRA_SOURCE_TEXT, text))
+            SuggestedActionType.OPEN_LINK -> first(results, ExtractionType.URL)?.let {
+                startActivity(Intent(this, OpenLinkConfirmationActivity::class.java).putExtra(OpenLinkConfirmationActivity.EXTRA_URL, it))
+            } ?: fail("No link was found.")
+            SuggestedActionType.EMAIL -> first(results, ExtractionType.EMAIL)?.let {
+                launchExternal(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:${Uri.encode(it)}")))
+            } ?: fail("No email address was found.")
+            SuggestedActionType.CALL -> first(results, ExtractionType.PHONE)?.let {
+                launchExternal(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(it)}")))
+            } ?: fail("No phone number was found.")
         }
     }
 
-    private fun launch(intent: Intent) {
-        try {
-            if (intent.resolveActivity(packageManager) == null) fail("No compatible app is installed for this action.") else startActivity(intent)
-        } catch (_: ActivityNotFoundException) {
-            fail("No compatible app is installed for this action.")
-        } catch (_: SecurityException) {
-            fail("Android blocked this action. Check permissions and try again.")
-        }
+    private fun launchExternal(intent: Intent) {
+        runCatching {
+            requireNotNull(intent.resolveActivity(packageManager))
+            startActivity(intent)
+        }.onFailure { fail("No compatible app is installed for this action.") }
     }
 
     private fun first(results: List<ExtractionResult>, type: ExtractionType) = results.firstOrNull { it.type == type }?.value
     private fun fail(message: String) { actionError = message }
-    private fun normalizeUrl(value: String) = if (value.startsWith("http://") || value.startsWith("https://")) value else "https://$value"
 
     private fun beginFlow(value: String) {
         val clean = value.trim().take(SharedTextParser.MAX_SHARED_TEXT_LENGTH)
@@ -255,30 +245,18 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HomeScreen(
-    importStatus: String?,
-    historyCount: Int,
-    onImage: () -> Unit,
-    onPdf: () -> Unit,
-    onText: () -> Unit,
-    onLink: () -> Unit,
-    onHistory: () -> Unit
-) {
+private fun HomeScreen(importStatus: String?, historyCount: Int, onImage: () -> Unit, onPdf: () -> Unit, onText: () -> Unit, onLink: () -> Unit, onHistory: () -> Unit) {
     Scaffold(topBar = { TopAppBar(title = { Text("Drop") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item { Text("Turn anything into the next useful action", style = MaterialTheme.typography.headlineMedium) }
-            item {
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(onClick = onImage, modifier = Modifier.fillMaxWidth()) { Text("Import screenshot or image") }
-                        Button(onClick = onPdf, modifier = Modifier.fillMaxWidth()) { Text("Import PDF") }
-                        importStatus?.let { Text(it, color = if (it.contains("offline", true) || it.startsWith("Select")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error) }
-                        FilledTonalButton(onClick = onText, modifier = Modifier.fillMaxWidth()) { Text("Paste text") }
-                        FilledTonalButton(onClick = onLink, modifier = Modifier.fillMaxWidth()) { Text("Add link") }
-                        Text("You can also share content to Drop from WhatsApp, Chrome, Gallery, and Files.")
-                    }
-                }
-            }
+            item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = onImage, modifier = Modifier.fillMaxWidth()) { Text("Import screenshot or image") }
+                Button(onClick = onPdf, modifier = Modifier.fillMaxWidth()) { Text("Import PDF") }
+                importStatus?.let { Text(it, color = if (it.contains("offline", true) || it.startsWith("Select")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error) }
+                FilledTonalButton(onClick = onText, modifier = Modifier.fillMaxWidth()) { Text("Paste text") }
+                FilledTonalButton(onClick = onLink, modifier = Modifier.fillMaxWidth()) { Text("Add link") }
+                Text("You can also share content to Drop from WhatsApp, Chrome, Gallery, and Files.")
+            } } }
             item { OutlinedButton(onClick = onHistory, modifier = Modifier.fillMaxWidth()) { Text(if (historyCount == 0) "History" else "History ($historyCount)") } }
             item { Text(if (historyCount == 0) "No saved actions yet. Import something to begin." else "$historyCount saved action${if (historyCount == 1) "" else "s"} available in History.") }
         }
@@ -287,38 +265,24 @@ private fun HomeScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HistoryScreen(
-    references: List<SavedReference>,
-    reminders: List<ReminderRecord>,
-    onBack: () -> Unit,
-    onDeleteReference: (SavedReference) -> Unit,
-    onCancelReminder: (ReminderRecord) -> Unit
-) {
+private fun HistoryScreen(references: List<SavedReference>, reminders: List<ReminderRecord>, onBack: () -> Unit, onDeleteReference: (SavedReference) -> Unit, onCancelReminder: (ReminderRecord) -> Unit) {
     Scaffold(topBar = { TopAppBar(title = { Text("History") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item { Text("Saved actions", style = MaterialTheme.typography.headlineSmall) }
             if (references.isEmpty() && reminders.isEmpty()) item { Text("Nothing has been saved yet.") }
             if (reminders.isNotEmpty()) item { Text("Scheduled reminders", style = MaterialTheme.typography.titleLarge) }
-            items(reminders, key = ReminderRecord::id) { reminder ->
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(reminder.title, style = MaterialTheme.typography.titleMedium)
-                        Text(ReminderDisplayFormatter.format(reminder.triggerAtMillis))
-                        if (reminder.notes.isNotBlank()) Text(reminder.notes, maxLines = 3)
-                        TextButton(onClick = { onCancelReminder(reminder) }) { Text("Cancel reminder") }
-                    }
-                }
-            }
+            items(reminders, key = ReminderRecord::id) { reminder -> Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(reminder.title, style = MaterialTheme.typography.titleMedium)
+                Text(ReminderDisplayFormatter.format(reminder.triggerAtMillis))
+                if (reminder.notes.isNotBlank()) Text(reminder.notes, maxLines = 3)
+                TextButton(onClick = { onCancelReminder(reminder) }) { Text("Cancel reminder") }
+            } } }
             if (references.isNotEmpty()) item { Text("References and checklists", style = MaterialTheme.typography.titleLarge) }
-            items(references, key = SavedReference::id) { reference ->
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(reference.title, style = MaterialTheme.typography.titleMedium)
-                        Text(reference.originalText, maxLines = 3)
-                        TextButton(onClick = { onDeleteReference(reference) }) { Text("Delete") }
-                    }
-                }
-            }
+            items(references, key = SavedReference::id) { reference -> Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(reference.title, style = MaterialTheme.typography.titleMedium)
+                Text(reference.originalText, maxLines = 3)
+                TextButton(onClick = { onDeleteReference(reference) }) { Text("Delete") }
+            } } }
             item { OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Back to Home") } }
         }
     }
@@ -332,12 +296,10 @@ private fun EntryScreen(title: String, singleLine: Boolean, onBack: () -> Unit, 
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item { Text("Add content for Drop to understand and turn into an action.") }
             item { OutlinedTextField(value, { value = it.take(SharedTextParser.MAX_SHARED_TEXT_LENGTH) }, Modifier.fillMaxWidth(), label = { Text(if (singleLine) "Website link" else "Content") }, singleLine = singleLine, minLines = if (singleLine) 1 else 8) }
-            item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth(0.48f)) { Text("Back") }
-                    Button(onClick = { onContinue(value) }, enabled = value.isNotBlank()) { Text("Continue") }
-                }
-            }
+            item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth(0.48f)) { Text("Back") }
+                Button(onClick = { onContinue(value) }, enabled = value.isNotBlank()) { Text("Continue") }
+            } }
         }
     }
 }
@@ -358,26 +320,16 @@ private fun PreviewScreen(value: String, onDiscard: () -> Unit, onContinue: (Str
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ExtractionScreen(
-    original: String,
-    results: List<ExtractionResult>,
-    onBack: () -> Unit,
-    onActions: () -> Unit,
-    onDiscard: () -> Unit
-) {
+private fun ExtractionScreen(original: String, results: List<ExtractionResult>, onBack: () -> Unit, onActions: () -> Unit, onDiscard: () -> Unit) {
     Scaffold(topBar = { TopAppBar(title = { Text("Extracted information") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { Text(if (results.isEmpty()) "Nothing specific was detected" else "${results.size} useful details found", style = MaterialTheme.typography.headlineSmall) }
             if (results.isEmpty()) item { Text("Drop can still save this content, create a reminder, or build a checklist.") }
-            else items(results, key = { "${it.type}-${it.sourceStart}-${it.value}" }) { result ->
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(result.type.label(), style = MaterialTheme.typography.labelLarge)
-                        Text(result.value, style = MaterialTheme.typography.titleMedium)
-                        Text("Confidence ${(result.confidence * 100).toInt()}%")
-                    }
-                }
-            }
+            else items(results, key = { "${it.type}-${it.sourceStart}-${it.value}" }) { result -> Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(result.type.label(), style = MaterialTheme.typography.labelLarge)
+                Text(result.value, style = MaterialTheme.typography.titleMedium)
+                Text("Confidence ${(result.confidence * 100).toInt()}%")
+            } } }
             item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Original content", style = MaterialTheme.typography.titleMedium); Text(original) } } }
             item { Button(onClick = onActions, modifier = Modifier.fillMaxWidth()) { Text("See suggested actions") } }
             item { OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Edit imported content") } }
@@ -388,13 +340,7 @@ private fun ExtractionScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ActionsScreen(
-    actions: List<SuggestedAction>,
-    error: String?,
-    onBack: () -> Unit,
-    onChooseAnother: () -> Unit,
-    onAction: (SuggestedAction) -> Unit
-) {
+private fun ActionsScreen(actions: List<SuggestedAction>, error: String?, onBack: () -> Unit, onChooseAnother: () -> Unit, onAction: (SuggestedAction) -> Unit) {
     Scaffold(topBar = { TopAppBar(title = { Text("Suggested actions") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { Text("Choose what Drop should do next", style = MaterialTheme.typography.headlineSmall) }
@@ -423,13 +369,11 @@ private fun AllActionsScreen(actions: List<SuggestedAction>, onBack: () -> Unit,
 
 @Composable
 private fun ActionCard(action: SuggestedAction, onAction: (SuggestedAction) -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(action.title, style = MaterialTheme.typography.titleMedium)
-            Text(action.reason)
-            Button(onClick = { onAction(action) }, modifier = Modifier.fillMaxWidth()) { Text(action.title) }
-        }
-    }
+    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(action.title, style = MaterialTheme.typography.titleMedium)
+        Text(action.reason)
+        Button(onClick = { onAction(action) }, modifier = Modifier.fillMaxWidth()) { Text(action.title) }
+    } }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
