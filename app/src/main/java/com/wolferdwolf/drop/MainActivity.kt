@@ -46,6 +46,7 @@ import com.wolferdwolf.drop.email.EmailConfirmationActivity
 import com.wolferdwolf.drop.extraction.ExtractionResult
 import com.wolferdwolf.drop.extraction.ExtractionType
 import com.wolferdwolf.drop.extraction.RuleBasedExtractor
+import com.wolferdwolf.drop.link.OpenLinkConfirmationActivity
 import com.wolferdwolf.drop.maps.MapConfirmationActivity
 import com.wolferdwolf.drop.ocr.ImageOcrProcessor
 import com.wolferdwolf.drop.pdf.PdfImportActivity
@@ -204,7 +205,12 @@ class MainActivity : ComponentActivity() {
                     .putExtra(MapConfirmationActivity.EXTRA_SOURCE_TEXT, text)
             )
             SuggestedActionType.OPEN_LINK -> first(results, ExtractionType.URL)
-                ?.let { launch(Intent(Intent.ACTION_VIEW, Uri.parse(normalizeUrl(it)))) } ?: fail("No link was found.")
+                ?.let {
+                    startActivity(
+                        Intent(this, OpenLinkConfirmationActivity::class.java)
+                            .putExtra(OpenLinkConfirmationActivity.EXTRA_URL, it)
+                    )
+                } ?: fail("No link was found.")
             SuggestedActionType.EMAIL -> startActivity(
                 Intent(this, EmailConfirmationActivity::class.java)
                     .putExtra(EmailConfirmationActivity.EXTRA_SOURCE_TEXT, text)
@@ -226,7 +232,6 @@ class MainActivity : ComponentActivity() {
 
     private fun first(results: List<ExtractionResult>, type: ExtractionType) = results.firstOrNull { it.type == type }?.value
     private fun fail(message: String) { actionError = message }
-    private fun normalizeUrl(value: String) = if (value.startsWith("http://") || value.startsWith("https://")) value else "https://$value"
 
     private fun beginFlow(value: String) {
         val clean = value.trim().take(SharedTextParser.MAX_SHARED_TEXT_LENGTH)
