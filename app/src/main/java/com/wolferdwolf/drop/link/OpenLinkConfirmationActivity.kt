@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.wolferdwolf.drop.ui.theme.DropTheme
+import java.net.URI
 
 class OpenLinkConfirmationActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,9 +47,10 @@ class OpenLinkConfirmationActivity : ComponentActivity() {
                     onUrlChange = { url = it.take(MAX_URL_LENGTH) },
                     onOpen = {
                         val normalized = OpenLinkValidator.normalize(url)
-                        error = when {
-                            normalized == null -> "Enter a valid http or https website link."
-                            else -> launchBrowser(normalized)
+                        error = if (normalized == null) {
+                            "Enter a valid http or https website link."
+                        } else {
+                            launchBrowser(normalized)
                         }
                     },
                     onCancel = ::finish
@@ -84,7 +86,7 @@ object OpenLinkValidator {
         val clean = value.trim()
         if (clean.isBlank() || clean.any(Char::isWhitespace)) return null
         val candidate = if (clean.startsWith("http://", true) || clean.startsWith("https://", true)) clean else "https://$clean"
-        val uri = runCatching { Uri.parse(candidate) }.getOrNull() ?: return null
+        val uri = runCatching { URI(candidate) }.getOrNull() ?: return null
         val scheme = uri.scheme?.lowercase()
         val host = uri.host
         return candidate.takeIf { scheme in setOf("http", "https") && !host.isNullOrBlank() && host.contains('.') }
