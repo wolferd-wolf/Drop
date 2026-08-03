@@ -121,6 +121,7 @@ jobs:
             adb pull /data/local/tmp/drop-contact-confirmation.png screenshots/drop-contact-confirmation.png
             adb pull /data/local/tmp/drop-email-confirmation.png screenshots/drop-email-confirmation.png
             adb pull /data/local/tmp/drop-open-link-confirmation.png screenshots/drop-open-link-confirmation.png
+            adb pull /data/local/tmp/drop-call-confirmation.png screenshots/drop-call-confirmation.png
             adb pull /data/local/tmp/drop-image-review.png screenshots/drop-image-review.png
             adb pull /data/local/tmp/drop-pdf-review.png screenshots/drop-pdf-review.png
             test -s screenshots/drop-home.png
@@ -133,6 +134,7 @@ jobs:
             test -s screenshots/drop-contact-confirmation.png
             test -s screenshots/drop-email-confirmation.png
             test -s screenshots/drop-open-link-confirmation.png
+            test -s screenshots/drop-call-confirmation.png
             test -s screenshots/drop-image-review.png
             test -s screenshots/drop-pdf-review.png
 

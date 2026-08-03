@@ -39,6 +39,7 @@ import com.wolferdwolf.drop.actions.SuggestedAction
 import com.wolferdwolf.drop.actions.SuggestedActionEngine
 import com.wolferdwolf.drop.actions.SuggestedActionType
 import com.wolferdwolf.drop.calendar.CalendarConfirmationActivity
+import com.wolferdwolf.drop.call.CallConfirmationActivity
 import com.wolferdwolf.drop.contact.ContactConfirmationActivity
 import com.wolferdwolf.drop.data.SavedReference
 import com.wolferdwolf.drop.data.SavedReferenceStore
@@ -216,7 +217,12 @@ class MainActivity : ComponentActivity() {
                     .putExtra(EmailConfirmationActivity.EXTRA_SOURCE_TEXT, text)
             )
             SuggestedActionType.CALL -> first(results, ExtractionType.PHONE)
-                ?.let { launch(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(it)}"))) } ?: fail("No phone number was found.")
+                ?.let {
+                    startActivity(
+                        Intent(this, CallConfirmationActivity::class.java)
+                            .putExtra(CallConfirmationActivity.EXTRA_PHONE, it)
+                    )
+                } ?: fail("No phone number was found.")
         }
     }
 

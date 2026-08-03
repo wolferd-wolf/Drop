@@ -9,6 +9,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Drop">
         <activity
+            android:name=".call.CallConfirmationActivity"
+            android:exported="false" />
+        <activity
             android:name=".link.OpenLinkConfirmationActivity"
             android:exported="false" />
         <activity
