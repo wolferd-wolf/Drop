@@ -15,6 +15,9 @@
             android:name=".contact.ContactConfirmationActivity"
             android:exported="false" />
         <activity
+            android:name=".email.EmailConfirmationActivity"
+            android:exported="false" />
+        <activity
             android:name=".maps.MapConfirmationActivity"
             android:exported="false" />
         <activity

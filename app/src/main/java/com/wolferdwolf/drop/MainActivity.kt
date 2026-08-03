@@ -42,6 +42,7 @@ import com.wolferdwolf.drop.calendar.CalendarConfirmationActivity
 import com.wolferdwolf.drop.contact.ContactConfirmationActivity
 import com.wolferdwolf.drop.data.SavedReference
 import com.wolferdwolf.drop.data.SavedReferenceStore
+import com.wolferdwolf.drop.email.EmailConfirmationActivity
 import com.wolferdwolf.drop.extraction.ExtractionResult
 import com.wolferdwolf.drop.extraction.ExtractionType
 import com.wolferdwolf.drop.extraction.RuleBasedExtractor
@@ -204,8 +205,10 @@ class MainActivity : ComponentActivity() {
             )
             SuggestedActionType.OPEN_LINK -> first(results, ExtractionType.URL)
                 ?.let { launch(Intent(Intent.ACTION_VIEW, Uri.parse(normalizeUrl(it)))) } ?: fail("No link was found.")
-            SuggestedActionType.EMAIL -> first(results, ExtractionType.EMAIL)
-                ?.let { launch(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:${Uri.encode(it)}"))) } ?: fail("No email address was found.")
+            SuggestedActionType.EMAIL -> startActivity(
+                Intent(this, EmailConfirmationActivity::class.java)
+                    .putExtra(EmailConfirmationActivity.EXTRA_SOURCE_TEXT, text)
+            )
             SuggestedActionType.CALL -> first(results, ExtractionType.PHONE)
                 ?.let { launch(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(it)}"))) } ?: fail("No phone number was found.")
         }
