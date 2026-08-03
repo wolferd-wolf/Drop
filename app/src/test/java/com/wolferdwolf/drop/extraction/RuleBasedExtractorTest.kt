@@ -85,6 +85,32 @@ class RuleBasedExtractorTest {
     }
 
     @Test
+    fun extractsDottedAndApostropheYearDates() {
+        val text = "Workshop on 12.08.2026, registration closes 5 Sep '26, review October 3rd '27."
+        val dates = RuleBasedExtractor.extract(text).filter { it.type == ExtractionType.DATE }
+
+        assertTrue(dates.any { it.value == "12.08.2026" })
+        assertTrue(dates.any { it.value == "5 Sep '26" })
+        assertTrue(dates.any { it.value == "October 3rd '27" })
+    }
+
+    @Test
+    fun dottedDateSourceRangesRemainExact() {
+        val text = "Submit by 03.11.2026."
+        val date = RuleBasedExtractor.extract(text).single { it.type == ExtractionType.DATE }
+
+        assertEquals("03.11.2026", date.value)
+        assertEquals(date.value, text.substring(date.sourceStart, date.sourceEndExclusive))
+    }
+
+    @Test
+    fun doesNotTreatVersionNumbersAsDottedDates() {
+        val results = RuleBasedExtractor.extract("Release version 4.7.1 is installed.")
+
+        assertFalse(results.any { it.type == ExtractionType.DATE })
+    }
+
+    @Test
     fun extractsIsoMonthFirstAndBareDomainInputs() {
         val text = "Launch 2026-08-18, review August 21st, 2026, and open drop.app/launch."
         val results = RuleBasedExtractor.extract(text)
