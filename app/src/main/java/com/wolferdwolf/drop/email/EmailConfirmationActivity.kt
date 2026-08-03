@@ -59,33 +59,42 @@ class EmailConfirmationActivity : ComponentActivity() {
                     onRecipientChange = { recipient = it.take(MAX_EMAIL_LENGTH) },
                     onSubjectChange = { subject = it.take(MAX_SUBJECT_LENGTH) },
                     onMessageChange = { message = it.take(MAX_MESSAGE_LENGTH) },
-                    onContinue = { error = validateAndLaunch(recipient, subject, message) },
+                    onContinue = { error = validateLaunchAndRecord(recipient, subject, message) },
                     onCancel = ::finish
                 )
             }
         }
     }
 
-    private fun validateAndLaunch(recipient: String, subject: String, message: String): String? {
+    private fun validateLaunchAndRecord(recipient: String, subject: String, message: String): String? {
         val validationError = validateRecipient(recipient)
         if (validationError != null) return validationError
 
+        val cleanRecipient = recipient.trim()
+        val cleanSubject = subject.trim()
+        val cleanMessage = message.trim()
         val emailIntent = Intent(Intent.ACTION_SENDTO)
-            .setData(Uri.parse("mailto:${Uri.encode(recipient.trim())}"))
-            .putExtra(Intent.EXTRA_SUBJECT, subject.trim())
-            .putExtra(Intent.EXTRA_TEXT, message.trim())
+            .setData(Uri.parse("mailto:${Uri.encode(cleanRecipient)}"))
+            .putExtra(Intent.EXTRA_SUBJECT, cleanSubject)
+            .putExtra(Intent.EXTRA_TEXT, cleanMessage)
 
         return try {
             if (emailIntent.resolveActivity(packageManager) == null) {
                 "No compatible email app is installed."
             } else {
                 startActivity(emailIntent)
+                SavedReferenceStore(applicationContext).save(
+                    historyTitle(cleanRecipient, cleanSubject),
+                    historyContent(cleanRecipient, cleanSubject, cleanMessage)
+                )
                 null
             }
         } catch (_: ActivityNotFoundException) {
             "No compatible email app is installed."
         } catch (_: SecurityException) {
             "Android blocked this action. Check device settings and try again."
+        } catch (_: Exception) {
+            "The email app opened, but Drop could not record this action in History."
         }
     }
 
@@ -111,6 +120,22 @@ class EmailConfirmationActivity : ComponentActivity() {
             return labelled?.take(MAX_SUBJECT_LENGTH)
                 ?: SavedReferenceStore.defaultTitle(source).take(MAX_SUBJECT_LENGTH)
         }
+
+        internal fun historyTitle(recipient: String, subject: String): String {
+            val cleanSubject = subject.trim()
+            return if (cleanSubject.isNotBlank()) {
+                "Email: ${cleanSubject.take(80)}"
+            } else {
+                "Email to ${recipient.trim()}"
+            }
+        }
+
+        internal fun historyContent(recipient: String, subject: String, message: String): String = buildString {
+            append("Status: Opened in email app\n")
+            append("To: ").append(recipient.trim()).append('\n')
+            if (subject.isNotBlank()) append("Subject: ").append(subject.trim()).append('\n')
+            if (message.isNotBlank()) append("\n").append(message.trim())
+        }.take(MAX_MESSAGE_LENGTH)
     }
 }
 
@@ -144,7 +169,7 @@ private fun EmailConfirmationScreen(
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("Nothing is sent automatically", style = MaterialTheme.typography.titleMedium)
-                        Text("Drop only passes these edited details to your email app after you confirm. You still choose whether to send it.")
+                        Text("Drop only passes these edited details to your email app after you confirm. You still choose whether to send it. A record is added to History after the email app opens.")
                     }
                 }
             }
