@@ -54,7 +54,6 @@ import com.wolferdwolf.drop.reminder.ReminderHistoryStore
 import com.wolferdwolf.drop.reminder.ReminderRecord
 import com.wolferdwolf.drop.reminder.ReminderScheduler
 import com.wolferdwolf.drop.share.SharedTextParser
-import com.wolferdwolf.drop.timetable.TimetableReviewActivity
 import com.wolferdwolf.drop.ui.theme.DropTheme
 
 class MainActivity : ComponentActivity() {
@@ -179,7 +178,7 @@ class MainActivity : ComponentActivity() {
             uri,
             onSuccess = { text ->
                 importStatus = null
-                startActivity(Intent(this, TimetableReviewActivity::class.java).putExtra(TimetableReviewActivity.EXTRA_OCR_TEXT, text))
+                beginFlow(text)
             },
             onFailure = { importStatus = it }
         )
