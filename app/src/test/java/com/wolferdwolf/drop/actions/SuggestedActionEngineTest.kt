@@ -10,7 +10,7 @@ import org.junit.Test
 class SuggestedActionEngineTest {
     @Test
     fun jobDeadlineSuppressesFalseCalendarAndKeepsApplicationLinkVisible() {
-        val text = "Apply before 12 August 2026 at 5:30 PM. Email jobs@example.com or visit https://example.com/jobs"
+        val text = "Job vacancy. Apply before 12 August 2026 at 5:30 PM. Email jobs@example.com or visit https://example.com/jobs"
         val results = listOf(
             result(ExtractionType.DATE, "12 August 2026"),
             result(ExtractionType.TIME, "5:30 PM"),
@@ -24,11 +24,30 @@ class SuggestedActionEngineTest {
         assertEquals(4, actions.size)
         assertEquals(SuggestedActionType.SAVE_REFERENCE, types[0])
         assertEquals(SuggestedActionType.REMINDER, types[1])
-        assertEquals(SuggestedActionType.CONTACT, types[2])
-        assertEquals(SuggestedActionType.OPEN_LINK, types[3])
+        assertEquals(SuggestedActionType.OPEN_LINK, types[2])
+        assertEquals(SuggestedActionType.CONTACT, types[3])
         assertFalse(SuggestedActionType.CALENDAR in types)
         assertTrue(actions.first { it.type == SuggestedActionType.REMINDER }.reason.contains("deadline", true))
+        assertTrue(actions.first { it.type == SuggestedActionType.SAVE_REFERENCE }.reason.contains("job post", true))
+        assertTrue(actions.first { it.type == SuggestedActionType.OPEN_LINK }.reason.contains("application", true))
         assertEquals(actions.size, types.distinct().size)
+    }
+
+    @Test
+    fun receiptUsesCategorySpecificReasonAndSuppressesChecklistNoise() {
+        val text = "RECEIPT\n1. Rice ₹500\n2. Oil ₹250\n3. Soap ₹75\nSubtotal ₹825\nGST ₹41\nTotal ₹866"
+        val results = listOf(
+            result(ExtractionType.PRICE, "₹500"),
+            result(ExtractionType.PRICE, "₹250"),
+            result(ExtractionType.PRICE, "₹75"),
+            result(ExtractionType.PRICE, "₹866")
+        )
+
+        val actions = SuggestedActionEngine.suggest(text, results)
+
+        assertEquals(listOf(SuggestedActionType.SAVE_REFERENCE), actions.map { it.type })
+        assertTrue(actions.single().reason.contains("receipt", true))
+        assertTrue(actions.single().reason.contains("prices", true))
     }
 
     @Test
@@ -39,10 +58,12 @@ class SuggestedActionEngineTest {
             result(ExtractionType.TIME, "5:30 PM")
         )
 
-        val types = SuggestedActionEngine.suggest(text, results).map { it.type }
+        val actions = SuggestedActionEngine.suggest(text, results)
+        val types = actions.map { it.type }
 
         assertTrue(SuggestedActionType.CALENDAR in types)
         assertTrue(SuggestedActionType.REMINDER in types)
+        assertTrue(actions.first { it.type == SuggestedActionType.SAVE_REFERENCE }.reason.contains("event", true))
     }
 
     @Test

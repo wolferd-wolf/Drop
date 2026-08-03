@@ -1,6 +1,8 @@
 package com.wolferdwolf.drop.actions
 
 import com.wolferdwolf.drop.extraction.AddressCandidateDetector
+import com.wolferdwolf.drop.extraction.DocumentCategory
+import com.wolferdwolf.drop.extraction.DocumentCategoryDetector
 import com.wolferdwolf.drop.extraction.ExtractionResult
 import com.wolferdwolf.drop.extraction.ExtractionType
 
@@ -30,6 +32,7 @@ object SuggestedActionEngine {
         val types = results.mapTo(mutableSetOf()) { it.type }
         val lower = originalText.lowercase()
         val address = AddressCandidateDetector.detect(originalText)
+        val category = DocumentCategoryDetector.detect(originalText, results)
         val hasDeadlineLanguage = containsDeadlineLanguage(lower)
         val hasEventLanguage = containsEventLanguage(lower)
         val relevant = mutableListOf<SuggestedAction>()
@@ -37,7 +40,12 @@ object SuggestedActionEngine {
         relevant += action(
             SuggestedActionType.SAVE_REFERENCE,
             "Save reference",
-            "Keep the original content and extracted details in Drop.",
+            when (category) {
+                DocumentCategory.RECEIPT -> "Keep this receipt and its detected prices in Drop."
+                DocumentCategory.JOB_POST -> "Keep this job post and its application details in Drop."
+                DocumentCategory.EVENT -> "Keep this event information and its detected details in Drop."
+                DocumentCategory.GENERAL_REFERENCE -> "Keep the original content and extracted details in Drop."
+            },
             100
         )
 
@@ -54,7 +62,7 @@ object SuggestedActionEngine {
             )
         }
 
-        val isLikelyEvent = ExtractionType.DATE in types && (
+        val isLikelyEvent = category == DocumentCategory.EVENT || ExtractionType.DATE in types && (
             hasEventLanguage || (ExtractionType.TIME in types && !hasDeadlineLanguage)
         )
         if (isLikelyEvent) {
@@ -66,7 +74,7 @@ object SuggestedActionEngine {
             )
         }
 
-        if (looksLikeChecklist(originalText)) {
+        if (category != DocumentCategory.RECEIPT && looksLikeChecklist(originalText)) {
             relevant += action(
                 SuggestedActionType.CHECKLIST,
                 "Create checklist",
@@ -97,8 +105,12 @@ object SuggestedActionEngine {
             relevant += action(
                 SuggestedActionType.OPEN_LINK,
                 "Open link",
-                "A web link was detected.",
-                84
+                if (category == DocumentCategory.JOB_POST) {
+                    "An application or information link was detected."
+                } else {
+                    "A web link was detected."
+                },
+                if (category == DocumentCategory.JOB_POST) 88 else 84
             )
         }
 
