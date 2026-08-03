@@ -29,6 +29,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.wolferdwolf.drop.data.SavedReferenceStore
 import com.wolferdwolf.drop.extraction.ExtractionType
 import com.wolferdwolf.drop.extraction.RuleBasedExtractor
 import com.wolferdwolf.drop.ui.theme.DropTheme
@@ -64,49 +65,61 @@ class ContactConfirmationActivity : ComponentActivity() {
                     onEmailChange = { email = it.take(MAX_EMAIL_LENGTH) },
                     onCompanyChange = { company = it.take(MAX_COMPANY_LENGTH) },
                     onNotesChange = { notes = it.take(MAX_NOTES_LENGTH) },
-                    onContinue = { error = validateAndLaunch(name, phone, email, company, notes) },
+                    onContinue = { error = validateLaunchAndRecord(name, phone, email, company, notes) },
                     onCancel = ::finish
                 )
             }
         }
     }
 
-    private fun validateAndLaunch(
+    private fun validateLaunchAndRecord(
         name: String,
         phone: String,
         email: String,
         company: String,
         notes: String
     ): String? {
-        if (name.isBlank() && phone.isBlank() && email.isBlank()) {
+        val cleanName = name.trim()
+        val cleanPhone = phone.trim()
+        val cleanEmail = email.trim()
+        val cleanCompany = company.trim()
+        val cleanNotes = notes.trim()
+
+        if (cleanName.isBlank() && cleanPhone.isBlank() && cleanEmail.isBlank()) {
             return "Enter a name, phone number, or email address."
         }
-        if (email.isNotBlank() && !EMAIL_PATTERN.matches(email.trim())) {
+        if (cleanEmail.isNotBlank() && !EMAIL_PATTERN.matches(cleanEmail)) {
             return "Enter a valid email address."
         }
-        if (phone.isNotBlank() && phone.count(Char::isDigit) !in 8..15) {
+        if (cleanPhone.isNotBlank() && cleanPhone.count(Char::isDigit) !in 8..15) {
             return "Enter a phone number containing 8 to 15 digits."
         }
 
         val contactIntent = Intent(Intent.ACTION_INSERT)
             .setType(ContactsContract.Contacts.CONTENT_TYPE)
-            .putExtra(ContactsContract.Intents.Insert.NAME, name.trim())
-            .putExtra(ContactsContract.Intents.Insert.PHONE, phone.trim())
-            .putExtra(ContactsContract.Intents.Insert.EMAIL, email.trim())
-            .putExtra(ContactsContract.Intents.Insert.COMPANY, company.trim())
-            .putExtra(ContactsContract.Intents.Insert.NOTES, notes.trim())
+            .putExtra(ContactsContract.Intents.Insert.NAME, cleanName)
+            .putExtra(ContactsContract.Intents.Insert.PHONE, cleanPhone)
+            .putExtra(ContactsContract.Intents.Insert.EMAIL, cleanEmail)
+            .putExtra(ContactsContract.Intents.Insert.COMPANY, cleanCompany)
+            .putExtra(ContactsContract.Intents.Insert.NOTES, cleanNotes)
 
         return try {
             if (contactIntent.resolveActivity(packageManager) == null) {
                 "No compatible Contacts app is installed."
             } else {
                 startActivity(contactIntent)
+                SavedReferenceStore(applicationContext).save(
+                    historyTitle(cleanName, cleanPhone, cleanEmail),
+                    historyContent(cleanName, cleanPhone, cleanEmail, cleanCompany, cleanNotes)
+                )
                 null
             }
         } catch (_: ActivityNotFoundException) {
             "No compatible Contacts app is installed."
         } catch (_: SecurityException) {
             "Android blocked this action. Check device settings and try again."
+        } catch (_: Exception) {
+            "The Contacts app opened, but Drop could not record this action in History."
         }
     }
 
@@ -130,6 +143,26 @@ class ContactConfirmationActivity : ComponentActivity() {
                 ?.trim()
                 .orEmpty()
         }
+
+        internal fun historyTitle(name: String, phone: String, email: String): String {
+            val label = name.trim().ifBlank { phone.trim().ifBlank { email.trim() } }
+            return "Contact: ${label.take(80)}"
+        }
+
+        internal fun historyContent(
+            name: String,
+            phone: String,
+            email: String,
+            company: String,
+            notes: String
+        ): String = buildString {
+            append("Status: Opened in Contacts app\n")
+            if (name.isNotBlank()) append("Name: ").append(name.trim()).append('\n')
+            if (phone.isNotBlank()) append("Phone: ").append(phone.trim()).append('\n')
+            if (email.isNotBlank()) append("Email: ").append(email.trim()).append('\n')
+            if (company.isNotBlank()) append("Company: ").append(company.trim()).append('\n')
+            if (notes.isNotBlank()) append("\n").append(notes.trim())
+        }.take(MAX_NOTES_LENGTH)
     }
 }
 
@@ -169,7 +202,7 @@ private fun ContactConfirmationScreen(
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("Nothing is saved automatically", style = MaterialTheme.typography.titleMedium)
-                        Text("Drop only passes these edited details to Contacts after you confirm.")
+                        Text("Drop only passes these edited details to Contacts after you confirm. You still choose whether to save the contact. A record is added to History after the Contacts app opens.")
                     }
                 }
             }
