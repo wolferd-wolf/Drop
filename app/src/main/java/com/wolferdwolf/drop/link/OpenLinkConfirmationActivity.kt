@@ -47,11 +47,7 @@ class OpenLinkConfirmationActivity : ComponentActivity() {
                     onUrlChange = { url = it.take(MAX_URL_LENGTH) },
                     onOpen = {
                         val normalized = OpenLinkValidator.normalize(url)
-                        error = if (normalized == null) {
-                            "Enter a valid http or https website link."
-                        } else {
-                            launchBrowser(normalized)
-                        }
+                        error = if (normalized == null) "Enter a valid http or https website link." else launchBrowser(normalized)
                     },
                     onCancel = ::finish
                 )
@@ -62,12 +58,8 @@ class OpenLinkConfirmationActivity : ComponentActivity() {
     private fun launchBrowser(url: String): String? {
         val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
         return try {
-            if (browserIntent.resolveActivity(packageManager) == null) {
-                "No compatible browser is installed."
-            } else {
-                startActivity(browserIntent)
-                null
-            }
+            if (browserIntent.resolveActivity(packageManager) == null) "No compatible browser is installed."
+            else { startActivity(browserIntent); null }
         } catch (_: ActivityNotFoundException) {
             "No compatible browser is installed."
         } catch (_: SecurityException) {
@@ -85,7 +77,9 @@ object OpenLinkValidator {
     fun normalize(value: String): String? {
         val clean = value.trim()
         if (clean.isBlank() || clean.any(Char::isWhitespace)) return null
-        val candidate = if (clean.startsWith("http://", true) || clean.startsWith("https://", true)) clean else "https://$clean"
+        val hasWebScheme = clean.startsWith("http://", true) || clean.startsWith("https://", true)
+        if (!hasWebScheme && ':' in clean) return null
+        val candidate = if (hasWebScheme) clean else "https://$clean"
         val uri = runCatching { URI(candidate) }.getOrNull() ?: return null
         val scheme = uri.scheme?.lowercase()
         val host = uri.host
@@ -95,31 +89,15 @@ object OpenLinkValidator {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @androidx.compose.runtime.Composable
-private fun OpenLinkConfirmationScreen(
-    url: String,
-    error: String?,
-    onUrlChange: (String) -> Unit,
-    onOpen: () -> Unit,
-    onCancel: () -> Unit
-) {
+private fun OpenLinkConfirmationScreen(url: String, error: String?, onUrlChange: (String) -> Unit, onOpen: () -> Unit, onCancel: () -> Unit) {
     Scaffold(topBar = { TopAppBar(title = { Text("Open link") }) }) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
                 Text("Confirm the website", style = MaterialTheme.typography.headlineSmall)
                 Text("Review and edit the detected link before Drop opens your browser.")
             }
             item {
-                OutlinedTextField(
-                    value = url,
-                    onValueChange = onUrlChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Website link") },
-                    singleLine = true
-                )
+                OutlinedTextField(value = url, onValueChange = onUrlChange, modifier = Modifier.fillMaxWidth(), label = { Text("Website link") }, singleLine = true)
             }
             item {
                 Card(Modifier.fillMaxWidth()) {
@@ -130,14 +108,8 @@ private fun OpenLinkConfirmationScreen(
                 }
             }
             error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
-            item {
-                Button(onClick = onOpen, enabled = url.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
-                    Text("Continue to Browser")
-                }
-            }
-            item {
-                OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
-            }
+            item { Button(onClick = onOpen, enabled = url.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Continue to Browser") } }
+            item { OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Cancel") } }
         }
     }
 }
