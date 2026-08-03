@@ -21,6 +21,16 @@ object RuleBasedExtractor {
             0.96f
         ),
         Rule(
+            ExtractionType.PRICE,
+            Regex("(?i)(?<![A-Z0-9])(?:₹|Rs\\.?|INR|\\$|USD|€|EUR|£|GBP|¥|JPY)\\s*\\d{1,3}(?:(?:,\\d{2})*,\\d{3}|(?:,\\d{3})*|\\d*)(?:\\.\\d{1,2})?(?![\\d/])"),
+            0.97f
+        ),
+        Rule(
+            ExtractionType.PRICE,
+            Regex("(?i)(?<![\\d/])\\d{1,3}(?:(?:,\\d{2})*,\\d{3}|(?:,\\d{3})*|\\d*)(?:\\.\\d{1,2})?\\s*(?:INR|USD|EUR|GBP|JPY)\\b"),
+            0.95f
+        ),
+        Rule(
             ExtractionType.PHONE,
             Regex("(?<![\\d/])(?:\\+91[-.\\s]?)?[6-9]\\d{4}[-.\\s]?\\d{5}(?![\\d/])"),
             0.96f
@@ -114,17 +124,23 @@ object RuleBasedExtractor {
             }
     }
 
-    private fun isAllowed(type: ExtractionType, value: String): Boolean {
-        if (type != ExtractionType.PHONE) return true
-        val digits = value.count(Char::isDigit)
-        if (digits !in 8..15) return false
-        if (value.matches(Regex("\\d{1,4}[-/]\\d{1,2}[-/]\\d{1,4}"))) return false
-        if (value.matches(Regex("\\d{1,2}:\\d{2}"))) return false
-        return true
+    private fun isAllowed(type: ExtractionType, value: String): Boolean = when (type) {
+        ExtractionType.PHONE -> {
+            val digits = value.count(Char::isDigit)
+            digits in 8..15 &&
+                !value.matches(Regex("\\d{1,4}[-/]\\d{1,2}[-/]\\d{1,4}")) &&
+                !value.matches(Regex("\\d{1,2}:\\d{2}"))
+        }
+        ExtractionType.PRICE -> {
+            val digits = value.count(Char::isDigit)
+            digits in 1..12 && value.any { it in "₹$€£¥" || it.isLetter() }
+        }
+        else -> true
     }
 
     private fun normalizedValue(result: ExtractionResult): String = when (result.type) {
         ExtractionType.PHONE -> result.value.filter(Char::isDigit)
+        ExtractionType.PRICE -> result.value.uppercase().filterNot(Char::isWhitespace)
         else -> result.value.lowercase()
     }
 
