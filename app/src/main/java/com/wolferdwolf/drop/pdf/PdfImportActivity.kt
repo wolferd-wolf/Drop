@@ -68,30 +68,65 @@ class PdfImportActivity : ComponentActivity() {
         Thread {
             val result = PdfTextExtractor.extract(this, uri, metadata.second)
             runOnUiThread {
-                state = result.fold(
+                result.fold(
                     onSuccess = { extraction ->
-                        val fallback = buildString {
-                            appendLine("PDF imported")
-                            appendLine("File: ${metadata.first ?: "Unnamed PDF"}")
-                            appendLine("Pages: ${extraction.pageCount}")
-                            append("No embedded text was found. This may be a scanned PDF; you can still edit this summary and continue.")
+                        if (extraction.hasEmbeddedText) {
+                            state = PdfState.Ready(
+                                fileName = metadata.first ?: "Unnamed PDF",
+                                fileSize = metadata.second?.let(::fileSize) ?: "Unknown size",
+                                pageCount = extraction.pageCount,
+                                text = extraction.text,
+                                message = if (extraction.wasTruncated) {
+                                    "Text extracted offline. Processing was limited to ${PdfTextExtractor.MAX_PAGES} pages and ${PdfTextExtractor.MAX_TEXT_LENGTH} characters."
+                                } else {
+                                    "Embedded text extracted offline from ${extraction.pageCount} page${if (extraction.pageCount == 1) "" else "s"}."
+                                }
+                            )
+                        } else {
+                            state = PdfState.Loading
+                            runScannedPdfOcr(uri, metadata, extraction.pageCount)
                         }
-                        PdfState.Ready(
-                            fileName = metadata.first ?: "Unnamed PDF",
-                            fileSize = metadata.second?.let(::fileSize) ?: "Unknown size",
-                            pageCount = extraction.pageCount,
-                            text = extraction.text.ifBlank { fallback },
-                            message = when {
-                                !extraction.hasEmbeddedText -> "No embedded text was found. Scanned-page OCR is not available yet."
-                                extraction.wasTruncated -> "Text extracted offline. Processing was limited to ${PdfTextExtractor.MAX_PAGES} pages and ${PdfTextExtractor.MAX_TEXT_LENGTH} characters."
-                                else -> "Embedded text extracted offline from ${extraction.pageCount} page${if (extraction.pageCount == 1) "" else "s"}."
-                            }
-                        )
                     },
-                    onFailure = { PdfState.Error(it.message ?: "Drop could not read this PDF.") }
+                    onFailure = { state = PdfState.Error(it.message ?: "Drop could not read this PDF.") }
                 )
             }
         }.start()
+    }
+
+    private fun runScannedPdfOcr(uri: Uri, metadata: Pair<String?, Long?>, pageCount: Int) {
+        PdfPageOcrProcessor.process(
+            this,
+            uri,
+            onSuccess = { result ->
+                val fallback = buildString {
+                    appendLine("Scanned PDF imported")
+                    appendLine("File: ${metadata.first ?: "Unnamed PDF"}")
+                    appendLine("Pages: $pageCount")
+                    append("No readable text was found in the first ${result.attemptedPages} page${if (result.attemptedPages == 1) "" else "s"}. Add or correct text below before continuing.")
+                }
+                state = PdfState.Ready(
+                    fileName = metadata.first ?: "Unnamed PDF",
+                    fileSize = metadata.second?.let(::fileSize) ?: "Unknown size",
+                    pageCount = pageCount,
+                    text = result.text.ifBlank { fallback },
+                    message = when {
+                        result.text.isBlank() -> "No readable text was found. Drop checked ${result.attemptedPages} page${if (result.attemptedPages == 1) "" else "s"} offline."
+                        result.failedPages > 0 -> "Scanned-page text extracted offline from ${result.attemptedPages - result.failedPages} of ${result.attemptedPages} checked pages."
+                        result.totalPages > result.attemptedPages -> "Scanned-page text extracted offline from the first ${result.attemptedPages} of ${result.totalPages} pages."
+                        else -> "Scanned-page text extracted offline from ${result.attemptedPages} page${if (result.attemptedPages == 1) "" else "s"}."
+                    }
+                )
+            },
+            onFailure = { message ->
+                state = PdfState.Ready(
+                    fileName = metadata.first ?: "Unnamed PDF",
+                    fileSize = metadata.second?.let(::fileSize) ?: "Unknown size",
+                    pageCount = pageCount,
+                    text = "Scanned PDF imported\nFile: ${metadata.first ?: "Unnamed PDF"}\nPages: $pageCount\nAdd text manually before continuing.",
+                    message = "$message You can still add text manually without uploading the PDF."
+                )
+            }
+        )
     }
 
     private fun continueWithText(text: String) {
