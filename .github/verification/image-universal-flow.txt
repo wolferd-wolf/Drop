@@ -1,0 +1,1 @@
+Verification branch for the general image OCR intake route. Product code is already on main; this file exists only to trigger the pull-request CI quality gate and must not be merged.
