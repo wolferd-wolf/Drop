@@ -95,6 +95,14 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
+            adb shell input keyevent KEYCODE_WAKEUP
+            adb shell wm dismiss-keyguard || true
+            adb shell input keyevent 82
+            adb shell settings put system screen_off_timeout 2147483647
+            adb shell settings put global stay_on_while_plugged_in 3
+            adb shell am start -a android.intent.action.MAIN -c android.intent.category.HOME
+            adb shell am force-stop com.wolferdwolf.drop || true
+            sleep 2
             gradle connectedDebugAndroidTest --stacktrace
             mkdir -p screenshots
             for name in home history suggested-actions all-actions maps-suggestion maps-confirmation calendar-confirmation contact-confirmation image-review pdf-review open-link-confirmation; do
