@@ -1,0 +1,51 @@
+name: Integrate Call confirmation route
+
+on:
+  push:
+    branches:
+      - automation/call-confirmation-history
+    paths:
+      - .github/workflows/integrate-call-route.yml
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: automation/call-confirmation-history
+      - name: Route Call through editable confirmation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/main/java/com/wolferdwolf/drop/MainActivity.kt')
+          text = path.read_text()
+          import_anchor = 'import com.wolferdwolf.drop.calendar.CalendarConfirmationActivity\n'
+          call_import = 'import com.wolferdwolf.drop.call.CallConfirmationActivity\n'
+          if call_import not in text:
+              text = text.replace(import_anchor, import_anchor + call_import)
+
+          old = '''            SuggestedActionType.CALL -> first(results, ExtractionType.PHONE)
+                ?.let { launch(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(it)}"))) } ?: fail("No phone number was found.")'''
+          new = '''            SuggestedActionType.CALL -> first(results, ExtractionType.PHONE)
+                ?.let {
+                    startActivity(
+                        Intent(this, CallConfirmationActivity::class.java)
+                            .putExtra(CallConfirmationActivity.EXTRA_PHONE, it)
+                    )
+                } ?: fail("No phone number was found.")'''
+          if old not in text:
+              raise SystemExit('Expected direct Call route not found; refusing unsafe replacement')
+          path.write_text(text.replace(old, new))
+          PY
+      - name: Commit integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/wolferdwolf/drop/MainActivity.kt
+          git commit -m "Route Call through editable confirmation"
+          git push origin HEAD:automation/call-confirmation-history
