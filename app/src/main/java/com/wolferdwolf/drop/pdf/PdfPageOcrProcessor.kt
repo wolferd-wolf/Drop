@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
-import android.os.ParcelFileDescriptor
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -42,7 +41,8 @@ object PdfPageOcrProcessor {
                 onFailure("Drop could not render this scanned PDF safely.")
                 return
             }
-        val pageLimit = boundedPageCount(renderer.pageCount)
+        val totalPages = renderer.pageCount
+        val pageLimit = boundedPageCount(totalPages)
         if (pageLimit == 0) {
             renderer.closeQuietly()
             descriptor.closeQuietly()
@@ -55,14 +55,17 @@ object PdfPageOcrProcessor {
         var failedPages = 0
 
         fun finish() {
+            val text = pageTexts.filter(String::isNotBlank)
+                .joinToString("\n\n")
+                .take(PdfTextExtractor.MAX_TEXT_LENGTH)
             recognizer.close()
             renderer.closeQuietly()
             descriptor.closeQuietly()
             onSuccess(
                 Result(
-                    text = pageTexts.filter(String::isNotBlank).joinToString("\n\n").take(PdfTextExtractor.MAX_TEXT_LENGTH),
+                    text = text,
                     attemptedPages = pageLimit,
-                    totalPages = renderer.pageCount,
+                    totalPages = totalPages,
                     failedPages = failedPages
                 )
             )
