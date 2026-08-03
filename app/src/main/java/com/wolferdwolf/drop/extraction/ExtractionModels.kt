@@ -5,7 +5,8 @@ enum class ExtractionType {
     EMAIL,
     URL,
     DATE,
-    TIME
+    TIME,
+    PRICE
 }
 
 data class ExtractionResult(
