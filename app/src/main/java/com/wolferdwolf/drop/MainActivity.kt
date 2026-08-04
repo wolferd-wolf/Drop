@@ -527,4 +527,5 @@ private fun ExtractionType.label() = when (this) {
     ExtractionType.DATE -> "Date"
     ExtractionType.TIME -> "Time"
     ExtractionType.PRICE -> "Price"
+    ExtractionType.ADDRESS -> "Address or venue"
 }
