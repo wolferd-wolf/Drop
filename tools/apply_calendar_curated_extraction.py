@@ -14,9 +14,10 @@ new = '''            SuggestedActionType.CALENDAR -> startActivity(
                     .putExtra(CalendarConfirmationActivity.EXTRA_CURATED_TIME, first(results, ExtractionType.TIME).orEmpty())
                     .putExtra(CalendarConfirmationActivity.EXTRA_CURATED_VENUE, first(results, ExtractionType.ADDRESS).orEmpty())
             )'''
-if old not in text:
+if old in text:
+    main.write_text(text.replace(old, new))
+elif new not in text:
     raise SystemExit('Calendar route marker not found')
-main.write_text(text.replace(old, new))
 
 calendar = Path('app/src/main/java/com/wolferdwolf/drop/calendar/CalendarConfirmationActivity.kt')
 text = calendar.read_text()
@@ -50,19 +51,22 @@ new = '''        val extracted = RuleBasedExtractor.extract(source)
             labelledVenue(source) ?: AddressCandidateDetector.detect(source)?.value.orEmpty()
         }
 '''
-if old not in text:
+if old in text:
+    text = text.replace(old, new)
+elif new not in text:
     raise SystemExit('Calendar initial values marker not found')
-text = text.replace(old, new)
-old = '        const val EXTRA_SOURCE_TEXT = "source_text"\n'
-new = '''        const val EXTRA_SOURCE_TEXT = "source_text"
+old_extra = '        const val EXTRA_SOURCE_TEXT = "source_text"\n'
+new_extra = '''        const val EXTRA_SOURCE_TEXT = "source_text"
         const val EXTRA_HAS_CURATED_RESULTS = "has_curated_results"
         const val EXTRA_CURATED_DATE = "curated_date"
         const val EXTRA_CURATED_TIME = "curated_time"
         const val EXTRA_CURATED_VENUE = "curated_venue"
 '''
-if old not in text:
+if old_extra in text:
+    text = text.replace(old_extra, new_extra)
+elif 'EXTRA_HAS_CURATED_RESULTS' not in text:
     raise SystemExit('Calendar extras marker not found')
-calendar.write_text(text.replace(old, new))
+calendar.write_text(text)
 
 test = Path('app/src/androidTest/java/com/wolferdwolf/drop/HomeScreenshotTest.kt')
 text = test.read_text()
@@ -78,16 +82,17 @@ new = '''        val intent = Intent(context, CalendarConfirmationActivity::clas
             .putExtra(CalendarConfirmationActivity.EXTRA_CURATED_VENUE, "Edited venue, Vijayawada")
 
         ActivityScenario.launch<CalendarConfirmationActivity>(intent).use {'''
-if old not in text:
+if old in text:
+    text = text.replace(old, new)
+elif new not in text:
     raise SystemExit('Calendar screenshot intent marker not found')
-text = text.replace(old, new)
-old = '''            assertObject(
+old_assert = '''            assertObject(
                 device,
                 By.clazz("android.widget.EditText").text("MG Road, Vijayawada"),
                 "Venue must contain only the detected location"
             )
 '''
-new = '''            assertObject(device, By.clazz("android.widget.EditText").text("2026-08-22"), "Edited date must reach Calendar confirmation")
+new_assert = '''            assertObject(device, By.clazz("android.widget.EditText").text("2026-08-22"), "Edited date must reach Calendar confirmation")
             assertObject(device, By.clazz("android.widget.EditText").text("18:15"), "Edited time must reach Calendar confirmation")
             assertObject(
                 device,
@@ -95,25 +100,17 @@ new = '''            assertObject(device, By.clazz("android.widget.EditText").te
                 "Edited venue must replace the original detected location"
             )
 '''
-if old not in text:
+if old_assert in text:
+    text = text.replace(old_assert, new_assert)
+elif new_assert not in text:
     raise SystemExit('Calendar screenshot assertions marker not found')
-text = text.replace(old, new)
-text = text.replace('capture(device, "/data/local/tmp/drop-calendar-confirmation.png")', 'capture(device, "/data/local/tmp/drop-calendar-confirmation.png")\n            capture(device, "/data/local/tmp/drop-calendar-curated-values.png")', 1)
+curated_capture = 'capture(device, "/data/local/tmp/drop-calendar-curated-values.png")'
+if curated_capture not in text:
+    text = text.replace(
+        'capture(device, "/data/local/tmp/drop-calendar-confirmation.png")',
+        'capture(device, "/data/local/tmp/drop-calendar-confirmation.png")\n            ' + curated_capture,
+        1
+    )
 test.write_text(text)
 
-workflow = Path('.github/workflows/android-ci.yml')
-text = workflow.read_text()
-pull_marker = '            adb pull /data/local/tmp/drop-calendar-confirmation.png screenshots/drop-calendar-confirmation.png\n'
-check_marker = '            test -s screenshots/drop-calendar-confirmation.png\n'
-pull_line = '            adb pull /data/local/tmp/drop-calendar-curated-values.png screenshots/drop-calendar-curated-values.png\n'
-check_line = '            test -s screenshots/drop-calendar-curated-values.png\n'
-if pull_line not in text:
-    if pull_marker not in text or check_marker not in text:
-        raise SystemExit('Calendar screenshot workflow marker not found')
-    text = text.replace(pull_marker, pull_marker + pull_line)
-    text = text.replace(check_marker, check_marker + check_line)
-workflow.write_text(text)
-
 Path('verification/calendar-curated-extraction.txt').unlink(missing_ok=True)
-Path('.github/workflows/apply-calendar-curated-extraction.yml').unlink(missing_ok=True)
-Path('tools/apply_calendar_curated_extraction.py').unlink(missing_ok=True)
