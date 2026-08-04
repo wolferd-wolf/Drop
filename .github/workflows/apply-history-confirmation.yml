@@ -1,0 +1,206 @@
+name: Apply history confirmation update
+
+on:
+  push:
+    branches:
+      - automation/history-delete-confirmation
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message, '[history-confirmation-applied]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: automation/history-delete-confirmation
+          fetch-depth: 0
+
+      - name: Add safe History deletion confirmation and coverage
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          main = Path('app/src/main/java/com/wolferdwolf/drop/MainActivity.kt')
+          text = main.read_text()
+          text = text.replace(
+              'import androidx.compose.material3.Button\n',
+              'import androidx.compose.material3.AlertDialog\nimport androidx.compose.material3.Button\n'
+          )
+          text = text.replace(
+              'import androidx.compose.runtime.mutableStateOf\n',
+              'import androidx.compose.runtime.mutableStateOf\nimport androidx.compose.runtime.remember\n'
+          )
+          old = '''private fun HistoryScreen(
+              references: List<SavedReference>,
+              reminders: List<ReminderRecord>,
+              onBack: () -> Unit,
+              onDeleteReference: (SavedReference) -> Unit,
+              onCancelReminder: (ReminderRecord) -> Unit
+          ) {
+              Scaffold(topBar = { TopAppBar(title = { Text("History") }) }) { padding ->'''
+          new = '''private fun HistoryScreen(
+              references: List<SavedReference>,
+              reminders: List<ReminderRecord>,
+              onBack: () -> Unit,
+              onDeleteReference: (SavedReference) -> Unit,
+              onCancelReminder: (ReminderRecord) -> Unit
+          ) {
+              var pendingReferenceDelete by remember { mutableStateOf<SavedReference?>(null) }
+              var pendingReminderCancel by remember { mutableStateOf<ReminderRecord?>(null) }
+
+              pendingReferenceDelete?.let { reference ->
+                  AlertDialog(
+                      onDismissRequest = { pendingReferenceDelete = null },
+                      title = { Text("Delete saved item?") },
+                      text = { Text("This permanently removes ‘${reference.title}’ from Drop History. This cannot be undone.") },
+                      confirmButton = {
+                          Button(onClick = {
+                              onDeleteReference(reference)
+                              pendingReferenceDelete = null
+                          }) { Text("Delete permanently") }
+                      },
+                      dismissButton = {
+                          TextButton(onClick = { pendingReferenceDelete = null }) { Text("Keep item") }
+                      }
+                  )
+              }
+
+              pendingReminderCancel?.let { reminder ->
+                  AlertDialog(
+                      onDismissRequest = { pendingReminderCancel = null },
+                      title = { Text("Cancel reminder?") },
+                      text = { Text("This cancels ‘${reminder.title}’ and removes it from Drop History.") },
+                      confirmButton = {
+                          Button(onClick = {
+                              onCancelReminder(reminder)
+                              pendingReminderCancel = null
+                          }) { Text("Cancel reminder") }
+                      },
+                      dismissButton = {
+                          TextButton(onClick = { pendingReminderCancel = null }) { Text("Keep reminder") }
+                      }
+                  )
+              }
+
+              Scaffold(topBar = { TopAppBar(title = { Text("History") }) }) { padding ->'''
+          if old not in text:
+              raise SystemExit('HistoryScreen signature anchor not found')
+          text = text.replace(old, new)
+          text = text.replace(
+              'TextButton(onClick = { onCancelReminder(reminder) }) { Text("Cancel reminder") }',
+              'TextButton(onClick = { pendingReminderCancel = reminder }) { Text("Cancel reminder") }'
+          )
+          text = text.replace(
+              'TextButton(onClick = { onDeleteReference(reference) }) { Text("Delete") }',
+              'TextButton(onClick = { pendingReferenceDelete = reference }) { Text("Delete") }'
+          )
+          main.write_text(text)
+
+          test = Path('app/src/androidTest/java/com/wolferdwolf/drop/HistoryConfirmationFlowTest.kt')
+          test.write_text(r'''package com.wolferdwolf.drop
+
+import androidx.test.core.app.ActivityScenario
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject2
+import androidx.test.uiautomator.Until
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class HistoryConfirmationFlowTest {
+    @Test
+    fun deletingSavedReferenceRequiresExplicitConfirmation() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            assertVisible(device, "Paste text").click()
+            assertObject(device, By.clazz("android.widget.EditText")).text =
+                "Quarterly supplier review notes for August 2026."
+            assertVisible(device, "Continue").click()
+            assertVisible(device, "Extract details").click()
+            assertVisibleAfterScroll(device, "See suggested actions").click()
+            assertVisibleAfterScroll(device, "Save reference").click()
+            assertVisible(device, "Save").click()
+
+            assertVisible(device, "History (1)").click()
+            assertVisible(device, "Delete").click()
+            assertVisible(device, "Delete saved item?")
+            assertVisible(device, "This permanently removes ‘Quarterly supplier review notes for August 2026.’ from Drop History. This cannot be undone.")
+            assertVisible(device, "Keep item")
+            assertVisible(device, "Delete permanently")
+            capture(device, "/data/local/tmp/drop-history-delete-confirmation.png")
+
+            assertVisible(device, "Keep item").click()
+            assertVisible(device, "Quarterly supplier review notes for August 2026.")
+            assertVisible(device, "Delete").click()
+            assertVisible(device, "Delete permanently").click()
+            assertVisible(device, "Nothing has been saved yet.")
+        }
+    }
+
+    private fun assertVisible(device: UiDevice, text: String): UiObject2 =
+        assertNotNull("Expected visible text: $text", device.wait(Until.findObject(By.text(text)), TIMEOUT_MILLIS))
+            .let { device.findObject(By.text(text)) }
+
+    private fun assertVisibleAfterScroll(device: UiDevice, text: String): UiObject2 {
+        device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT_MILLIS)?.let { return it }
+        repeat(8) {
+            device.swipe(
+                device.displayWidth / 2,
+                device.displayHeight * 3 / 4,
+                device.displayWidth / 2,
+                device.displayHeight / 4,
+                20
+            )
+            device.waitForIdle()
+            device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT_MILLIS)?.let { return it }
+        }
+        throw AssertionError("Expected visible text after scrolling: $text")
+    }
+
+    private fun assertObject(device: UiDevice, selector: androidx.test.uiautomator.BySelector): UiObject2 =
+        assertNotNull("Expected editable field", device.wait(Until.findObject(selector), TIMEOUT_MILLIS))
+            .let { device.findObject(selector) }
+
+    private fun capture(device: UiDevice, path: String) {
+        device.waitForIdle()
+        device.executeShellCommand("rm -f $path")
+        device.executeShellCommand("screencap -p $path")
+        assertTrue(device.executeShellCommand("ls -l $path").contains(path.substringAfterLast('/')))
+    }
+
+    private companion object {
+        const val TIMEOUT_MILLIS = 20_000L
+        const val SHORT_TIMEOUT_MILLIS = 2_000L
+    }
+}
+''')
+
+          workflow = Path('.github/workflows/android-ci.yml')
+          ci = workflow.read_text()
+          ci = ci.replace(
+              'adb pull /data/local/tmp/drop-history.png screenshots/drop-history.png\n',
+              'adb pull /data/local/tmp/drop-history.png screenshots/drop-history.png\n            adb pull /data/local/tmp/drop-history-delete-confirmation.png screenshots/drop-history-delete-confirmation.png\n'
+          )
+          ci = ci.replace(
+              'test -s screenshots/drop-history.png\n',
+              'test -s screenshots/drop-history.png\n            test -s screenshots/drop-history-delete-confirmation.png\n'
+          )
+          workflow.write_text(ci)
+
+          Path('.github/workflows/apply-history-confirmation.yml').unlink()
+          PY
+
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Require confirmation before History deletion [history-confirmation-applied]"
+          git push origin HEAD:automation/history-delete-confirmation
