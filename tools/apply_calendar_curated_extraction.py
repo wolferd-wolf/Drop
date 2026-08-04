@@ -55,17 +55,15 @@ if old in text:
     text = text.replace(old, new)
 elif new not in text:
     raise SystemExit('Calendar initial values marker not found')
-old_extra = '        const val EXTRA_SOURCE_TEXT = "source_text"\n'
-new_extra = '''        const val EXTRA_SOURCE_TEXT = "source_text"
-        const val EXTRA_HAS_CURATED_RESULTS = "has_curated_results"
+extras = '''        const val EXTRA_HAS_CURATED_RESULTS = "has_curated_results"
         const val EXTRA_CURATED_DATE = "curated_date"
         const val EXTRA_CURATED_TIME = "curated_time"
         const val EXTRA_CURATED_VENUE = "curated_venue"
 '''
-if old_extra in text:
-    text = text.replace(old_extra, new_extra)
-elif 'EXTRA_HAS_CURATED_RESULTS' not in text:
-    raise SystemExit('Calendar extras marker not found')
+while text.count(extras) > 1:
+    text = text.replace(extras + extras, extras)
+if extras not in text:
+    text = text.replace('        const val EXTRA_SOURCE_TEXT = "source_text"\n', '        const val EXTRA_SOURCE_TEXT = "source_text"\n' + extras)
 calendar.write_text(text)
 
 test = Path('app/src/androidTest/java/com/wolferdwolf/drop/HomeScreenshotTest.kt')
@@ -84,8 +82,6 @@ new = '''        val intent = Intent(context, CalendarConfirmationActivity::clas
         ActivityScenario.launch<CalendarConfirmationActivity>(intent).use {'''
 if old in text:
     text = text.replace(old, new)
-elif new not in text:
-    raise SystemExit('Calendar screenshot intent marker not found')
 old_assert = '''            assertObject(
                 device,
                 By.clazz("android.widget.EditText").text("MG Road, Vijayawada"),
@@ -102,15 +98,9 @@ new_assert = '''            assertObject(device, By.clazz("android.widget.EditTe
 '''
 if old_assert in text:
     text = text.replace(old_assert, new_assert)
-elif new_assert not in text:
-    raise SystemExit('Calendar screenshot assertions marker not found')
 curated_capture = 'capture(device, "/data/local/tmp/drop-calendar-curated-values.png")'
 if curated_capture not in text:
-    text = text.replace(
-        'capture(device, "/data/local/tmp/drop-calendar-confirmation.png")',
-        'capture(device, "/data/local/tmp/drop-calendar-confirmation.png")\n            ' + curated_capture,
-        1
-    )
+    text = text.replace('capture(device, "/data/local/tmp/drop-calendar-confirmation.png")', 'capture(device, "/data/local/tmp/drop-calendar-confirmation.png")\n            ' + curated_capture, 1)
 test.write_text(text)
 
 Path('verification/calendar-curated-extraction.txt').unlink(missing_ok=True)
