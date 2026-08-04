@@ -129,6 +129,7 @@ jobs:
             adb pull /data/local/tmp/drop-image-intake-actions.png screenshots/drop-image-intake-actions.png
             adb pull /data/local/tmp/drop-pdf-intake-actions.png screenshots/drop-pdf-intake-actions.png
             adb pull /data/local/tmp/drop-modern-link-actions.png screenshots/drop-modern-link-actions.png
+            adb pull /data/local/tmp/drop-compact-price-extraction.png screenshots/drop-compact-price-extraction.png
             test -s screenshots/drop-home.png
             test -s screenshots/drop-history.png
             test -s screenshots/drop-suggested-actions.png
@@ -147,6 +148,7 @@ jobs:
             test -s screenshots/drop-image-intake-actions.png
             test -s screenshots/drop-pdf-intake-actions.png
             test -s screenshots/drop-modern-link-actions.png
+            test -s screenshots/drop-compact-price-extraction.png
 
       - name: Upload UI screenshots
         if: always()
