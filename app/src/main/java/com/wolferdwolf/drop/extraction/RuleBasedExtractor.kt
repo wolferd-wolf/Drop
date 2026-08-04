@@ -16,7 +16,7 @@ object RuleBasedExtractor {
         Rule(
             ExtractionType.URL,
             Regex(
-                "(?i)\\b(?:(?:https?://|www\\.)[^\\s<>()]+|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+(?:com|org|net|in|io|app|co|dev)(?:/[^\\s<>()]*)?)"
+                "(?i)\\b(?:(?:https?://|www\\.)[^\\s<>()]+|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+(?:com|org|net|in|io|app|co|dev|ai|me|tech|store|online|site|xyz|cloud|live|news|shop|info|biz|edu|gov)(?:/[^\\s<>()]*)?)"
             ),
             0.96f
         ),
