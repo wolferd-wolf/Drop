@@ -155,10 +155,6 @@ class CalendarConfirmationActivity : ComponentActivity() {
         const val EXTRA_CURATED_DATE = "curated_date"
         const val EXTRA_CURATED_TIME = "curated_time"
         const val EXTRA_CURATED_VENUE = "curated_venue"
-        const val EXTRA_HAS_CURATED_RESULTS = "has_curated_results"
-        const val EXTRA_CURATED_DATE = "curated_date"
-        const val EXTRA_CURATED_TIME = "curated_time"
-        const val EXTRA_CURATED_VENUE = "curated_venue"
         private const val MAX_TITLE_LENGTH = 120
         private const val MAX_VENUE_LENGTH = 300
         private const val MAX_NOTES_LENGTH = 5_000
