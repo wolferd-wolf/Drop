@@ -20,6 +20,27 @@ class RuleBasedExtractorTest {
     }
 
     @Test
+    fun extractsCommonModernBareDomains() {
+        val text = "Portfolio wolfpack.me, services wolfpack.tech/build, store wolfpack.store, and AI wolfpack.ai."
+        val links = RuleBasedExtractor.extract(text).filter { it.type == ExtractionType.URL }
+
+        assertTrue(links.any { it.value == "wolfpack.me" })
+        assertTrue(links.any { it.value == "wolfpack.tech/build" })
+        assertTrue(links.any { it.value == "wolfpack.store" })
+        assertTrue(links.any { it.value == "wolfpack.ai" })
+        links.forEach { link ->
+            assertEquals(link.value, text.substring(link.sourceStart, link.sourceEndExclusive))
+        }
+    }
+
+    @Test
+    fun ordinaryDottedWordsDoNotBecomeLinks() {
+        val results = RuleBasedExtractor.extract("Use report.final and version.preview during internal review.")
+
+        assertFalse(results.any { it.type == ExtractionType.URL })
+    }
+
+    @Test
     fun extractsIndianAndInternationalPrices() {
         val text = "Total ₹1,25,499.50, deposit Rs. 2,000, plan USD 19.99, fee 35 EUR, and ticket £12."
         val prices = RuleBasedExtractor.extract(text).filter { it.type == ExtractionType.PRICE }
