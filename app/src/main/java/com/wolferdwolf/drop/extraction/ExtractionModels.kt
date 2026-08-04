@@ -6,16 +6,8 @@ enum class ExtractionType {
     URL,
     DATE,
     TIME,
-    PRICE;
-
-    companion object {
-        /**
-         * Temporary compatibility alias for calendar venue routing.
-         * Address extraction is not yet represented as a first-class editable result,
-         * so callers must not treat this alias as proof that an address was detected.
-         */
-        val ADDRESS: ExtractionType = PRICE
-    }
+    PRICE,
+    ADDRESS
 }
 
 data class ExtractionResult(
