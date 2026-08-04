@@ -44,6 +44,7 @@ import com.wolferdwolf.drop.contact.ContactConfirmationActivity
 import com.wolferdwolf.drop.data.SavedReference
 import com.wolferdwolf.drop.data.SavedReferenceStore
 import com.wolferdwolf.drop.email.EmailConfirmationActivity
+import com.wolferdwolf.drop.extraction.EditableExtractionResults
 import com.wolferdwolf.drop.extraction.ExtractionResult
 import com.wolferdwolf.drop.extraction.ExtractionType
 import com.wolferdwolf.drop.extraction.RuleBasedExtractor
@@ -61,6 +62,7 @@ import com.wolferdwolf.drop.ui.theme.DropTheme
 
 class MainActivity : ComponentActivity() {
     private var sourceText by mutableStateOf<String?>(null)
+    private var editedResults by mutableStateOf<List<ExtractionResult>?>(null)
     private var screen by mutableStateOf(Screen.HOME)
     private var references by mutableStateOf<List<SavedReference>>(emptyList())
     private var reminders by mutableStateOf<List<ReminderRecord>>(emptyList())
@@ -92,7 +94,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             DropTheme {
                 val text = sourceText
-                val results = text?.let(RuleBasedExtractor::extract).orEmpty()
+                val detectedResults = text?.let(RuleBasedExtractor::extract).orEmpty()
+                val results = editedResults ?: detectedResults
                 when (screen) {
                     Screen.HOME -> HomeScreen(
                         importStatus,
@@ -114,12 +117,15 @@ class MainActivity : ComponentActivity() {
                     Screen.LINK_ENTRY -> EntryScreen("Add link", true, { screen = Screen.HOME }, ::beginFlow)
                     Screen.PREVIEW -> if (text == null) reset() else PreviewScreen(text, ::reset) {
                         sourceText = it
+                        editedResults = null
                         screen = Screen.EXTRACTION
                     }
                     Screen.EXTRACTION -> if (text == null) reset() else ExtractionScreen(
                         text,
                         results,
                         { screen = Screen.PREVIEW },
+                        { target, value -> editedResults = EditableExtractionResults.update(results, target, value) },
+                        { target -> editedResults = EditableExtractionResults.remove(results, target) },
                         { screen = Screen.ACTIONS },
                         ::reset
                     )
@@ -243,6 +249,7 @@ class MainActivity : ComponentActivity() {
         val clean = value.trim().take(SharedTextParser.MAX_SHARED_TEXT_LENGTH)
         if (clean.isNotBlank()) {
             sourceText = clean
+            editedResults = null
             screen = Screen.PREVIEW
         }
     }
@@ -254,6 +261,7 @@ class MainActivity : ComponentActivity() {
 
     private fun reset() {
         sourceText = null
+        editedResults = null
         actionError = null
         importStatus = null
         screen = Screen.HOME
@@ -376,6 +384,8 @@ private fun ExtractionScreen(
     original: String,
     results: List<ExtractionResult>,
     onBack: () -> Unit,
+    onEdit: (ExtractionResult, String) -> Unit,
+    onRemove: (ExtractionResult) -> Unit,
     onActions: () -> Unit,
     onDiscard: () -> Unit
 ) {
@@ -383,12 +393,20 @@ private fun ExtractionScreen(
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { Text(if (results.isEmpty()) "Nothing specific was detected" else "${results.size} useful details found", style = MaterialTheme.typography.headlineSmall) }
             if (results.isEmpty()) item { Text("Drop can still save this content, create a reminder, or build a checklist.") }
-            else items(results, key = { "${it.type}-${it.sourceStart}-${it.value}" }) { result ->
+            else items(results, key = { "${it.type}-${it.sourceStart}" }) { result ->
                 Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(result.type.label(), style = MaterialTheme.typography.labelLarge)
-                        Text(result.value, style = MaterialTheme.typography.titleMedium)
+                        OutlinedTextField(
+                            value = result.value,
+                            onValueChange = { onEdit(result, it) },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Edit ${result.type.label()}") },
+                            supportingText = { Text("Your edits are used for Suggested Actions.") },
+                            singleLine = true
+                        )
                         Text("Confidence ${(result.confidence * 100).toInt()}%")
+                        TextButton(onClick = { onRemove(result) }) { Text("Remove ${result.type.label()}") }
                     }
                 }
             }
