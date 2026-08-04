@@ -1,1 +1,2 @@
 Apply the curated extraction transfer patch for Calendar confirmation.
+Retry requested after detecting that prior CI passed without the curated implementation or required screenshot.
