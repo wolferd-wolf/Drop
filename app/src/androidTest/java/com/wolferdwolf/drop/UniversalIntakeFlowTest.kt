@@ -28,7 +28,7 @@ class UniversalIntakeFlowTest {
             assertVisible(device, "Continue", "Paste text must provide Continue").click()
 
             reachSuggestedActions(device, "Pasted text")
-            assertVisible(device, "Create reminder", "Pasted dates and times must unlock Reminder")
+            assertVisibleAfterScroll(device, "Create reminder", "Pasted dates and times must unlock Reminder")
             capture(device, "/data/local/tmp/drop-paste-intake-actions.png")
         }
     }
@@ -43,7 +43,7 @@ class UniversalIntakeFlowTest {
             assertVisible(device, "Continue", "Add link must provide Continue").click()
 
             reachSuggestedActions(device, "Added link")
-            assertVisible(device, "Open link", "A valid web link must unlock Open link")
+            assertVisibleAfterScroll(device, "Open link", "A valid web link must unlock Open link")
             capture(device, "/data/local/tmp/drop-link-intake-actions.png")
         }
     }
@@ -62,7 +62,7 @@ class UniversalIntakeFlowTest {
             assertVisible(device, "Continue to Drop actions", "Image review must offer the universal flow").click()
 
             reachSuggestedActions(device, "Image OCR")
-            assertVisible(device, "Save reference", "Image OCR must retain the safe default action")
+            assertVisibleAfterScroll(device, "Save reference", "Image OCR must retain the safe default action")
             capture(device, "/data/local/tmp/drop-image-intake-actions.png")
         }
     }
@@ -83,7 +83,7 @@ class UniversalIntakeFlowTest {
             assertVisible(device, "Continue to Drop actions", "PDF review must offer the universal flow").click()
 
             reachSuggestedActions(device, "PDF")
-            assertVisible(device, "Save reference", "PDF must retain the safe default action")
+            assertVisibleAfterScroll(device, "Save reference", "PDF must retain the safe default action")
             capture(device, "/data/local/tmp/drop-pdf-intake-actions.png")
         }
     }
@@ -94,7 +94,7 @@ class UniversalIntakeFlowTest {
         assertVisible(device, "Extracted information", "$sourceName must reach Extracted information")
         assertVisibleAfterScroll(device, "See suggested actions", "$sourceName extraction must lead to Suggested Actions").click()
         assertVisible(device, "Suggested actions", "$sourceName must reach Suggested Actions")
-        assertVisible(device, "Choose another action", "$sourceName must retain the manual action path")
+        assertVisibleAfterScroll(device, "Choose another action", "$sourceName must retain the manual action path")
     }
 
     private fun device(): UiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
