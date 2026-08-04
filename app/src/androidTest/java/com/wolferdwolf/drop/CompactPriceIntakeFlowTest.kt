@@ -15,8 +15,8 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class CompactPriceIntakeFlowTest {
     @Test
-    fun extractedValueCanBeEditedAndRemovedBeforeSuggestedActions() {
-        ActivityScenario.launch(MainActivity::class.java).use {
+    fun extractedValueCanBeEditedRemovedAndRestoredBeforeSuggestedActions() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             assertVisible(device, "Paste text").click()
             assertObject(device, By.clazz("android.widget.EditText")).text =
@@ -30,10 +30,21 @@ class CompactPriceIntakeFlowTest {
             assertObject(device, By.clazz("android.widget.EditText")).text = "₹3 lakh"
             assertVisible(device, "₹3 lakh")
             assertVisibleAfterScroll(device, "Your edits are used for Suggested Actions.")
+
+            scenario.recreate()
+            device.waitForIdle()
+            assertVisible(device, "Extracted information")
+            assertVisibleAfterScroll(device, "₹3 lakh")
+            assertVisibleAfterScroll(device, "1 useful detail found")
             assertVisibleAfterScroll(device, "Remove Price")
+            capture(device, "/data/local/tmp/drop-extraction-edit-restored.png")
             capture(device, "/data/local/tmp/drop-compact-price-extraction.png")
 
             assertVisibleAfterScroll(device, "Remove Price").click()
+            assertVisible(device, "Nothing specific was detected")
+
+            scenario.recreate()
+            device.waitForIdle()
             assertVisible(device, "Nothing specific was detected")
             assertVisibleAfterScroll(device, "See suggested actions").click()
             assertVisible(device, "Suggested actions")
