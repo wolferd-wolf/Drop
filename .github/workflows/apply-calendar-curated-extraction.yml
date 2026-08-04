@@ -1,22 +1,22 @@
 name: Apply calendar curated extraction
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'verification/calendar-curated-extraction.txt'
+  push:
+    branches:
+      - automation/calendar-curated-extraction
 
 permissions:
   contents: write
 
 jobs:
   patch:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout verification branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          ref: automation/calendar-curated-extraction
       - name: Integrate curated Calendar values
         run: |
           python3 tools/apply_calendar_curated_extraction.py
@@ -24,4 +24,4 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
           git commit -m 'Use edited extraction values in Calendar confirmation'
-          git push origin HEAD:${{ github.head_ref }}
+          git push origin HEAD:automation/calendar-curated-extraction
