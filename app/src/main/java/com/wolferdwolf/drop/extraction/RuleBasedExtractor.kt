@@ -22,6 +22,11 @@ object RuleBasedExtractor {
         ),
         Rule(
             ExtractionType.PRICE,
+            Regex("(?i)(?<![A-Z0-9])(?:₹|Rs\\.?|INR|\\$|USD|€|EUR|£|GBP|¥|JPY)\\s*\\d+(?:[.,]\\d+)?\\s*(?:k|thousand|lakh|lac|crore|million|billion)\\b"),
+            0.99f
+        ),
+        Rule(
+            ExtractionType.PRICE,
             Regex("(?i)(?<![A-Z0-9])(?:₹|Rs\\.?|INR|\\$|USD|€|EUR|£|GBP|¥|JPY)\\s*\\d{1,3}(?:(?:,\\d{2})*,\\d{3}|(?:,\\d{3})*|\\d*)(?:\\.\\d{1,2})?(?![\\d/])"),
             0.97f
         ),
