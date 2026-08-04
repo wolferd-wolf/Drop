@@ -20,7 +20,7 @@ class MultilineAddressIntakeFlowTest {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             assertVisible(device, "Paste text").click()
             assertObject(device, By.clazz("android.widget.EditText")).text =
-                "Product launch\nVenue:\nWolf Convention Centre\nMG Road, Vijayawada\nAndhra Pradesh 520010\nDate: 18 August 2026"
+                "Product launch\nVenue:\nWolf Convention Centre\nMG Road, Vijayawada\nAndhra Pradesh 520010\nNotes: Bring registration receipt"
             assertVisible(device, "Continue").click()
             assertVisible(device, "Import preview")
             assertVisible(device, "Extract details").click()
