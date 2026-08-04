@@ -45,6 +45,7 @@ import com.wolferdwolf.drop.data.SavedReference
 import com.wolferdwolf.drop.data.SavedReferenceStore
 import com.wolferdwolf.drop.email.EmailConfirmationActivity
 import com.wolferdwolf.drop.extraction.EditableExtractionResults
+import com.wolferdwolf.drop.extraction.EditableExtractionState
 import com.wolferdwolf.drop.extraction.ExtractionResult
 import com.wolferdwolf.drop.extraction.ExtractionType
 import com.wolferdwolf.drop.extraction.RuleBasedExtractor
@@ -88,6 +89,10 @@ class MainActivity : ComponentActivity() {
         reminderScheduler = ReminderScheduler(applicationContext)
         refreshHistory()
         sourceText = savedInstanceState?.getString(STATE_TEXT) ?: SharedTextParser.parse(intent)
+        editedResults = EditableExtractionState.decode(
+            savedInstanceState?.getBoolean(STATE_HAS_EDITED_RESULTS, false) == true,
+            savedInstanceState?.getStringArrayList(STATE_EDITED_RESULTS)
+        )
         screen = savedInstanceState?.getString(STATE_SCREEN)?.let { runCatching { Screen.valueOf(it) }.getOrNull() }
             ?: if (sourceText == null) Screen.HOME else Screen.PREVIEW
 
@@ -177,6 +182,8 @@ class MainActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString(STATE_TEXT, sourceText)
         outState.putString(STATE_SCREEN, screen.name)
+        outState.putBoolean(STATE_HAS_EDITED_RESULTS, editedResults != null)
+        outState.putStringArrayList(STATE_EDITED_RESULTS, EditableExtractionState.encode(editedResults))
         super.onSaveInstanceState(outState)
     }
 
@@ -272,6 +279,8 @@ class MainActivity : ComponentActivity() {
     private companion object {
         const val STATE_TEXT = "source_text"
         const val STATE_SCREEN = "screen"
+        const val STATE_HAS_EDITED_RESULTS = "has_edited_results"
+        const val STATE_EDITED_RESULTS = "edited_results"
     }
 }
 
@@ -391,7 +400,16 @@ private fun ExtractionScreen(
 ) {
     Scaffold(topBar = { TopAppBar(title = { Text("Extracted information") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { Text(if (results.isEmpty()) "Nothing specific was detected" else "${results.size} useful details found", style = MaterialTheme.typography.headlineSmall) }
+            item {
+                Text(
+                    when (results.size) {
+                        0 -> "Nothing specific was detected"
+                        1 -> "1 useful detail found"
+                        else -> "${results.size} useful details found"
+                    },
+                    style = MaterialTheme.typography.headlineSmall
+                )
+            }
             if (results.isEmpty()) item { Text("Drop can still save this content, create a reminder, or build a checklist.") }
             else items(results, key = { "${it.type}-${it.sourceStart}" }) { result ->
                 Card(Modifier.fillMaxWidth()) {
