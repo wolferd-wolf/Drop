@@ -204,3 +204,6 @@ class HistoryConfirmationFlowTest {
           git add -A
           git commit -m "Require confirmation before History deletion [history-confirmation-applied]"
           git push origin HEAD:automation/history-delete-confirmation
+
+      - name: Integration marker
+        run: echo history-confirmation-triggered
