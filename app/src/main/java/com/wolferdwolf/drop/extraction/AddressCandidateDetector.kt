@@ -11,11 +11,11 @@ object AddressCandidateDetector {
         "apartment", "flat", "floor", "nagar", "colony", "district", "mandal", "village",
         "near ", "opposite", "beside", "behind", "junction", "circle", "complex", "mall",
         "hospital", "school", "college", "office", "station", "airport", "temple", "church",
-        "mosque", "hotel", "restaurant", "theatre", "theater", "stadium", "hall"
+        "mosque", "hotel", "restaurant", "theatre", "theater", "stadium", "hall", "centre", "center"
     )
     private val pinCode = Regex("(?<!\\d)[1-9]\\d{5}(?!\\d)")
     private val numberedPremise = Regex("(?i)\\b(?:no\\.?|house|plot|door|flat|shop|room)\\s*#?\\s*[a-z0-9/-]{1,12}\\b")
-    private val locationLabel = Regex("(?i)^(?:venue|location|address)\\s*:\\s*(.*)$")
+    private val locationLabel = Regex("(?i)\\b(?:venue|location|address)\\s*:\\s*(.*)$")
     private val nextFieldLabel = Regex(
         "(?i)^(?:date|time|phone|email|website|price|fee|deadline|notes?|contact|organizer|organiser)\\s*:"
     )
@@ -43,7 +43,7 @@ object AddressCandidateDetector {
 
     private fun detectLabelledBlock(lines: List<String>): AddressCandidate? {
         lines.forEachIndexed { index, line ->
-            val match = locationLabel.matchEntire(line) ?: return@forEachIndexed
+            val match = locationLabel.find(line) ?: return@forEachIndexed
             val collected = mutableListOf<String>()
             match.groupValues[1].trim().takeIf(String::isNotBlank)?.let(collected::add)
 
@@ -51,6 +51,7 @@ object AddressCandidateDetector {
             while (cursor < lines.size && collected.size < MAX_LABELLED_LINES) {
                 val next = lines[cursor].trim()
                 if (next.isBlank() || nextFieldLabel.containsMatchIn(next)) break
+                if (!looksLikeAddressLine(next)) break
                 collected += next
                 cursor += 1
             }
@@ -66,6 +67,14 @@ object AddressCandidateDetector {
             }
         }
         return null
+    }
+
+    private fun looksLikeAddressLine(line: String): Boolean {
+        val lower = line.lowercase()
+        return strongMarkers.any(lower::contains) ||
+            pinCode.containsMatchIn(line) ||
+            numberedPremise.containsMatchIn(line) ||
+            line.count { it == ',' } >= 1
     }
 
     private const val MAX_LABELLED_LINES = 4
