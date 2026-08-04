@@ -44,6 +44,35 @@ class MultilineAddressCandidateDetectorTest {
     }
 
     @Test
+    fun inlineVenueLabelPreservesOnlyTheVenueValue() {
+        val candidate = AddressCandidateDetector.detect(
+            "Annual meeting venue: Sri Balaji Convention Hall, near RTC Bus Station, Gooty 515401"
+        )
+
+        assertEquals(
+            "Sri Balaji Convention Hall, near RTC Bus Station, Gooty 515401",
+            candidate?.value
+        )
+    }
+
+    @Test
+    fun inlineLabelDoesNotConsumeFollowingInstructions() {
+        val candidate = AddressCandidateDetector.detect(
+            """
+            Annual meeting
+            Venue: Sri Balaji Convention Hall, near RTC Bus Station, Gooty 515401
+            Bring your registration receipt.
+            """.trimIndent()
+        )
+
+        assertEquals(
+            "Sri Balaji Convention Hall, near RTC Bus Station, Gooty 515401",
+            candidate?.value
+        )
+        assertFalse(candidate?.value.orEmpty().contains("Bring your registration receipt"))
+    }
+
+    @Test
     fun unlabelledOrdinaryParagraphIsNotPromotedToAddress() {
         val candidate = AddressCandidateDetector.detect(
             "The quarterly report explains product growth and customer retention across several markets."
