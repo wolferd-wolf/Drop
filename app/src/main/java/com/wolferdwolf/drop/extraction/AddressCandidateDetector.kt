@@ -23,7 +23,7 @@ object AddressCandidateDetector {
         "(?i)^(?:date|time|phone|email|website|price|fee|deadline|notes?|contact|organizer|organiser)\\s*:"
     )
     private val venueAfterTime = Regex(
-        "(?i)\\b(?:[01]?\\d|2[0-3])(?::[0-5]\\d)?\\s*(?:a\\.?m\\.?|p\\.?m\\.?)?\\s*,\\s*(.+?)(?=[.!?](?:\\s|$)|$)"
+        "(?i)\\b(?:(?:[01]?\\d|2[0-3]):[0-5]\\d\\s*(?:a\\.?m\\.?|p\\.?m\\.?)?|(?:0?[1-9]|1[0-2])\\s*(?:a\\.?m\\.?|p\\.?m\\.?))\\s*,\\s*(.+?)(?=[.!?](?:\\s|$)|$)"
     )
 
     fun detect(text: String): AddressCandidate? {
