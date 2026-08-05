@@ -6,7 +6,8 @@ enum class ExtractionType {
     URL,
     DATE,
     TIME,
-    PRICE
+    PRICE,
+    ADDRESS
 }
 
 data class ExtractionResult(

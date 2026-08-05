@@ -209,6 +209,10 @@ class MainActivity : ComponentActivity() {
             SuggestedActionType.CALENDAR -> startActivity(
                 Intent(this, CalendarConfirmationActivity::class.java)
                     .putExtra(CalendarConfirmationActivity.EXTRA_SOURCE_TEXT, text)
+                    .putExtra(CalendarConfirmationActivity.EXTRA_HAS_CURATED_RESULTS, true)
+                    .putExtra(CalendarConfirmationActivity.EXTRA_CURATED_DATE, first(results, ExtractionType.DATE).orEmpty())
+                    .putExtra(CalendarConfirmationActivity.EXTRA_CURATED_TIME, first(results, ExtractionType.TIME).orEmpty())
+                    .putExtra(CalendarConfirmationActivity.EXTRA_CURATED_VENUE, first(results, ExtractionType.ADDRESS).orEmpty())
             )
             SuggestedActionType.CONTACT -> startActivity(
                 Intent(this, ContactConfirmationActivity::class.java)
@@ -523,4 +527,5 @@ private fun ExtractionType.label() = when (this) {
     ExtractionType.DATE -> "Date"
     ExtractionType.TIME -> "Time"
     ExtractionType.PRICE -> "Price"
+    ExtractionType.ADDRESS -> "Address or venue"
 }

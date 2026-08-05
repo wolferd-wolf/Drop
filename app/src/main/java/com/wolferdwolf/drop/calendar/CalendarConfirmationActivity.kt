@@ -46,13 +46,25 @@ class CalendarConfirmationActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val source = intent.getStringExtra(EXTRA_SOURCE_TEXT).orEmpty()
         val extracted = RuleBasedExtractor.extract(source)
-        val date = extracted.firstOrNull { it.type == ExtractionType.DATE }?.value.orEmpty()
-        val time = extracted.firstOrNull { it.type == ExtractionType.TIME }?.value.orEmpty()
+        val hasCuratedResults = intent.getBooleanExtra(EXTRA_HAS_CURATED_RESULTS, false)
+        val date = if (hasCuratedResults) {
+            intent.getStringExtra(EXTRA_CURATED_DATE).orEmpty()
+        } else {
+            extracted.firstOrNull { it.type == ExtractionType.DATE }?.value.orEmpty()
+        }
+        val time = if (hasCuratedResults) {
+            intent.getStringExtra(EXTRA_CURATED_TIME).orEmpty()
+        } else {
+            extracted.firstOrNull { it.type == ExtractionType.TIME }?.value.orEmpty()
+        }
         val initialDate = normalizeDate(date)
         val initialStart = normalizeTime(time)
         val initialEnd = initialStart.takeIf(String::isNotBlank)?.let(::oneHourLater).orEmpty()
-        val initialVenue = labelledVenue(source)
-            ?: AddressCandidateDetector.detect(source)?.value.orEmpty()
+        val initialVenue = if (hasCuratedResults) {
+            intent.getStringExtra(EXTRA_CURATED_VENUE).orEmpty()
+        } else {
+            labelledVenue(source) ?: AddressCandidateDetector.detect(source)?.value.orEmpty()
+        }
 
         setContent {
             DropTheme {
@@ -139,6 +151,10 @@ class CalendarConfirmationActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_SOURCE_TEXT = "source_text"
+        const val EXTRA_HAS_CURATED_RESULTS = "has_curated_results"
+        const val EXTRA_CURATED_DATE = "curated_date"
+        const val EXTRA_CURATED_TIME = "curated_time"
+        const val EXTRA_CURATED_VENUE = "curated_venue"
         private const val MAX_TITLE_LENGTH = 120
         private const val MAX_VENUE_LENGTH = 300
         private const val MAX_NOTES_LENGTH = 5_000

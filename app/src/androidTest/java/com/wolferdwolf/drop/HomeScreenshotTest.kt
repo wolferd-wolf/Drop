@@ -110,6 +110,10 @@ class HomeScreenshotTest {
         val source = "Product launch meeting on August 21st, 2026 at 4:00 PM. Venue: MG Road, Vijayawada. Bring the final presentation."
         val intent = Intent(context, CalendarConfirmationActivity::class.java)
             .putExtra(CalendarConfirmationActivity.EXTRA_SOURCE_TEXT, source)
+            .putExtra(CalendarConfirmationActivity.EXTRA_HAS_CURATED_RESULTS, true)
+            .putExtra(CalendarConfirmationActivity.EXTRA_CURATED_DATE, "22 August 2026")
+            .putExtra(CalendarConfirmationActivity.EXTRA_CURATED_TIME, "6:15 PM")
+            .putExtra(CalendarConfirmationActivity.EXTRA_CURATED_VENUE, "Edited venue, Vijayawada")
 
         ActivityScenario.launch<CalendarConfirmationActivity>(intent).use {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
@@ -120,14 +124,17 @@ class HomeScreenshotTest {
             assertVisible(device, "Start (HH:MM)", "Calendar confirmation must expose an editable start time")
             assertVisible(device, "End (HH:MM)", "Calendar confirmation must expose an editable end time")
             assertVisible(device, "Venue", "Calendar confirmation must expose an editable venue")
+            assertObject(device, By.clazz("android.widget.EditText").text("2026-08-22"), "Edited date must reach Calendar confirmation")
+            assertObject(device, By.clazz("android.widget.EditText").text("18:15"), "Edited time must reach Calendar confirmation")
             assertObject(
                 device,
-                By.clazz("android.widget.EditText").text("MG Road, Vijayawada"),
-                "Venue must contain only the detected location"
+                By.clazz("android.widget.EditText").text("Edited venue, Vijayawada"),
+                "Edited venue must replace the original detected location"
             )
             assertVisibleAfterScroll(device, "Continue to Calendar", "Calendar confirmation must require explicit continuation")
             assertVisibleAfterScroll(device, "Cancel", "Calendar confirmation must be reversible")
             capture(device, "/data/local/tmp/drop-calendar-confirmation.png")
+            capture(device, "/data/local/tmp/drop-calendar-curated-values.png")
         }
     }
 
