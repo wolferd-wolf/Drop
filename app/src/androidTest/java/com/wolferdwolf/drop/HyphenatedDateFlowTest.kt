@@ -28,6 +28,7 @@ class HyphenatedDateFlowTest {
             activateAndWait(device, "Continue", "Import preview")
             activateAndWait(device, "Extract details", "Extracted information")
             assertVisibleAfterScroll(device, "12-Aug-2026", "Hyphenated written date must be visible and editable")
+            assertVisibleAfterScroll(device, "Town Hall Road, Gooty", "Venue must exclude surrounding event text")
             activateAndWait(device, "See suggested actions", "Suggested actions", scroll = true)
             assertVisibleAfterScroll(device, "Create reminder", "Detected date and time must unlock Reminder")
             capture(device, "/data/local/tmp/drop-hyphenated-date-actions.png")
