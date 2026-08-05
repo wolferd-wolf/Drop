@@ -22,9 +22,13 @@ object AddressCandidateDetector {
     private val nextFieldLabel = Regex(
         "(?i)^(?:date|time|phone|email|website|price|fee|deadline|notes?|contact|organizer|organiser)\\s*:"
     )
+    private val venueAfterTime = Regex(
+        "(?i)\\b(?:[01]?\\d|2[0-3])(?::[0-5]\\d)?\\s*(?:a\\.?m\\.?|p\\.?m\\.?)?\\s*,\\s*(.+?)(?=[.!?](?:\\s|$)|$)"
+    )
 
     fun detect(text: String): AddressCandidate? {
         detectInlineLabelledValue(text)?.let { return it }
+        detectVenueAfterTime(text)?.let { return it }
 
         val lines = text.lineSequence().map(String::trim).toList()
         val nonBlankLines = lines.filter(String::isNotBlank)
@@ -48,12 +52,21 @@ object AddressCandidateDetector {
 
     private fun detectInlineLabelledValue(text: String): AddressCandidate? {
         val match = inlineLocationLabel.find(text) ?: return null
-        val value = match.groupValues[1]
-            .trim()
-            .trimEnd('.', ',', ';', ':', '!', '?')
-            .take(MAX_ADDRESS_LENGTH)
+        val value = clean(match.groupValues[1])
         if (value.isBlank()) return null
         return AddressCandidate(value, if (pinCode.containsMatchIn(value)) 0.99f else 0.95f)
+    }
+
+    private fun detectVenueAfterTime(text: String): AddressCandidate? {
+        val match = venueAfterTime.find(text) ?: return null
+        val value = clean(match.groupValues[1])
+        if (!looksLikeAddressLine(value)) return null
+        val confidence = when {
+            pinCode.containsMatchIn(value) -> 0.94f
+            strongMarkers.any(value.lowercase()::contains) -> 0.90f
+            else -> 0.78f
+        }
+        return AddressCandidate(value, confidence)
     }
 
     private fun detectLabelledBlock(lines: List<String>): AddressCandidate? {
@@ -91,6 +104,11 @@ object AddressCandidateDetector {
             numberedPremise.containsMatchIn(line) ||
             line.count { it == ',' } >= 1
     }
+
+    private fun clean(value: String): String = value
+        .trim()
+        .trimEnd('.', ',', ';', ':', '!', '?')
+        .take(MAX_ADDRESS_LENGTH)
 
     private const val MAX_LABELLED_LINES = 4
     private const val MAX_ADDRESS_LENGTH = 300
