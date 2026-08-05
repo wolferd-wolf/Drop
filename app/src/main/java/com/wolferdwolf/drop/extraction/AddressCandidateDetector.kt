@@ -16,11 +16,16 @@ object AddressCandidateDetector {
     private val pinCode = Regex("(?<!\\d)[1-9]\\d{5}(?!\\d)")
     private val numberedPremise = Regex("(?i)\\b(?:no\\.?|house|plot|door|flat|shop|room)\\s*#?\\s*[a-z0-9/-]{1,12}\\b")
     private val locationLabel = Regex("(?i)\\b(?:venue|location|address)\\s*:\\s*(.*)$")
+    private val inlineLocationLabel = Regex(
+        "(?i)\\b(?:venue|location|address)\\s*:\\s*(.+?)(?=(?:[.!?](?:\\s|$))|(?:\\s+(?:date|time|phone|email|website|price|fee|deadline|notes?|contact|organizer|organiser)\\s*:)|$)"
+    )
     private val nextFieldLabel = Regex(
         "(?i)^(?:date|time|phone|email|website|price|fee|deadline|notes?|contact|organizer|organiser)\\s*:"
     )
 
     fun detect(text: String): AddressCandidate? {
+        detectInlineLabelledValue(text)?.let { return it }
+
         val lines = text.lineSequence().map(String::trim).toList()
         val nonBlankLines = lines.filter(String::isNotBlank)
         if (nonBlankLines.isEmpty()) return null
@@ -39,6 +44,16 @@ object AddressCandidateDetector {
         }
 
         return ranked.maxByOrNull(AddressCandidate::confidence)
+    }
+
+    private fun detectInlineLabelledValue(text: String): AddressCandidate? {
+        val match = inlineLocationLabel.find(text) ?: return null
+        val value = match.groupValues[1]
+            .trim()
+            .trimEnd('.', ',', ';', ':', '!', '?')
+            .take(MAX_ADDRESS_LENGTH)
+        if (value.isBlank()) return null
+        return AddressCandidate(value, if (pinCode.containsMatchIn(value)) 0.99f else 0.95f)
     }
 
     private fun detectLabelledBlock(lines: List<String>): AddressCandidate? {
