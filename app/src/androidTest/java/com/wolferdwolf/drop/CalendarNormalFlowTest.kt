@@ -69,7 +69,7 @@ class CalendarNormalFlowTest {
         destinationText: String
     ) {
         repeat(2) { attempt ->
-            val source = clickableTextAfterScroll(device, sourceText)
+            val source = actionTargetAfterScroll(device, sourceText)
             tapResolvedTarget(device, source)
             val destination = device.wait(Until.findObject(By.text(destinationText)), TIMEOUT)
             if (destination != null) return
@@ -90,29 +90,42 @@ class CalendarNormalFlowTest {
     }
 
     private fun tapResolvedTarget(device: UiDevice, node: UiObject2) {
-        var target: UiObject2? = node
-        while (target != null && !target.isClickable) target = target.parent
-        val bounds = (target ?: node).visibleBounds
+        val target = clickableAncestor(node) ?: node
+        val bounds = target.visibleBounds
         assertTrue("Target has no tappable area", !bounds.isEmpty)
         assertTrue("Coordinate tap failed", device.click(bounds.centerX(), bounds.centerY()))
     }
 
-    private fun clickableTextAfterScroll(device: UiDevice, text: String): UiObject2 {
-        val selector = By.text(text).clickable(true)
-        device.wait(Until.findObject(selector), SHORT_TIMEOUT)?.let { return it }
-        repeat(8) {
-            device.swipe(
-                device.displayWidth / 2,
-                device.displayHeight * 3 / 4,
-                device.displayWidth / 2,
-                device.displayHeight / 4,
-                20
-            )
-            device.waitForIdle()
-            device.wait(Until.findObject(selector), SHORT_TIMEOUT)?.let { return it }
+    private fun actionTargetAfterScroll(device: UiDevice, text: String): UiObject2 {
+        repeat(9) { attempt ->
+            val candidates = device.findObjects(By.text(text))
+                .mapNotNull(::clickableAncestor)
+                .distinctBy { it.visibleBounds }
+                .filter { !it.visibleBounds.isEmpty }
+            if (candidates.isNotEmpty()) {
+                return candidates.minBy { it.visibleBounds.width() * it.visibleBounds.height() }
+            }
+            if (attempt < 8) {
+                device.swipe(
+                    device.displayWidth / 2,
+                    device.displayHeight * 3 / 4,
+                    device.displayWidth / 2,
+                    device.displayHeight / 4,
+                    20
+                )
+                device.waitForIdle()
+            }
         }
-        return device.findObject(selector)
-            ?: throw AssertionError("Expected clickable action after scrolling: $text")
+        throw AssertionError("Expected actionable control after scrolling: $text")
+    }
+
+    private fun clickableAncestor(node: UiObject2): UiObject2? {
+        var current: UiObject2? = node
+        while (current != null) {
+            if (current.isClickable) return current
+            current = current.parent
+        }
+        return null
     }
 
     private fun dismissKeyboardWithoutNavigation(device: UiDevice) {
