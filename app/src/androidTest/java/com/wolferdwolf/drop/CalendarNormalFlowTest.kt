@@ -18,24 +18,22 @@ class CalendarNormalFlowTest {
     fun editedVenueDateAndTimeReachCalendarFromNormalIntakeFlow() {
         ActivityScenario.launch(MainActivity::class.java).use {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-            visible(device, "Paste text").click()
+            clickText(device, "Paste text")
             val input = objectFor(device, By.clazz("android.widget.EditText"), "Paste text input is missing")
             input.text = "Product launch meeting on August 21st, 2026 at 4:00 PM. Venue: MG Road, Vijayawada."
             dismissKeyboardWithoutNavigation(device)
-            visible(device, "Continue").click()
-            visible(device, "Extract details").click()
+            clickText(device, "Continue")
+            clickText(device, "Extract details")
             visible(device, "Extracted information")
 
             editAndWait(device, "August 21st, 2026", "2026-08-22", "Detected date must be editable")
             editAndWait(device, "4:00 PM", "6:15 PM", "Detected time must be editable")
             editAndWait(device, "MG Road, Vijayawada", "Edited venue, Vijayawada", "Detected venue must be editable")
 
-            visibleAfterScroll(device, "See suggested actions").click()
+            clickText(device, "See suggested actions", scroll = true)
             visible(device, "Suggested actions")
-            visibleAfterScroll(device, "Add calendar event").click()
+            clickText(device, "Add calendar event", scroll = true)
 
-            // "Add calendar event" exists on both the action card and destination activity.
-            // Wait for destination-only content so field assertions cannot race activity launch.
             visible(device, "Confirm event details")
             objectFor(device, By.clazz("android.widget.EditText").text("2026-08-22"), "Edited date did not reach Calendar confirmation")
             objectFor(device, By.clazz("android.widget.EditText").text("18:15"), "Edited time did not reach Calendar confirmation")
@@ -54,6 +52,14 @@ class CalendarNormalFlowTest {
             By.clazz("android.widget.EditText").text(newValue),
             "Edited value was not committed before the next field: $newValue"
         )
+    }
+
+    private fun clickText(device: UiDevice, text: String, scroll: Boolean = false) {
+        val node = if (scroll) visibleAfterScroll(device, text) else visible(device, text)
+        var target: UiObject2? = node
+        while (target != null && !target.isClickable) target = target.parent
+        (target ?: node).click()
+        device.waitForIdle()
     }
 
     private fun dismissKeyboardWithoutNavigation(device: UiDevice) {
