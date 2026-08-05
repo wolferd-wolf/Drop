@@ -21,11 +21,13 @@ class CalendarNormalFlowTest {
             visible(device, "Paste text").click()
             val input = objectFor(device, By.clazz("android.widget.EditText"), "Paste text input is missing")
             input.text = "Product launch meeting on August 21st, 2026 at 4:00 PM. Venue: MG Road, Vijayawada."
+            device.pressBack()
+            device.waitForIdle()
             visible(device, "Continue").click()
             visible(device, "Extract details").click()
             visible(device, "Extracted information")
 
-            editAndWait(device, "August 21st, 2026", "22 August 2026", "Detected date must be editable")
+            editAndWait(device, "August 21st, 2026", "2026-08-22", "Detected date must be editable")
             editAndWait(device, "4:00 PM", "6:15 PM", "Detected time must be editable")
             editAndWait(device, "MG Road, Vijayawada", "Edited venue, Vijayawada", "Detected venue must be editable")
 
@@ -42,13 +44,16 @@ class CalendarNormalFlowTest {
     }
 
     private fun editAndWait(device: UiDevice, oldValue: String, newValue: String, message: String) {
-        objectFor(device, By.clazz("android.widget.EditText").text(oldValue), message).text = newValue
+        val field = objectFor(device, By.clazz("android.widget.EditText").text(oldValue), message)
+        field.click()
+        field.text = newValue
+        device.pressBack()
+        device.waitForIdle()
         objectFor(
             device,
             By.clazz("android.widget.EditText").text(newValue),
             "Edited value was not committed before the next field: $newValue"
         )
-        device.waitForIdle()
     }
 
     private fun capture(device: UiDevice, path: String) {
