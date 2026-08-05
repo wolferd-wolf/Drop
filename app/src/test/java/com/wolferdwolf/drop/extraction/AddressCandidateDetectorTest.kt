@@ -28,6 +28,27 @@ class AddressCandidateDetectorTest {
     }
 
     @Test
+    fun detectsInlineLabelledVenueInsideSentence() {
+        val candidate = AddressCandidateDetector.detect(
+            "Product launch meeting on August 21st, 2026 at 4:00 PM. Venue: MG Road, Vijayawada."
+        )
+
+        requireNotNull(candidate)
+        assertEquals("MG Road, Vijayawada", candidate.value)
+        assertTrue(candidate.confidence >= 0.9f)
+    }
+
+    @Test
+    fun stopsInlineLabelledAddressAtNextField() {
+        val candidate = AddressCandidateDetector.detect(
+            "Address: Plot 14, MG Road, Vijayawada Phone: 9876543210"
+        )
+
+        requireNotNull(candidate)
+        assertEquals("Plot 14, MG Road, Vijayawada", candidate.value)
+    }
+
+    @Test
     fun ignoresOrdinaryNotesAndNumericIdentifiers() {
         assertNull(AddressCandidateDetector.detect("Invoice 12345\nCall tomorrow at 5 PM"))
         assertNull(AddressCandidateDetector.detect("PIN 515401 is required for verification"))
