@@ -20,8 +20,8 @@ class HyphenatedWrittenDateExtractionTest {
     }
 
     @Test
-    fun doesNotTurnVersionOrRangeTextIntoDates() {
-        val results = RuleBasedExtractor.extract("Use release-4-Aug and pages 12-14-2026 for review.")
+    fun doesNotTurnVersionOrNumericRangeTextIntoDates() {
+        val results = RuleBasedExtractor.extract("Use release-4-7-1 and pages 12-14-2026 for review.")
 
         assertFalse(results.any { it.type == ExtractionType.DATE })
     }
