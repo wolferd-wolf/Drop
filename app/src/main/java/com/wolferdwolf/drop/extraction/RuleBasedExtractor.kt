@@ -17,6 +17,7 @@ object RuleBasedExtractor {
         Rule(ExtractionType.PHONE, Regex("(?<![\\d/])(?:\\+|00)[1-9]\\d{0,2}[\\s.-]?(?:\\(\\d{1,4}\\)[\\s.-]?)?(?:\\d[\\s.-]?){6,12}\\d(?![\\d/])"), 0.90f),
         Rule(ExtractionType.PHONE, Regex("(?<![\\d/])(?:\\(\\d{2,4}\\)[\\s.-]?)?(?:\\d[\\s.-]?){7,11}\\d(?![\\d/])"), 0.80f),
         Rule(ExtractionType.DATE, Regex("\\b(?:19|20)\\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])\\b"), 0.96f),
+        Rule(ExtractionType.DATE, Regex("(?<!\\d)(?:19|20)\\d{2}[/.](?:0?[1-9]|1[0-2])[/.](?:0?[1-9]|[12]\\d|3[01])(?!\\d)"), 0.95f),
         Rule(ExtractionType.DATE, Regex("(?i)\\b(?:0?[1-9]|[12]\\d|3[01])[/-](?:0?[1-9]|1[0-2])[/-](?:\\d{2}|\\d{4})\\b"), 0.91f),
         Rule(ExtractionType.DATE, Regex("(?<!\\d)(?:0?[1-9]|[12]\\d|3[01])\\.(?:0?[1-9]|1[0-2])\\.(?:\\d{2}|\\d{4})(?!\\d)"), 0.91f),
         Rule(ExtractionType.DATE, Regex("(?i)\\b(?:0?[1-9]|[12]\\d|3[01])(?:st|nd|rd|th)?[-\\s]+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:[-,\\s]+'?\\d{2,4})?\\b"), 0.93f),
