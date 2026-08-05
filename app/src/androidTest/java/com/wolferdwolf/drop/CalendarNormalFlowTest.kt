@@ -69,7 +69,7 @@ class CalendarNormalFlowTest {
         destinationText: String
     ) {
         repeat(2) { attempt ->
-            val source = visibleAfterScroll(device, sourceText)
+            val source = clickableTextAfterScroll(device, sourceText)
             tapResolvedTarget(device, source)
             val destination = device.wait(Until.findObject(By.text(destinationText)), TIMEOUT)
             if (destination != null) return
@@ -95,6 +95,24 @@ class CalendarNormalFlowTest {
         val bounds = (target ?: node).visibleBounds
         assertTrue("Target has no tappable area", !bounds.isEmpty)
         assertTrue("Coordinate tap failed", device.click(bounds.centerX(), bounds.centerY()))
+    }
+
+    private fun clickableTextAfterScroll(device: UiDevice, text: String): UiObject2 {
+        val selector = By.text(text).clickable(true)
+        device.wait(Until.findObject(selector), SHORT_TIMEOUT)?.let { return it }
+        repeat(8) {
+            device.swipe(
+                device.displayWidth / 2,
+                device.displayHeight * 3 / 4,
+                device.displayWidth / 2,
+                device.displayHeight / 4,
+                20
+            )
+            device.waitForIdle()
+            device.wait(Until.findObject(selector), SHORT_TIMEOUT)?.let { return it }
+        }
+        return device.findObject(selector)
+            ?: throw AssertionError("Expected clickable action after scrolling: $text")
     }
 
     private fun dismissKeyboardWithoutNavigation(device: UiDevice) {
