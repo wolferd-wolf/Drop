@@ -19,10 +19,8 @@ class HyphenatedDateFlowTest {
         ActivityScenario.launch(MainActivity::class.java).use {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             activateAndWait(device, "Paste text", "Add content for Drop to understand and turn into an action.")
-            val input = assertNotNull(
-                "Paste intake must provide an editable field",
-                device.wait(Until.findObject(By.clazz("android.widget.EditText")), TIMEOUT)
-            )
+            val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), TIMEOUT)
+            assertNotNull("Paste intake must provide an editable field", input)
             input.text = "Community workshop on 12-Aug-2026 at 6:30 PM, Town Hall Road, Gooty."
             device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
             device.waitForIdle()
