@@ -21,8 +21,7 @@ class CalendarNormalFlowTest {
             visible(device, "Paste text").click()
             val input = objectFor(device, By.clazz("android.widget.EditText"), "Paste text input is missing")
             input.text = "Product launch meeting on August 21st, 2026 at 4:00 PM. Venue: MG Road, Vijayawada."
-            device.pressBack()
-            device.waitForIdle()
+            dismissKeyboardWithoutNavigation(device)
             visible(device, "Continue").click()
             visible(device, "Extract details").click()
             visible(device, "Extracted information")
@@ -47,13 +46,17 @@ class CalendarNormalFlowTest {
         val field = objectFor(device, By.clazz("android.widget.EditText").text(oldValue), message)
         field.click()
         field.text = newValue
-        device.pressBack()
-        device.waitForIdle()
+        dismissKeyboardWithoutNavigation(device)
         objectFor(
             device,
             By.clazz("android.widget.EditText").text(newValue),
             "Edited value was not committed before the next field: $newValue"
         )
+    }
+
+    private fun dismissKeyboardWithoutNavigation(device: UiDevice) {
+        device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
+        device.waitForIdle()
     }
 
     private fun capture(device: UiDevice, path: String) {
