@@ -16,24 +16,45 @@ import org.junit.runner.RunWith
 class YearFirstDateFlowTest {
     @Test
     fun yearFirstSlashDateReachesEditableExtractionAndSuggestedActions() {
+        verifyYearFirstDateFlow(
+            sourceDate = "2026/08/15",
+            extractionScreenshot = "/data/local/tmp/drop-year-first-date-extraction.png",
+            actionsScreenshot = "/data/local/tmp/drop-year-first-date-actions.png"
+        )
+    }
+
+    @Test
+    fun yearFirstDottedDateReachesEditableExtractionAndSuggestedActions() {
+        verifyYearFirstDateFlow(
+            sourceDate = "2026.08.15",
+            extractionScreenshot = "/data/local/tmp/drop-year-first-dotted-date-extraction.png",
+            actionsScreenshot = "/data/local/tmp/drop-year-first-dotted-date-actions.png"
+        )
+    }
+
+    private fun verifyYearFirstDateFlow(
+        sourceDate: String,
+        extractionScreenshot: String,
+        actionsScreenshot: String
+    ) {
         ActivityScenario.launch(MainActivity::class.java).use {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             activateAndWait(device, "Paste text", "Add content for Drop to understand and turn into an action.")
             val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), TIMEOUT)
             assertNotNull("Paste intake must provide an editable field", input)
-            input.text = "Service appointment on 2026/08/15 at 6:30 PM."
+            input.text = "Service appointment on $sourceDate at 6:30 PM."
             device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
             device.waitForIdle()
 
             activateAndWait(device, "Continue", "Import preview")
             activateAndWait(device, "Extract details", "Extracted information")
-            assertVisibleAfterScroll(device, "2026/08/15", "Year-first slash date must be visible and editable")
-            capture(device, "/data/local/tmp/drop-year-first-date-extraction.png")
+            assertVisibleAfterScroll(device, sourceDate, "Year-first date must be visible and editable")
+            capture(device, extractionScreenshot)
 
             activateAndWait(device, "See suggested actions", "Suggested actions", scroll = true)
             assertVisibleAfterScroll(device, "Create reminder", "Detected date and time must unlock Reminder")
             assertVisibleAfterScroll(device, "Add calendar event", "Detected date and time must unlock Calendar")
-            capture(device, "/data/local/tmp/drop-year-first-date-actions.png")
+            capture(device, actionsScreenshot)
         }
     }
 
