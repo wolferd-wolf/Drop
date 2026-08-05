@@ -34,7 +34,9 @@ class CalendarNormalFlowTest {
             visible(device, "Suggested actions")
             visibleAfterScroll(device, "Add calendar event").click()
 
-            visible(device, "Add calendar event")
+            // "Add calendar event" exists on both the action card and destination activity.
+            // Wait for destination-only content so field assertions cannot race activity launch.
+            visible(device, "Confirm event details")
             objectFor(device, By.clazz("android.widget.EditText").text("2026-08-22"), "Edited date did not reach Calendar confirmation")
             objectFor(device, By.clazz("android.widget.EditText").text("18:15"), "Edited time did not reach Calendar confirmation")
             objectFor(device, By.clazz("android.widget.EditText").text("Edited venue, Vijayawada"), "Edited venue did not reach Calendar confirmation")
