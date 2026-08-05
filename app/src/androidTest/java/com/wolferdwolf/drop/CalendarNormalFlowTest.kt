@@ -32,9 +32,12 @@ class CalendarNormalFlowTest {
 
             clickText(device, "See suggested actions", scroll = true)
             visible(device, "Suggested actions")
-            clickText(device, "Add calendar event", scroll = true)
+            clickTextAndWaitForDestination(
+                device = device,
+                sourceText = "Add calendar event",
+                destinationText = "Confirm event details"
+            )
 
-            visible(device, "Confirm event details")
             objectFor(device, By.clazz("android.widget.EditText").text("2026-08-22"), "Edited date did not reach Calendar confirmation")
             objectFor(device, By.clazz("android.widget.EditText").text("18:15"), "Edited time did not reach Calendar confirmation")
             objectFor(device, By.clazz("android.widget.EditText").text("Edited venue, Vijayawada"), "Edited venue did not reach Calendar confirmation")
@@ -56,10 +59,42 @@ class CalendarNormalFlowTest {
 
     private fun clickText(device: UiDevice, text: String, scroll: Boolean = false) {
         val node = if (scroll) visibleAfterScroll(device, text) else visible(device, text)
+        tapResolvedTarget(device, node)
+        device.waitForIdle()
+    }
+
+    private fun clickTextAndWaitForDestination(
+        device: UiDevice,
+        sourceText: String,
+        destinationText: String
+    ) {
+        repeat(2) { attempt ->
+            val source = visibleAfterScroll(device, sourceText)
+            tapResolvedTarget(device, source)
+            val destination = device.wait(Until.findObject(By.text(destinationText)), TIMEOUT)
+            if (destination != null) return
+
+            if (attempt == 0) {
+                device.waitForIdle()
+                device.swipe(
+                    device.displayWidth / 2,
+                    device.displayHeight * 2 / 3,
+                    device.displayWidth / 2,
+                    device.displayHeight / 2,
+                    10
+                )
+                device.waitForIdle()
+            }
+        }
+        throw AssertionError("Expected visible text after activating $sourceText: $destinationText")
+    }
+
+    private fun tapResolvedTarget(device: UiDevice, node: UiObject2) {
         var target: UiObject2? = node
         while (target != null && !target.isClickable) target = target.parent
-        (target ?: node).click()
-        device.waitForIdle()
+        val bounds = (target ?: node).visibleBounds
+        assertTrue("Target has no tappable area", !bounds.isEmpty)
+        assertTrue("Coordinate tap failed", device.click(bounds.centerX(), bounds.centerY()))
     }
 
     private fun dismissKeyboardWithoutNavigation(device: UiDevice) {
