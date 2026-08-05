@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -31,7 +32,7 @@ class HomeScreenshotTest {
             assertVisible(device, "Add link", "Add link action must be visible on Home")
             val history = assertVisible(device, "History", "History control must be visible on Home")
             capture(device, "/data/local/tmp/drop-home.png")
-            history.click()
+            tapResolvedTarget(device, history)
             assertVisible(device, "Saved actions", "History screen must open from Home")
             assertVisible(device, "Back to Home", "History screen must provide a visible return action")
             capture(device, "/data/local/tmp/drop-history.png")
@@ -43,22 +44,18 @@ class HomeScreenshotTest {
         ActivityScenario.launch(MainActivity::class.java).use {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             assertVisible(device, "Import screenshot or image", "Home must reach the foreground")
-            assertVisible(device, "Paste text", "Paste text action must be visible").click()
-            assertVisible(device, "Add content for Drop to understand and turn into an action.", "Text entry must open")
+            activateAndWait(device, "Paste text", "Add content for Drop to understand and turn into an action.")
             val input = assertObject(device, By.clazz("android.widget.EditText"), "Text entry must provide an editable field")
             input.text = "Team meeting on 2026-08-12 at 5:30 PM at MG Road, Vijayawada. Email team@example.com, call +91 98765 43210, or open drop.app/meeting"
-            assertVisible(device, "Continue", "Text entry must provide Continue").click()
-            assertVisible(device, "Import preview", "Imported text must reach a visible preview")
-            assertVisible(device, "Extract details", "Preview must provide extraction action").click()
-            assertVisible(device, "Extracted information", "Extraction screen must be visible")
-            assertVisibleAfterScroll(device, "See suggested actions", "Extraction must lead to Suggested Actions").click()
-            assertVisible(device, "Suggested actions", "Suggested Actions screen must be visible")
+            dismissKeyboardWithoutNavigation(device)
+            activateAndWait(device, "Continue", "Import preview")
+            activateAndWait(device, "Extract details", "Extracted information")
+            activateAndWait(device, "See suggested actions", "Suggested actions", scroll = true)
             assertVisible(device, "Save reference", "Safe default action must be visible")
             assertVisible(device, "Create reminder", "Relevant reminder action must be visible")
             capture(device, "/data/local/tmp/drop-suggested-actions.png")
 
-            assertVisibleAfterScroll(device, "Choose another action", "Suggested Actions must expose a manual chooser").click()
-            assertVisible(device, "All available actions", "Manual action chooser must open")
+            activateAndWait(device, "Choose another action", "All available actions", scroll = true)
             assertVisibleAfterScroll(device, "Open link", "A bare domain must unlock the link action")
             capture(device, "/data/local/tmp/drop-all-actions.png")
             assertVisibleAfterScroll(device, "Create checklist", "Manual checklist action must be available")
@@ -126,11 +123,7 @@ class HomeScreenshotTest {
             assertVisible(device, "Venue", "Calendar confirmation must expose an editable venue")
             assertObject(device, By.clazz("android.widget.EditText").text("2026-08-22"), "Edited date must reach Calendar confirmation")
             assertObject(device, By.clazz("android.widget.EditText").text("18:15"), "Edited time must reach Calendar confirmation")
-            assertObject(
-                device,
-                By.clazz("android.widget.EditText").text("Edited venue, Vijayawada"),
-                "Edited venue must replace the original detected location"
-            )
+            assertObject(device, By.clazz("android.widget.EditText").text("Edited venue, Vijayawada"), "Edited venue must replace the original detected location")
             assertVisibleAfterScroll(device, "Continue to Calendar", "Calendar confirmation must require explicit continuation")
             assertVisibleAfterScroll(device, "Cancel", "Calendar confirmation must be reversible")
             capture(device, "/data/local/tmp/drop-calendar-confirmation.png")
@@ -163,10 +156,7 @@ class HomeScreenshotTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val intent = Intent(context, PdfImportActivity::class.java)
             .putExtra(PdfImportActivity.EXTRA_TEST_NAME, "event-invitation.pdf")
-            .putExtra(
-                PdfImportActivity.EXTRA_TEST_TEXT,
-                "Product launch meeting on August 21st, 2026 at 4:00 PM. Venue: MG Road, Vijayawada. Contact launch@example.com."
-            )
+            .putExtra(PdfImportActivity.EXTRA_TEST_TEXT, "Product launch meeting on August 21st, 2026 at 4:00 PM. Venue: MG Road, Vijayawada. Contact launch@example.com.")
         ActivityScenario.launch<PdfImportActivity>(intent).use {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             assertVisible(device, "Review PDF text", "PDF import must open a visible review")
@@ -181,6 +171,69 @@ class HomeScreenshotTest {
             assertVisible(device, "Suggested actions", "PDF must reach the universal Suggested Actions screen")
             assertVisible(device, "Save reference", "PDF flow must retain Save reference")
         }
+    }
+
+    private fun activateAndWait(
+        device: UiDevice,
+        sourceText: String,
+        destinationText: String,
+        scroll: Boolean = false
+    ) {
+        repeat(2) { attempt ->
+            val source = if (scroll) actionTargetAfterScroll(device, sourceText) else actionTarget(device, sourceText)
+            tapResolvedTarget(device, source)
+            if (device.wait(Until.findObject(By.text(destinationText)), CONTROL_TIMEOUT_MILLIS) != null) return
+            if (attempt == 0) device.waitForIdle()
+        }
+        throw AssertionError("Expected $destinationText after activating $sourceText")
+    }
+
+    private fun actionTarget(device: UiDevice, text: String): UiObject2 {
+        val candidates = device.findObjects(By.text(text))
+            .map { clickableAncestor(it) ?: it }
+            .distinctBy { it.visibleBounds }
+            .filter { !it.visibleBounds.isEmpty }
+        return candidates.minByOrNull { it.visibleBounds.width() * it.visibleBounds.height() }
+            ?: assertVisible(device, text, "Expected actionable control: $text")
+    }
+
+    private fun actionTargetAfterScroll(device: UiDevice, text: String): UiObject2 {
+        repeat(MAX_SCROLL_ATTEMPTS + 1) { attempt ->
+            val candidates = device.findObjects(By.text(text))
+                .mapNotNull(::clickableAncestor)
+                .distinctBy { it.visibleBounds }
+                .filter { !it.visibleBounds.isEmpty }
+            if (candidates.isNotEmpty()) {
+                return candidates.minBy { it.visibleBounds.width() * it.visibleBounds.height() }
+            }
+            if (attempt < MAX_SCROLL_ATTEMPTS) {
+                device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
+                device.waitForIdle()
+            }
+        }
+        throw AssertionError("Expected actionable control after scrolling: $text")
+    }
+
+    private fun clickableAncestor(node: UiObject2): UiObject2? {
+        var current: UiObject2? = node
+        while (current != null) {
+            if (current.isClickable) return current
+            current = current.parent
+        }
+        return null
+    }
+
+    private fun tapResolvedTarget(device: UiDevice, node: UiObject2) {
+        val target = clickableAncestor(node) ?: node
+        val bounds = target.visibleBounds
+        assertTrue("Target has no tappable area", !bounds.isEmpty)
+        assertTrue("Coordinate tap failed", device.click(bounds.centerX(), bounds.centerY()))
+        device.waitForIdle()
+    }
+
+    private fun dismissKeyboardWithoutNavigation(device: UiDevice) {
+        device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
+        device.waitForIdle()
     }
 
     private fun capture(device: UiDevice, path: String) {
@@ -204,7 +257,7 @@ class HomeScreenshotTest {
         return device.findObject(By.text(text)) ?: throw AssertionError(message)
     }
 
-    private fun assertObject(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
+    private fun assertObject(device: UiDevice, selector: BySelector, message: String): UiObject2 =
         assertNotNull(message, device.wait(Until.findObject(selector), CONTROL_TIMEOUT_MILLIS))
             .let { device.findObject(selector) }
 
