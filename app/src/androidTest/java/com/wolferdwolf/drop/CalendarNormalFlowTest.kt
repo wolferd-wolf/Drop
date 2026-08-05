@@ -25,12 +25,9 @@ class CalendarNormalFlowTest {
             visible(device, "Extract details").click()
             visible(device, "Extracted information")
 
-            val originalDate = objectFor(device, By.clazz("android.widget.EditText").text("August 21st, 2026"), "Detected date must be editable")
-            originalDate.text = "22 August 2026"
-            val originalTime = objectFor(device, By.clazz("android.widget.EditText").text("4:00 PM"), "Detected time must be editable")
-            originalTime.text = "6:15 PM"
-            val originalVenue = objectFor(device, By.clazz("android.widget.EditText").text("MG Road, Vijayawada"), "Detected venue must be editable")
-            originalVenue.text = "Edited venue, Vijayawada"
+            editAndWait(device, "August 21st, 2026", "22 August 2026", "Detected date must be editable")
+            editAndWait(device, "4:00 PM", "6:15 PM", "Detected time must be editable")
+            editAndWait(device, "MG Road, Vijayawada", "Edited venue, Vijayawada", "Detected venue must be editable")
 
             visibleAfterScroll(device, "See suggested actions").click()
             visible(device, "Suggested actions")
@@ -42,6 +39,16 @@ class CalendarNormalFlowTest {
             objectFor(device, By.clazz("android.widget.EditText").text("Edited venue, Vijayawada"), "Edited venue did not reach Calendar confirmation")
             capture(device, "/data/local/tmp/drop-calendar-normal-flow.png")
         }
+    }
+
+    private fun editAndWait(device: UiDevice, oldValue: String, newValue: String, message: String) {
+        objectFor(device, By.clazz("android.widget.EditText").text(oldValue), message).text = newValue
+        objectFor(
+            device,
+            By.clazz("android.widget.EditText").text(newValue),
+            "Edited value was not committed before the next field: $newValue"
+        )
+        device.waitForIdle()
     }
 
     private fun capture(device: UiDevice, path: String) {
