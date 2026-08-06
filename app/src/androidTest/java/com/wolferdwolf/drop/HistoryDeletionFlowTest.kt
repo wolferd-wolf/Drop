@@ -21,7 +21,7 @@ class HistoryDeletionFlowTest {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             when (phase) {
                 PHASE_SAVE -> saveReference(device)
-                PHASE_RESTORE_AND_DELETE -> verifyRestoredReferenceAndDelete(device)
+                PHASE_RESTORE_AND_DELETE -> verifyRestoredReferenceDetailAndDelete(device)
                 PHASE_VERIFY_DELETION -> verifyDeletionPersisted(device)
                 else -> throw AssertionError("Unknown History persistence phase: $phase")
             }
@@ -51,14 +51,26 @@ class HistoryDeletionFlowTest {
         capture(device, "/data/local/tmp/drop-history-saved-reference.png")
     }
 
-    private fun verifyRestoredReferenceAndDelete(device: UiDevice) {
+    private fun verifyRestoredReferenceDetailAndDelete(device: UiDevice) {
         visible(device, "Turn anything into the next useful action")
         clickTextMatching(device, "History")
         visible(device, "Saved actions")
-        val restoredTitle = visible(device, UNIQUE_TITLE)
+        visible(device, UNIQUE_TITLE)
         visible(device, UNIQUE_CONTENT)
         capture(device, "/data/local/tmp/drop-history-reference-restored.png")
 
+        clickText(device, "View details")
+        visible(device, "Saved item details")
+        visible(device, UNIQUE_TITLE)
+        visible(device, "Saved reference")
+        visible(device, "Original content")
+        visible(device, UNIQUE_CONTENT)
+        visible(device, "Stored locally on this device.")
+        capture(device, "/data/local/tmp/drop-history-reference-detail.png")
+
+        clickText(device, "Back to History")
+        visible(device, "Saved actions")
+        val restoredTitle = visible(device, UNIQUE_TITLE)
         val card = ancestorWithDescendantText(restoredTitle, "Delete")
             ?: throw AssertionError("Saved reference card must expose Delete")
         val delete = card.findObject(By.text("Delete"))
