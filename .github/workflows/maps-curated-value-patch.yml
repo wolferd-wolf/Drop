@@ -234,3 +234,5 @@ jobs:
           git add app .github/workflows/android-ci.yml
           git commit -m "Preserve edited address in Maps confirmation"
           git push origin HEAD:automation/calendar-normal-flow-verification
+
+# Manual retrigger for the prepared integration patch.
