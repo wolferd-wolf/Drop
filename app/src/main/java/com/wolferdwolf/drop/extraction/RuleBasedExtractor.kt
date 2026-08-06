@@ -75,8 +75,39 @@ object RuleBasedExtractor {
             val digits = value.count(Char::isDigit)
             digits in 1..12 && value.any { it in "₹$€£¥" || it.isLetter() }
         }
+        ExtractionType.DATE -> isValidNumericDate(value)
         else -> true
     }
+
+    private fun isValidNumericDate(value: String): Boolean {
+        val yearFirst = YEAR_FIRST_NUMERIC_DATE.matchEntire(value)
+        if (yearFirst != null) {
+            val (year, month, day) = yearFirst.destructured
+            return isValidCalendarDate(year.toInt(), month.toInt(), day.toInt())
+        }
+
+        val dayFirst = DAY_FIRST_NUMERIC_DATE.matchEntire(value)
+        if (dayFirst != null) {
+            val (day, month, yearText) = dayFirst.destructured
+            val year = if (yearText.length == 2) 2000 + yearText.toInt() else yearText.toInt()
+            return isValidCalendarDate(year, month.toInt(), day.toInt())
+        }
+
+        return true
+    }
+
+    private fun isValidCalendarDate(year: Int, month: Int, day: Int): Boolean {
+        if (month !in 1..12 || day < 1) return false
+        val maxDay = when (month) {
+            2 -> if (isLeapYear(year)) 29 else 28
+            4, 6, 9, 11 -> 30
+            else -> 31
+        }
+        return day <= maxDay
+    }
+
+    private fun isLeapYear(year: Int): Boolean =
+        year % 400 == 0 || (year % 4 == 0 && year % 100 != 0)
 
     private fun normalizedValue(result: ExtractionResult): String = when (result.type) {
         ExtractionType.PHONE -> result.value.filter(Char::isDigit)
@@ -88,4 +119,7 @@ object RuleBasedExtractor {
         a.sourceStart < b.sourceEndExclusive && b.sourceStart < a.sourceEndExclusive
 
     private fun trimTrailingPunctuation(value: String): String = value.trimEnd('.', ',', ';', ':', '!', '?', ')', ']')
+
+    private val YEAR_FIRST_NUMERIC_DATE = Regex("((?:19|20)\\d{2})[-/.](\\d{1,2})[-/.](\\d{1,2})")
+    private val DAY_FIRST_NUMERIC_DATE = Regex("(\\d{1,2})[-/.](\\d{1,2})[-/.](\\d{2}|\\d{4})")
 }
