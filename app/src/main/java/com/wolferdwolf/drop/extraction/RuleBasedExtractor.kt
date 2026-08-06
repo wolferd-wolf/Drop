@@ -13,6 +13,8 @@ object RuleBasedExtractor {
         Rule(ExtractionType.PRICE, Regex("(?i)(?<![A-Z0-9])(?:₹|Rs\\.?|INR|\\$|USD|€|EUR|£|GBP|¥|JPY)\\s*\\d+(?:[.,]\\d+)?\\s*(?:k|thousand|lakh|lac|crore|million|billion)\\b"), 0.99f),
         Rule(ExtractionType.PRICE, Regex("(?i)(?<![A-Z0-9])(?:₹|Rs\\.?|INR|\\$|USD|€|EUR|£|GBP|¥|JPY)\\s*\\d{1,3}(?:(?:,\\d{2})*,\\d{3}|(?:,\\d{3})*|\\d*)(?:\\.\\d{1,2})?(?![\\d/])"), 0.97f),
         Rule(ExtractionType.PRICE, Regex("(?i)(?<![\\d/])\\d{1,3}(?:(?:,\\d{2})*,\\d{3}|(?:,\\d{3})*|\\d*)(?:\\.\\d{1,2})?\\s*(?:INR|USD|EUR|GBP|JPY)\\b"), 0.95f),
+        Rule(ExtractionType.PRICE, Regex("(?i)\\b(?:rupees?|dollars?|euros?|pounds?|yen)\\s*\\d{1,3}(?:(?:,\\d{2})*,\\d{3}|(?:,\\d{3})*|\\d*)(?:\\.\\d{1,2})?(?![\\d/])"), 0.94f),
+        Rule(ExtractionType.PRICE, Regex("(?i)(?<![\\d/])\\d{1,3}(?:(?:,\\d{2})*,\\d{3}|(?:,\\d{3})*|\\d*)(?:\\.\\d{1,2})?\\s*(?:rupees?|dollars?|euros?|pounds?|yen)\\b"), 0.94f),
         Rule(ExtractionType.PHONE, Regex("(?<![\\d/])(?:\\+91[-.\\s]?)?[6-9]\\d{4}[-.\\s]?\\d{5}(?![\\d/])"), 0.96f),
         Rule(ExtractionType.PHONE, Regex("(?<![\\d/])(?:\\+|00)[1-9]\\d{0,2}[\\s.-]?(?:\\(\\d{1,4}\\)[\\s.-]?)?(?:\\d[\\s.-]?){6,12}\\d(?![\\d/])"), 0.90f),
         Rule(ExtractionType.PHONE, Regex("(?<![\\d/])(?:\\(\\d{2,4}\\)[\\s.-]?)?(?:\\d[\\s.-]?){7,11}\\d(?![\\d/])"), 0.80f),
