@@ -20,7 +20,7 @@ class MapsCuratedValueFlowTest {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             clickText(device, "Paste text")
             val input = objectFor(device, By.clazz("android.widget.EditText"), "Paste text input is missing")
-            input.text = "Product launch meeting at MG Road, Vijayawada."
+            input.text = "Product launch meeting. Venue: MG Road, Vijayawada"
             dismissKeyboard(device)
             clickText(device, "Continue")
             clickText(device, "Extract details")
