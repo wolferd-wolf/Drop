@@ -1,0 +1,62 @@
+name: Maps curated value repair
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repair curated Maps handoff
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          main = Path('app/src/main/java/com/wolferdwolf/drop/MainActivity.kt')
+          text = main.read_text()
+          pattern = re.compile(r'(SuggestedActionType\.MAPS -> startActivity\(\s*Intent\(this, MapConfirmationActivity::class\.java\)\s*\.putExtra\(MapConfirmationActivity\.EXTRA_SOURCE_TEXT, text\))(\s*\))', re.S)
+          replacement = r'\1\n                    .putExtra(MapConfirmationActivity.EXTRA_CURATED_QUERY, first(results, ExtractionType.ADDRESS).orEmpty())\2'
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'Expected one Maps launch block, changed {count}')
+          main.write_text(text)
+
+          maps = Path('app/src/main/java/com/wolferdwolf/drop/maps/MapConfirmationActivity.kt')
+          text = maps.read_text()
+          text, count = re.subn(
+              r'val source = intent\.getStringExtra\(EXTRA_SOURCE_TEXT\)\.orEmpty\(\)\s*val suggestion = AddressCandidateDetector\.detect\(source\)\?\.value \?: source\.take\(MAX_QUERY_LENGTH\)',
+              'val source = intent.getStringExtra(EXTRA_SOURCE_TEXT).orEmpty()\n        val curatedQuery = intent.getStringExtra(EXTRA_CURATED_QUERY).orEmpty()\n        val suggestion = initialQuery(source, curatedQuery)',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit(f'Expected one Maps suggestion block, changed {count}')
+          marker = '        const val EXTRA_SOURCE_TEXT = "source_text"\n        const val MAX_QUERY_LENGTH = 500\n'
+          addition = '''        const val EXTRA_SOURCE_TEXT = "source_text"
+        const val EXTRA_CURATED_QUERY = "curated_query"
+        const val MAX_QUERY_LENGTH = 500
+
+        internal fun initialQuery(source: String, curatedQuery: String): String =
+            curatedQuery.trim().takeIf(String::isNotBlank)?.take(MAX_QUERY_LENGTH)
+                ?: AddressCandidateDetector.detect(source)?.value
+                ?: source.take(MAX_QUERY_LENGTH)
+'''
+          if marker not in text:
+              raise SystemExit('Maps companion marker missing')
+          maps.write_text(text.replace(marker, addition, 1))
+          PY
+
+          grep -q 'EXTRA_CURATED_QUERY' app/src/main/java/com/wolferdwolf/drop/MainActivity.kt
+          grep -q 'internal fun initialQuery' app/src/main/java/com/wolferdwolf/drop/maps/MapConfirmationActivity.kt
+          git rm .github/workflows/maps-curated-value-patch.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/main/java
+          git commit -m "Fix curated Maps address handoff"
+          git push origin HEAD:automation/calendar-normal-flow-verification
