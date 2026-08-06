@@ -69,6 +69,7 @@ screenshots=(
   drop-maps-curated-value
   drop-history-saved-reference
   drop-history-reference-restored
+  drop-history-reference-detail
   drop-history-reference-deleted
   drop-history-deletion-persisted
 )
