@@ -15,65 +15,73 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class HistoryDeletionFlowTest {
     @Test
-    fun savedReferencePersistsAndDeletionSurvivesRestart() {
+    fun verifyHistoryPersistencePhase() {
+        val phase = InstrumentationRegistry.getArguments().getString(PHASE_ARGUMENT) ?: return
         ActivityScenario.launch(MainActivity::class.java).use {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-            clickText(device, "Paste text")
-            val input = objectFor(device, By.clazz("android.widget.EditText"), "Paste text input is missing")
-            input.text = UNIQUE_CONTENT
-            dismissKeyboardWithoutNavigation(device)
-            clickText(device, "Continue")
-            clickText(device, "Extract details")
-            clickText(device, "See suggested actions", scroll = true)
-            clickTextAndWaitForDestination(device, "Save reference", "Confirm before saving")
-
-            val title = objectFor(device, By.clazz("android.widget.EditText"), "Reference title is missing")
-            title.text = UNIQUE_TITLE
-            dismissKeyboardWithoutNavigation(device)
-            clickText(device, "Save")
-
-            visible(device, "Turn anything into the next useful action")
-            clickTextMatching(device, "History")
-            visible(device, "Saved actions")
-            visible(device, UNIQUE_TITLE)
-            capture(device, "/data/local/tmp/drop-history-saved-reference.png")
-
-            restartApp(device)
-            clickTextMatching(device, "History")
-            visible(device, "Saved actions")
-            val restoredTitle = visible(device, UNIQUE_TITLE)
-            visible(device, UNIQUE_CONTENT)
-            capture(device, "/data/local/tmp/drop-history-reference-restored.png")
-
-            val card = ancestorWithDescendantText(restoredTitle, "Delete")
-                ?: throw AssertionError("Saved reference card must expose Delete")
-            val delete = card.findObject(By.text("Delete"))
-                ?: throw AssertionError("Delete control is missing from saved reference card")
-            tapResolvedTarget(device, delete)
-            device.waitForIdle()
-
-            assertTrue(
-                "Deleted reference must disappear from History",
-                device.wait(Until.gone(By.text(UNIQUE_TITLE)), TIMEOUT)
-            )
-            capture(device, "/data/local/tmp/drop-history-reference-deleted.png")
-
-            restartApp(device)
-            clickTextMatching(device, "History")
-            visible(device, "Saved actions")
-            assertTrue(
-                "Deleted reference must remain absent after process restart",
-                device.wait(Until.gone(By.text(UNIQUE_TITLE)), TIMEOUT)
-            )
-            capture(device, "/data/local/tmp/drop-history-deletion-persisted.png")
+            when (phase) {
+                PHASE_SAVE -> saveReference(device)
+                PHASE_RESTORE_AND_DELETE -> verifyRestoredReferenceAndDelete(device)
+                PHASE_VERIFY_DELETION -> verifyDeletionPersisted(device)
+                else -> throw AssertionError("Unknown History persistence phase: $phase")
+            }
         }
     }
 
-    private fun restartApp(device: UiDevice) {
-        device.executeShellCommand("am force-stop $APP_PACKAGE")
-        device.executeShellCommand("am start -W -n $APP_PACKAGE/.MainActivity")
+    private fun saveReference(device: UiDevice) {
+        clickText(device, "Paste text")
+        val input = objectFor(device, By.clazz("android.widget.EditText"), "Paste text input is missing")
+        input.text = UNIQUE_CONTENT
+        dismissKeyboardWithoutNavigation(device)
+        clickText(device, "Continue")
+        clickText(device, "Extract details")
+        clickText(device, "See suggested actions", scroll = true)
+        clickTextAndWaitForDestination(device, "Save reference", "Confirm before saving")
+
+        val title = objectFor(device, By.clazz("android.widget.EditText"), "Reference title is missing")
+        title.text = UNIQUE_TITLE
+        dismissKeyboardWithoutNavigation(device)
+        clickText(device, "Save")
+
         visible(device, "Turn anything into the next useful action")
+        clickTextMatching(device, "History")
+        visible(device, "Saved actions")
+        visible(device, UNIQUE_TITLE)
+        visible(device, UNIQUE_CONTENT)
+        capture(device, "/data/local/tmp/drop-history-saved-reference.png")
+    }
+
+    private fun verifyRestoredReferenceAndDelete(device: UiDevice) {
+        visible(device, "Turn anything into the next useful action")
+        clickTextMatching(device, "History")
+        visible(device, "Saved actions")
+        val restoredTitle = visible(device, UNIQUE_TITLE)
+        visible(device, UNIQUE_CONTENT)
+        capture(device, "/data/local/tmp/drop-history-reference-restored.png")
+
+        val card = ancestorWithDescendantText(restoredTitle, "Delete")
+            ?: throw AssertionError("Saved reference card must expose Delete")
+        val delete = card.findObject(By.text("Delete"))
+            ?: throw AssertionError("Delete control is missing from saved reference card")
+        tapResolvedTarget(device, delete)
         device.waitForIdle()
+
+        assertTrue(
+            "Deleted reference must disappear from History",
+            device.wait(Until.gone(By.text(UNIQUE_TITLE)), TIMEOUT)
+        )
+        capture(device, "/data/local/tmp/drop-history-reference-deleted.png")
+    }
+
+    private fun verifyDeletionPersisted(device: UiDevice) {
+        visible(device, "Turn anything into the next useful action")
+        clickTextMatching(device, "History")
+        visible(device, "Saved actions")
+        assertTrue(
+            "Deleted reference must remain absent after process restart",
+            device.wait(Until.gone(By.text(UNIQUE_TITLE)), TIMEOUT)
+        )
+        capture(device, "/data/local/tmp/drop-history-deletion-persisted.png")
     }
 
     private fun ancestorWithDescendantText(node: UiObject2, text: String): UiObject2? {
@@ -200,7 +208,10 @@ class HistoryDeletionFlowTest {
         assertNotNull(message, device.wait(Until.findObject(selector), TIMEOUT)).let { device.findObject(selector) }
 
     private companion object {
-        const val APP_PACKAGE = "com.wolferdwolf.drop"
+        const val PHASE_ARGUMENT = "historyPhase"
+        const val PHASE_SAVE = "save"
+        const val PHASE_RESTORE_AND_DELETE = "restore-delete"
+        const val PHASE_VERIFY_DELETION = "verify-deletion"
         const val UNIQUE_TITLE = "Quarterly strategy reference"
         const val UNIQUE_CONTENT = "Quarterly strategy notes for the operations review."
         const val TIMEOUT = 20_000L
