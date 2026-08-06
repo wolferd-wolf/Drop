@@ -25,8 +25,7 @@ class HistoryDeletionFlowTest {
             clickText(device, "Continue")
             clickText(device, "Extract details")
             clickText(device, "See suggested actions", scroll = true)
-            clickText(device, "Save reference", scroll = true)
-            visible(device, "Confirm before saving")
+            clickTextAndWaitForDestination(device, "Save reference", "Confirm before saving")
 
             val title = objectFor(device, By.clazz("android.widget.EditText"), "Reference title is missing")
             title.text = UNIQUE_TITLE
@@ -67,6 +66,31 @@ class HistoryDeletionFlowTest {
         val node = if (scroll) visibleAfterScroll(device, text) else visible(device, text)
         tapResolvedTarget(device, node)
         device.waitForIdle()
+    }
+
+    private fun clickTextAndWaitForDestination(
+        device: UiDevice,
+        sourceText: String,
+        destinationText: String
+    ) {
+        repeat(2) { attempt ->
+            val source = visibleAfterScroll(device, sourceText)
+            tapResolvedTarget(device, source)
+            if (device.wait(Until.findObject(By.text(destinationText)), TIMEOUT) != null) return
+
+            if (attempt == 0) {
+                device.waitForIdle()
+                device.swipe(
+                    device.displayWidth / 2,
+                    device.displayHeight * 2 / 3,
+                    device.displayWidth / 2,
+                    device.displayHeight / 2,
+                    10
+                )
+                device.waitForIdle()
+            }
+        }
+        throw AssertionError("Expected visible text after activating $sourceText: $destinationText")
     }
 
     private fun clickTextMatching(device: UiDevice, prefix: String) {
