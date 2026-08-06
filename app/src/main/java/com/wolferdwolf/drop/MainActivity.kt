@@ -67,6 +67,7 @@ class MainActivity : ComponentActivity() {
     private var screen by mutableStateOf(Screen.HOME)
     private var references by mutableStateOf<List<SavedReference>>(emptyList())
     private var reminders by mutableStateOf<List<ReminderRecord>>(emptyList())
+    private var selectedReference by mutableStateOf<SavedReference?>(null)
     private var actionError by mutableStateOf<String?>(null)
     private var importStatus by mutableStateOf<String?>(null)
     private lateinit var referenceStore: SavedReferenceStore
@@ -88,6 +89,9 @@ class MainActivity : ComponentActivity() {
         reminderStore = ReminderHistoryStore(applicationContext)
         reminderScheduler = ReminderScheduler(applicationContext)
         refreshHistory()
+        selectedReference = savedInstanceState?.getLong(STATE_SELECTED_REFERENCE_ID, -1L)
+            ?.takeIf { it >= 0L }
+            ?.let { id -> references.firstOrNull { it.id == id } }
         sourceText = savedInstanceState?.getString(STATE_TEXT) ?: SharedTextParser.parse(intent)
         editedResults = EditableExtractionState.decode(
             savedInstanceState?.getBoolean(STATE_HAS_EDITED_RESULTS, false) == true,
@@ -95,6 +99,7 @@ class MainActivity : ComponentActivity() {
         )
         screen = savedInstanceState?.getString(STATE_SCREEN)?.let { runCatching { Screen.valueOf(it) }.getOrNull() }
             ?: if (sourceText == null) Screen.HOME else Screen.PREVIEW
+        if (screen == Screen.REFERENCE_DETAIL && selectedReference == null) screen = Screen.HISTORY
 
         setContent {
             DropTheme {
@@ -115,9 +120,22 @@ class MainActivity : ComponentActivity() {
                         references,
                         reminders,
                         { screen = Screen.HOME },
+                        { reference -> selectedReference = reference; screen = Screen.REFERENCE_DETAIL },
                         { referenceStore.delete(it.id); refreshHistory() },
                         { reminder -> reminderScheduler.cancel(reminder).onSuccess { reminderStore.delete(reminder.id); refreshHistory() } }
                     )
+                    Screen.REFERENCE_DETAIL -> selectedReference?.let { reference ->
+                        ReferenceDetailScreen(
+                            reference,
+                            { screen = Screen.HISTORY },
+                            {
+                                referenceStore.delete(reference.id)
+                                selectedReference = null
+                                refreshHistory()
+                                screen = Screen.HISTORY
+                            }
+                        )
+                    } ?: run { screen = Screen.HISTORY }
                     Screen.TEXT_ENTRY -> EntryScreen("Paste text", false, { screen = Screen.HOME }, ::beginFlow)
                     Screen.LINK_ENTRY -> EntryScreen("Add link", true, { screen = Screen.HOME }, ::beginFlow)
                     Screen.PREVIEW -> if (text == null) reset() else PreviewScreen(text, ::reset) {
@@ -182,6 +200,7 @@ class MainActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString(STATE_TEXT, sourceText)
         outState.putString(STATE_SCREEN, screen.name)
+        outState.putLong(STATE_SELECTED_REFERENCE_ID, selectedReference?.id ?: -1L)
         outState.putBoolean(STATE_HAS_EDITED_RESULTS, editedResults != null)
         outState.putStringArrayList(STATE_EDITED_RESULTS, EditableExtractionState.encode(editedResults))
         super.onSaveInstanceState(outState)
@@ -244,16 +263,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun launch(intent: Intent) {
-        try {
-            if (intent.resolveActivity(packageManager) == null) fail("No compatible app is installed for this action.") else startActivity(intent)
-        } catch (_: ActivityNotFoundException) {
-            fail("No compatible app is installed for this action.")
-        } catch (_: SecurityException) {
-            fail("Android blocked this action. Check permissions and try again.")
-        }
-    }
-
     private fun first(results: List<ExtractionResult>, type: ExtractionType) = results.firstOrNull { it.type == type }?.value
     private fun fail(message: String) { actionError = message }
 
@@ -274,16 +283,18 @@ class MainActivity : ComponentActivity() {
     private fun reset() {
         sourceText = null
         editedResults = null
+        selectedReference = null
         actionError = null
         importStatus = null
         screen = Screen.HOME
     }
 
-    private enum class Screen { HOME, HISTORY, TEXT_ENTRY, LINK_ENTRY, PREVIEW, EXTRACTION, ACTIONS, ALL_ACTIONS, SAVE, CHECKLIST }
+    private enum class Screen { HOME, HISTORY, REFERENCE_DETAIL, TEXT_ENTRY, LINK_ENTRY, PREVIEW, EXTRACTION, ACTIONS, ALL_ACTIONS, SAVE, CHECKLIST }
 
     private companion object {
         const val STATE_TEXT = "source_text"
         const val STATE_SCREEN = "screen"
+        const val STATE_SELECTED_REFERENCE_ID = "selected_reference_id"
         const val STATE_HAS_EDITED_RESULTS = "has_edited_results"
         const val STATE_EDITED_RESULTS = "edited_results"
     }
@@ -327,6 +338,7 @@ private fun HistoryScreen(
     references: List<SavedReference>,
     reminders: List<ReminderRecord>,
     onBack: () -> Unit,
+    onViewReference: (SavedReference) -> Unit,
     onDeleteReference: (SavedReference) -> Unit,
     onCancelReminder: (ReminderRecord) -> Unit
 ) {
@@ -351,11 +363,34 @@ private fun HistoryScreen(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(reference.title, style = MaterialTheme.typography.titleMedium)
                         Text(reference.originalText, maxLines = 3)
+                        FilledTonalButton(onClick = { onViewReference(reference) }, modifier = Modifier.fillMaxWidth()) { Text("View details") }
                         TextButton(onClick = { onDeleteReference(reference) }) { Text("Delete") }
                     }
                 }
             }
             item { OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Back to Home") } }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReferenceDetailScreen(reference: SavedReference, onBack: () -> Unit, onDelete: () -> Unit) {
+    Scaffold(topBar = { TopAppBar(title = { Text("Saved item details") }) }) { padding ->
+        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            item { Text(reference.title, style = MaterialTheme.typography.headlineSmall) }
+            item { Text("Saved reference", style = MaterialTheme.typography.labelLarge) }
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Original content", style = MaterialTheme.typography.titleMedium)
+                        Text(reference.originalText)
+                    }
+                }
+            }
+            item { Text("Stored locally on this device.") }
+            item { OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Back to History") } }
+            item { TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) { Text("Delete reference") } }
         }
     }
 }
