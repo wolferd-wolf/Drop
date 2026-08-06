@@ -22,10 +22,10 @@ class UniversalIntakeFlowTest {
     fun pastedTextReachesPreviewExtractionAndSuggestedActions() {
         ActivityScenario.launch(MainActivity::class.java).use {
             val device = device()
-            assertVisible(device, "Paste text", "Paste text must be available from Home").click()
+            tap(assertVisible(device, "Paste text", "Paste text must be available from Home"), device)
             val input = assertObject(device, By.clazz("android.widget.EditText"), "Paste text must provide an editable field")
             input.text = "Doctor appointment on 19 August 2026 at 10:30 AM. Call +91 98765 43210."
-            assertVisible(device, "Continue", "Paste text must provide Continue").click()
+            tap(assertVisible(device, "Continue", "Paste text must provide Continue"), device)
 
             reachSuggestedActions(device, "Pasted text")
             assertVisibleAfterScroll(device, "Create reminder", "Pasted dates and times must unlock Reminder")
@@ -37,10 +37,10 @@ class UniversalIntakeFlowTest {
     fun addedLinkReachesPreviewExtractionAndSuggestedActions() {
         ActivityScenario.launch(MainActivity::class.java).use {
             val device = device()
-            assertVisible(device, "Add link", "Add link must be available from Home").click()
+            tap(assertVisible(device, "Add link", "Add link must be available from Home"), device)
             val input = assertObject(device, By.clazz("android.widget.EditText"), "Add link must provide an editable field")
             input.text = "https://example.com/community-event"
-            assertVisible(device, "Continue", "Add link must provide Continue").click()
+            tap(assertVisible(device, "Continue", "Add link must provide Continue"), device)
 
             reachSuggestedActions(device, "Added link")
             assertVisibleAfterScroll(device, "Open link", "A valid web link must unlock Open link")
@@ -59,7 +59,10 @@ class UniversalIntakeFlowTest {
         ActivityScenario.launch<TimetableReviewActivity>(intent).use {
             val device = device()
             assertVisible(device, "Review image text", "Image OCR must show a source review")
-            assertVisible(device, "Continue to Drop actions", "Image review must offer the universal flow").click()
+            tap(
+                assertVisible(device, "Continue to Drop actions", "Image review must offer the universal flow"),
+                device
+            )
 
             reachSuggestedActions(device, "Image OCR")
             assertVisibleAfterScroll(device, "Save reference", "Image OCR must retain the safe default action")
@@ -80,7 +83,7 @@ class UniversalIntakeFlowTest {
         ActivityScenario.launch<PdfImportActivity>(intent).use {
             val device = device()
             assertVisible(device, "Review PDF text", "PDF must show a source review")
-            assertVisible(device, "Continue to Drop actions", "PDF review must offer the universal flow").click()
+            tap(assertVisible(device, "Continue to Drop actions", "PDF review must offer the universal flow"), device)
 
             reachSuggestedActions(device, "PDF")
             assertVisibleAfterScroll(device, "Save reference", "PDF must retain the safe default action")
@@ -90,11 +93,54 @@ class UniversalIntakeFlowTest {
 
     private fun reachSuggestedActions(device: UiDevice, sourceName: String) {
         assertVisible(device, "Import preview", "$sourceName must reach Import preview")
-        assertVisible(device, "Extract details", "$sourceName preview must expose extraction").click()
-        assertVisible(device, "Extracted information", "$sourceName must reach Extracted information")
-        assertVisibleAfterScroll(device, "See suggested actions", "$sourceName extraction must lead to Suggested Actions").click()
-        assertVisible(device, "Suggested actions", "$sourceName must reach Suggested Actions")
+        clickAndWaitForDestination(
+            device = device,
+            source = assertVisible(device, "Extract details", "$sourceName preview must expose extraction"),
+            destinationText = "Extracted information",
+            failureMessage = "$sourceName must reach Extracted information"
+        )
+        clickAndWaitForDestination(
+            device = device,
+            source = assertVisibleAfterScroll(
+                device,
+                "See suggested actions",
+                "$sourceName extraction must lead to Suggested Actions"
+            ),
+            destinationText = "Suggested actions",
+            failureMessage = "$sourceName must reach Suggested Actions"
+        )
         assertVisibleAfterScroll(device, "Choose another action", "$sourceName must retain the manual action path")
+    }
+
+    private fun clickAndWaitForDestination(
+        device: UiDevice,
+        source: UiObject2,
+        destinationText: String,
+        failureMessage: String
+    ) {
+        repeat(2) { attempt ->
+            tap(source, device)
+            if (device.wait(Until.findObject(By.text(destinationText)), CONTROL_TIMEOUT_MILLIS) != null) return
+            if (attempt == 0) device.waitForIdle()
+        }
+        throw AssertionError(failureMessage)
+    }
+
+    private fun tap(node: UiObject2, device: UiDevice) {
+        val target = clickableAncestor(node) ?: node
+        val bounds = target.visibleBounds
+        assertTrue("Target has no tappable area", !bounds.isEmpty)
+        assertTrue("Coordinate tap failed", device.click(bounds.centerX(), bounds.centerY()))
+        device.waitForIdle()
+    }
+
+    private fun clickableAncestor(node: UiObject2): UiObject2? {
+        var current: UiObject2? = node
+        while (current != null) {
+            if (current.isClickable) return current
+            current = current.parent
+        }
+        return null
     }
 
     private fun device(): UiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
