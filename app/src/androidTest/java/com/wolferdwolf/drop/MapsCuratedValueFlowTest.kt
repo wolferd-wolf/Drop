@@ -22,9 +22,8 @@ class MapsCuratedValueFlowTest {
             val input = objectFor(device, By.clazz("android.widget.EditText"), "Paste text input is missing")
             input.text = "Product launch meeting. Venue: MG Road, Vijayawada"
             dismissKeyboard(device)
-            clickText(device, "Continue")
-            clickText(device, "Extract details")
-            visible(device, "Extracted information")
+            activateAndWait(device, "Continue", "Import preview")
+            activateAndWait(device, "Extract details", "Extracted information")
 
             val address = objectFor(
                 device,
@@ -40,10 +39,8 @@ class MapsCuratedValueFlowTest {
                 "Edited address was not committed"
             )
 
-            clickText(device, "See suggested actions", scroll = true)
-            visible(device, "Suggested actions")
-            clickText(device, "Open in Maps", scroll = true)
-            visible(device, "Confirm the location")
+            activateAndWait(device, "See suggested actions", "Suggested actions", scroll = true)
+            activateAndWait(device, "Open in Maps", "Confirm the location", scroll = true)
             objectFor(
                 device,
                 By.clazz("android.widget.EditText").text("Edited venue, Vijayawada"),
@@ -53,8 +50,58 @@ class MapsCuratedValueFlowTest {
         }
     }
 
-    private fun clickText(device: UiDevice, text: String, scroll: Boolean = false) {
-        val node = if (scroll) visibleAfterScroll(device, text) else visible(device, text)
+    private fun activateAndWait(
+        device: UiDevice,
+        sourceText: String,
+        destinationText: String,
+        scroll: Boolean = false
+    ) {
+        repeat(2) { attempt ->
+            val source = if (scroll) actionTargetAfterScroll(device, sourceText) else actionTarget(device, sourceText)
+            tapResolvedTarget(device, source)
+            if (device.wait(Until.findObject(By.text(destinationText)), TIMEOUT) != null) return
+            if (attempt == 0) device.waitForIdle()
+        }
+        throw AssertionError("Expected $destinationText after activating $sourceText")
+    }
+
+    private fun actionTarget(device: UiDevice, text: String): UiObject2 {
+        val candidates = device.findObjects(By.text(text))
+            .map { clickableAncestor(it) ?: it }
+            .distinctBy { it.visibleBounds }
+            .filter { !it.visibleBounds.isEmpty }
+        return candidates.minByOrNull { it.visibleBounds.width() * it.visibleBounds.height() }
+            ?: visible(device, text)
+    }
+
+    private fun actionTargetAfterScroll(device: UiDevice, text: String): UiObject2 {
+        repeat(10) { attempt ->
+            val candidates = device.findObjects(By.text(text))
+                .mapNotNull(::clickableAncestor)
+                .distinctBy { it.visibleBounds }
+                .filter { !it.visibleBounds.isEmpty }
+            if (candidates.isNotEmpty()) {
+                return candidates.minBy { it.visibleBounds.width() * it.visibleBounds.height() }
+            }
+            if (attempt < 9) {
+                device.swipe(
+                    device.displayWidth / 2,
+                    device.displayHeight * 3 / 4,
+                    device.displayWidth / 2,
+                    device.displayHeight / 4,
+                    20
+                )
+                device.waitForIdle()
+            }
+        }
+        throw AssertionError("Expected actionable control after scrolling: $text")
+    }
+
+    private fun clickText(device: UiDevice, text: String) {
+        tapResolvedTarget(device, visible(device, text))
+    }
+
+    private fun tapResolvedTarget(device: UiDevice, node: UiObject2) {
         val target = clickableAncestor(node) ?: node
         val bounds = target.visibleBounds
         assertTrue("Target has no tappable area", !bounds.isEmpty)
@@ -87,27 +134,10 @@ class MapsCuratedValueFlowTest {
         assertNotNull("Expected visible text: $text", device.wait(Until.findObject(By.text(text)), TIMEOUT))
             .let { device.findObject(By.text(text)) }
 
-    private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
-        device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)?.let { return it }
-        repeat(9) {
-            device.swipe(
-                device.displayWidth / 2,
-                device.displayHeight * 3 / 4,
-                device.displayWidth / 2,
-                device.displayHeight / 4,
-                20
-            )
-            device.waitForIdle()
-            device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)?.let { return it }
-        }
-        throw AssertionError("Expected visible text after scrolling: $text")
-    }
-
     private fun objectFor(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
         assertNotNull(message, device.wait(Until.findObject(selector), TIMEOUT)).let { device.findObject(selector) }
 
     private companion object {
         const val TIMEOUT = 20_000L
-        const val SHORT_TIMEOUT = 2_000L
     }
 }
