@@ -22,4 +22,18 @@ class YearFirstDateExtractionTest {
 
         assertFalse(results.any { it.type == ExtractionType.DATE })
     }
+
+    @Test
+    fun rejectsImpossibleCalendarDatesButKeepsValidLeapDays() {
+        val text = "Bad 2026/02/29, 2026-04-31, 31.06.2026; good 2028/02/29 and 29-02-2028."
+        val dates = RuleBasedExtractor.extract(text)
+            .filter { it.type == ExtractionType.DATE }
+            .map { it.value }
+
+        assertFalse("2026/02/29" in dates)
+        assertFalse("2026-04-31" in dates)
+        assertFalse("31.06.2026" in dates)
+        assertTrue("2028/02/29" in dates)
+        assertTrue("29-02-2028" in dates)
+    }
 }
