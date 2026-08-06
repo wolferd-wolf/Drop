@@ -5,6 +5,18 @@ gradle connectedDebugAndroidTest --stacktrace
 test_status=$?
 
 if [ "$test_status" -eq 0 ]; then
+  # connectedDebugAndroidTest uninstalls its APKs after the suite. Reinstall both
+  # packages before running the independent process-restart phases directly.
+  adb install -r app/build/outputs/apk/debug/app-debug.apk
+  test_status=$?
+
+  if [ "$test_status" -eq 0 ]; then
+    adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+    test_status=$?
+  fi
+fi
+
+if [ "$test_status" -eq 0 ]; then
   history_test='com.wolferdwolf.drop.HistoryDeletionFlowTest#verifyHistoryPersistencePhase'
   runner='com.wolferdwolf.drop.test/androidx.test.runner.AndroidJUnitRunner'
 
