@@ -74,7 +74,7 @@ class HistoryDeletionFlowTest {
         destinationText: String
     ) {
         repeat(2) { attempt ->
-            val source = visibleAfterScroll(device, sourceText)
+            val source = actionTargetAfterScroll(device, sourceText)
             tapResolvedTarget(device, source)
             if (device.wait(Until.findObject(By.text(destinationText)), TIMEOUT) != null) return
 
@@ -91,6 +91,29 @@ class HistoryDeletionFlowTest {
             }
         }
         throw AssertionError("Expected visible text after activating $sourceText: $destinationText")
+    }
+
+    private fun actionTargetAfterScroll(device: UiDevice, text: String): UiObject2 {
+        repeat(9) { attempt ->
+            val candidates = device.findObjects(By.text(text))
+                .mapNotNull(::clickableAncestor)
+                .distinctBy { it.visibleBounds }
+                .filter { !it.visibleBounds.isEmpty }
+            if (candidates.isNotEmpty()) {
+                return candidates.minBy { it.visibleBounds.width() * it.visibleBounds.height() }
+            }
+            if (attempt < 8) {
+                device.swipe(
+                    device.displayWidth / 2,
+                    device.displayHeight * 3 / 4,
+                    device.displayWidth / 2,
+                    device.displayHeight / 4,
+                    20
+                )
+                device.waitForIdle()
+            }
+        }
+        throw AssertionError("Expected actionable control after scrolling: $text")
     }
 
     private fun clickTextMatching(device: UiDevice, prefix: String) {
