@@ -36,7 +36,8 @@ class MapConfirmationActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val source = intent.getStringExtra(EXTRA_SOURCE_TEXT).orEmpty()
-        val suggestion = AddressCandidateDetector.detect(source)?.value ?: source.take(MAX_QUERY_LENGTH)
+        val curatedQuery = intent.getStringExtra(EXTRA_CURATED_QUERY).orEmpty()
+        val suggestion = initialQuery(source, curatedQuery)
 
         setContent {
             DropTheme {
@@ -86,7 +87,13 @@ class MapConfirmationActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_SOURCE_TEXT = "source_text"
+        const val EXTRA_CURATED_QUERY = "curated_query"
         const val MAX_QUERY_LENGTH = 500
+
+        internal fun initialQuery(source: String, curatedQuery: String): String =
+  curatedQuery.trim().takeIf(String::isNotBlank)?.take(MAX_QUERY_LENGTH)
+      ?: AddressCandidateDetector.detect(source)?.value
+      ?: source.take(MAX_QUERY_LENGTH)
 
         internal fun historyTitle(query: String): String =
             "Maps: ${query.trim().take(80)}"

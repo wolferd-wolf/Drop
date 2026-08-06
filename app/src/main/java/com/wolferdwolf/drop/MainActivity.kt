@@ -221,6 +221,7 @@ class MainActivity : ComponentActivity() {
             SuggestedActionType.MAPS -> startActivity(
                 Intent(this, MapConfirmationActivity::class.java)
                     .putExtra(MapConfirmationActivity.EXTRA_SOURCE_TEXT, text)
+                    .putExtra(MapConfirmationActivity.EXTRA_CURATED_QUERY, first(results, ExtractionType.ADDRESS).orEmpty())
             )
             SuggestedActionType.OPEN_LINK -> first(results, ExtractionType.URL)
                 ?.let {
