@@ -18,12 +18,17 @@ class SavedReferenceStore(context: Context) {
             originalText = originalText.trim(),
             createdAtEpochMillis = now
         )
-        val updated = preferences.getStringSet(KEY_REFERENCES, emptySet()).orEmpty().toMutableSet()
-        updated += SavedReferenceCodec.encode(reference)
-        check(preferences.edit().putStringSet(KEY_REFERENCES, updated).commit()) {
-            "Unable to persist saved reference"
-        }
+        persistReplacing(reference)
         return reference
+    }
+
+    fun update(reference: SavedReference, title: String, notes: String): SavedReference {
+        val updated = reference.copy(
+            title = title.trim().ifBlank { defaultTitle(reference.originalText) },
+            notes = notes.trim()
+        )
+        persistReplacing(updated)
+        return updated
     }
 
     fun delete(id: Long) {
@@ -32,6 +37,17 @@ class SavedReferenceStore(context: Context) {
             .filterNot { SavedReferenceCodec.decode(it)?.id == id }
             .toSet()
         preferences.edit().putStringSet(KEY_REFERENCES, updated).apply()
+    }
+
+    private fun persistReplacing(reference: SavedReference) {
+        val updated = preferences.getStringSet(KEY_REFERENCES, emptySet())
+            .orEmpty()
+            .filterNot { SavedReferenceCodec.decode(it)?.id == reference.id }
+            .toMutableSet()
+        updated += SavedReferenceCodec.encode(reference)
+        check(preferences.edit().putStringSet(KEY_REFERENCES, updated).commit()) {
+            "Unable to persist saved reference"
+        }
     }
 
     companion object {
