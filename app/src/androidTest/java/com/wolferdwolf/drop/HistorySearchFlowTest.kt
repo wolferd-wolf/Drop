@@ -18,7 +18,11 @@ class HistorySearchFlowTest {
     fun historySearchAndActionTypeFilterNarrowSavedActionsWithoutDeadEnds() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val store = SavedReferenceStore(context)
-        val first = store.save("Quarterly wolf strategy", "Operations review notes for the northern region.", now = 9_001L)
+        val first = store.save(
+            "Quarterly wolf strategy",
+            "Operations review notes for the northern region. Call +91 98765-43210.",
+            now = 9_001L
+        )
         val second = store.save("Supplier invoice", "Replacement bearings and machine oil.", now = 9_002L)
 
         try {
@@ -36,10 +40,10 @@ class HistorySearchFlowTest {
                     device.wait(Until.findObject(By.clazz("android.widget.EditText")), TIMEOUT)
                 ).let { device.findObject(By.clazz("android.widget.EditText")) }
 
-                search.text = "quarterly operations"
+                search.text = "9876543210"
                 dismissKeyboard(device)
                 visible(device, "Quarterly wolf strategy")
-                assertTrue("Multi-term search must match across title and saved content", device.wait(Until.hasObject(By.text("Quarterly wolf strategy")), TIMEOUT))
+                assertTrue("Search must match formatted phone content when separators are omitted", device.wait(Until.hasObject(By.text("Quarterly wolf strategy")), TIMEOUT))
                 assertTrue("Unrelated reference must be filtered out", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-search-result.png")
 
