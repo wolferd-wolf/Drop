@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 set +e
 
+# Hosted API 35 emulators can report boot-complete while the keyguard is still
+# covering the app. UiAutomator then sees no Compose nodes even though the
+# activity is RESUMED. Wake and dismiss it explicitly before instrumentation.
+adb shell input keyevent KEYCODE_WAKEUP || true
+adb shell wm dismiss-keyguard || true
+adb shell input keyevent 82 || true
+adb shell settings put system screen_off_timeout 2147483647 || true
+adb shell settings put global stay_on_while_plugged_in 7 || true
+adb shell input keyevent KEYCODE_HOME || true
+adb shell dumpsys window | grep -E 'mDreamingLockscreen|mShowingLockscreen|isKeyguardShowing' || true
+
 gradle connectedDebugAndroidTest --stacktrace
 test_status=$?
 
