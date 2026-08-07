@@ -51,7 +51,7 @@ class HistorySearchFlowTest {
                 search.text = ""
                 dismissKeyboard(device)
                 clickTextMatching(device, "Reminders")
-                visible(device, "No saved actions are available in this action-type filter.")
+                visible(device, "No saved actions are available in the selected filters.")
                 assertTrue("Reminder filter must hide saved references", device.wait(Until.gone(By.text("Café quarterly wolf strategy")), TIMEOUT))
                 assertTrue("Reminder filter must hide unrelated saved references", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-filter-reminders-empty.png")
@@ -70,7 +70,7 @@ class HistorySearchFlowTest {
 
                 search.text = "quarterly invoice"
                 dismissKeyboard(device)
-                visible(device, "No saved actions match “quarterly invoice” in this filter. Try a different search or action type.")
+                visible(device, "No saved actions match “quarterly invoice” in these filters. Try a different search, action type, or date.")
                 assertTrue("Search must require every entered term to match the same saved item", device.wait(Until.gone(By.text("Café quarterly wolf strategy")), TIMEOUT))
                 assertTrue("Search must not combine terms across separate saved items", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-search-empty.png")
