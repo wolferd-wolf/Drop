@@ -8,9 +8,11 @@ enum class HistoryItemFilter {
 
 object HistorySearch {
     fun matches(query: String, vararg fields: String): Boolean {
-        val normalized = query.trim()
-        if (normalized.isEmpty()) return true
-        return fields.any { it.contains(normalized, ignoreCase = true) }
+        val terms = query.trim()
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+        if (terms.isEmpty()) return true
+        return terms.all { term -> fields.any { field -> field.contains(term, ignoreCase = true) } }
     }
 
     fun includesReferences(filter: HistoryItemFilter): Boolean =
