@@ -68,6 +68,16 @@ class HistoryDeletionFlowTest {
         visible(device, "Stored locally on this device.")
         capture(device, "/data/local/tmp/drop-history-reference-detail.png")
 
+        clickText(device, "Delete reference", scroll = true)
+        val detailDialogTitle = visible(device, "Delete saved reference?")
+        visible(device, "“$UNIQUE_TITLE” will be removed from History on this device. This cannot be undone.")
+        capture(device, "/data/local/tmp/drop-history-detail-delete-confirmation.png")
+        clickDialogButton(device, detailDialogTitle, "Keep reference")
+        assertTrue(
+            "Cancelling detail deletion must keep the saved reference visible",
+            device.wait(Until.findObject(By.text(UNIQUE_TITLE)), TIMEOUT) != null
+        )
+
         clickText(device, "Back to History")
         visible(device, "Saved actions")
         val restoredTitle = visible(device, UNIQUE_TITLE)
@@ -76,6 +86,22 @@ class HistoryDeletionFlowTest {
         val delete = card.findObject(By.text("Delete"))
             ?: throw AssertionError("Delete control is missing from saved reference card")
         tapResolvedTarget(device, delete)
+        device.waitForIdle()
+
+        val historyDialogTitle = visible(device, "Delete saved reference?")
+        visible(device, "“$UNIQUE_TITLE” will be removed from History on this device. This cannot be undone.")
+        capture(device, "/data/local/tmp/drop-history-delete-confirmation.png")
+        clickDialogButton(device, historyDialogTitle, "Keep reference")
+        visible(device, UNIQUE_TITLE)
+
+        val titleAfterCancel = visible(device, UNIQUE_TITLE)
+        val cardAfterCancel = ancestorWithDescendantText(titleAfterCancel, "Delete")
+            ?: throw AssertionError("Saved reference must remain after cancelling deletion")
+        val deleteAfterCancel = cardAfterCancel.findObject(By.text("Delete"))
+            ?: throw AssertionError("Delete control must remain after cancelling deletion")
+        tapResolvedTarget(device, deleteAfterCancel)
+        val finalDialogTitle = visible(device, "Delete saved reference?")
+        clickDialogButton(device, finalDialogTitle, "Delete")
         device.waitForIdle()
 
         assertTrue(
@@ -94,6 +120,19 @@ class HistoryDeletionFlowTest {
             device.wait(Until.gone(By.text(UNIQUE_TITLE)), TIMEOUT)
         )
         capture(device, "/data/local/tmp/drop-history-deletion-persisted.png")
+    }
+
+    private fun clickDialogButton(device: UiDevice, dialogTitle: UiObject2, buttonText: String) {
+        val dialog = ancestorWithDescendantText(dialogTitle, "Keep reference")
+            ?: throw AssertionError("Deletion confirmation dialog is missing")
+        val button = dialog.findObject(By.text(buttonText))
+            ?: throw AssertionError("Deletion confirmation button is missing: $buttonText")
+        tapResolvedTarget(device, button)
+        device.waitForIdle()
+        assertTrue(
+            "Deletion confirmation dialog must close after $buttonText",
+            device.wait(Until.gone(By.text("Delete saved reference?")), TIMEOUT)
+        )
     }
 
     private fun ancestorWithDescendantText(node: UiObject2, text: String): UiObject2? {
