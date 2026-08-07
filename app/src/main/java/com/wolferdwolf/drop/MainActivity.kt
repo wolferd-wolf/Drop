@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -342,6 +343,24 @@ private fun HistoryScreen(
     onDeleteReference: (SavedReference) -> Unit,
     onCancelReminder: (ReminderRecord) -> Unit
 ) {
+    var pendingDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
+    references.firstOrNull { it.id == pendingDeleteId }?.let { reference ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteId = null },
+            title = { Text("Delete saved reference?") },
+            text = { Text("“${reference.title}” will be removed from History on this device. This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteReference(reference)
+                    pendingDeleteId = null
+                }) { Text("Delete") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { pendingDeleteId = null }) { Text("Keep reference") }
+            }
+        )
+    }
+
     Scaffold(topBar = { TopAppBar(title = { Text("History") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item { Text("Saved actions", style = MaterialTheme.typography.headlineSmall) }
@@ -364,7 +383,7 @@ private fun HistoryScreen(
                         Text(reference.title, style = MaterialTheme.typography.titleMedium)
                         Text(reference.originalText, maxLines = 3)
                         FilledTonalButton(onClick = { onViewReference(reference) }, modifier = Modifier.fillMaxWidth()) { Text("View details") }
-                        TextButton(onClick = { onDeleteReference(reference) }) { Text("Delete") }
+                        TextButton(onClick = { pendingDeleteId = reference.id }) { Text("Delete") }
                     }
                 }
             }
@@ -376,6 +395,24 @@ private fun HistoryScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReferenceDetailScreen(reference: SavedReference, onBack: () -> Unit, onDelete: () -> Unit) {
+    var showDeleteConfirmation by rememberSaveable { mutableStateOf(false) }
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("Delete saved reference?") },
+            text = { Text("“${reference.title}” will be removed from History on this device. This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirmation = false
+                    onDelete()
+                }) { Text("Delete") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showDeleteConfirmation = false }) { Text("Keep reference") }
+            }
+        )
+    }
+
     Scaffold(topBar = { TopAppBar(title = { Text("Saved item details") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item { Text(reference.title, style = MaterialTheme.typography.headlineSmall) }
@@ -390,7 +427,7 @@ private fun ReferenceDetailScreen(reference: SavedReference, onBack: () -> Unit,
             }
             item { Text("Stored locally on this device.") }
             item { OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Back to History") } }
-            item { TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) { Text("Delete reference") } }
+            item { TextButton(onClick = { showDeleteConfirmation = true }, modifier = Modifier.fillMaxWidth()) { Text("Delete reference") } }
         }
     }
 }
