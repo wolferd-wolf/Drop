@@ -50,6 +50,7 @@ import com.wolferdwolf.drop.extraction.EditableExtractionState
 import com.wolferdwolf.drop.extraction.ExtractionResult
 import com.wolferdwolf.drop.extraction.ExtractionType
 import com.wolferdwolf.drop.extraction.RuleBasedExtractor
+import com.wolferdwolf.drop.history.HistorySearch
 import com.wolferdwolf.drop.link.OpenLinkConfirmationActivity
 import com.wolferdwolf.drop.maps.MapConfirmationActivity
 import com.wolferdwolf.drop.ocr.ImageOcrProcessor
@@ -344,6 +345,16 @@ private fun HistoryScreen(
     onCancelReminder: (ReminderRecord) -> Unit
 ) {
     var pendingDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    val filteredReferences = references.filter {
+        HistorySearch.matches(searchQuery, it.title, it.originalText)
+    }
+    val filteredReminders = reminders.filter {
+        HistorySearch.matches(searchQuery, it.title, it.notes)
+    }
+    val hasSavedItems = references.isNotEmpty() || reminders.isNotEmpty()
+    val hasMatches = filteredReferences.isNotEmpty() || filteredReminders.isNotEmpty()
+
     references.firstOrNull { it.id == pendingDeleteId }?.let { reference ->
         AlertDialog(
             onDismissRequest = { pendingDeleteId = null },
@@ -364,9 +375,22 @@ private fun HistoryScreen(
     Scaffold(topBar = { TopAppBar(title = { Text("History") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item { Text("Saved actions", style = MaterialTheme.typography.headlineSmall) }
-            if (references.isEmpty() && reminders.isEmpty()) item { Text("Nothing has been saved yet.") }
-            if (reminders.isNotEmpty()) item { Text("Scheduled reminders", style = MaterialTheme.typography.titleLarge) }
-            items(reminders, key = ReminderRecord::id) { reminder ->
+            item {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Search History") },
+                    supportingText = { Text("Search saved titles, content, reminder titles, and notes.") },
+                    singleLine = true
+                )
+            }
+            if (!hasSavedItems) item { Text("Nothing has been saved yet.") }
+            else if (!hasMatches && searchQuery.isNotBlank()) item {
+                Text("No saved actions match “${searchQuery.trim()}”. Try a different search.")
+            }
+            if (filteredReminders.isNotEmpty()) item { Text("Scheduled reminders", style = MaterialTheme.typography.titleLarge) }
+            items(filteredReminders, key = ReminderRecord::id) { reminder ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(reminder.title, style = MaterialTheme.typography.titleMedium)
@@ -376,8 +400,8 @@ private fun HistoryScreen(
                     }
                 }
             }
-            if (references.isNotEmpty()) item { Text("References and checklists", style = MaterialTheme.typography.titleLarge) }
-            items(references, key = SavedReference::id) { reference ->
+            if (filteredReferences.isNotEmpty()) item { Text("References and checklists", style = MaterialTheme.typography.titleLarge) }
+            items(filteredReferences, key = SavedReference::id) { reference ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(reference.title, style = MaterialTheme.typography.titleMedium)
