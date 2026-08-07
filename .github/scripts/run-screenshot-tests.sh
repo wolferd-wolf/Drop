@@ -71,6 +71,7 @@ screenshots=(
   drop-image-intake-actions
   drop-pdf-intake-actions
   drop-modern-link-actions
+  drop-country-code-link-actions
   drop-compact-price-extraction
   drop-multiline-address-actions
   drop-extraction-edit-restored
