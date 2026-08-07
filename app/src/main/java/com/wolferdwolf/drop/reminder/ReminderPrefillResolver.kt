@@ -66,7 +66,7 @@ object ReminderPrefillResolver {
 
         for (formatter in writtenDateFormatters) {
             val parsed = runCatching {
-                if (clean.any(Char::isDigit) && Regex("\\b\\d{4}\\b").containsMatchIn(clean)) {
+                if (Regex("\\b\\d{4}\\b").containsMatchIn(clean)) {
                     LocalDate.parse(clean, formatter)
                 } else {
                     val monthDay = java.time.MonthDay.parse(clean, formatter)
@@ -97,7 +97,11 @@ object ReminderPrefillResolver {
         runCatching { LocalDate.of(year, month, day) }.getOrNull()
 
     private fun parseTime(raw: String): LocalTime? {
-        val clean = raw.trim().lowercase(Locale.ROOT).replace(".", "")
+        val clean = raw.trim().lowercase(Locale.ROOT)
+            .replace("a.m.", "am")
+            .replace("p.m.", "pm")
+            .replace("a.m", "am")
+            .replace("p.m", "pm")
         if (clean == "noon") return LocalTime.NOON
         if (clean == "midnight") return LocalTime.MIDNIGHT
 
@@ -105,7 +109,7 @@ object ReminderPrefillResolver {
             return safeTime(it.groupValues[1].toInt(), it.groupValues[2].toInt())
         }
 
-        Regex("^(\\d{1,2})(?::|\\.)([0-5]\\d)\\s*(am|pm)?$").matchEntire(raw.trim().lowercase(Locale.ROOT))?.let {
+        Regex("^(\\d{1,2})(?::|\\.)([0-5]\\d)\\s*(am|pm)?$").matchEntire(clean)?.let {
             return timeFromParts(it.groupValues[1].toInt(), it.groupValues[2].toInt(), it.groupValues[3])
         }
         Regex("^(\\d{1,2})\\s*(am|pm)$").matchEntire(clean)?.let {
