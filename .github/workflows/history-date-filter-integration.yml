@@ -1,0 +1,84 @@
+name: Integrate History date filtering
+
+on:
+  push:
+    branches:
+      - automation/calendar-normal-flow-verification
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: automation/calendar-normal-flow-verification
+          fetch-depth: 0
+      - name: Patch History date filtering
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          history = Path('app/src/main/java/com/wolferdwolf/drop/history/HistorySearch.kt')
+          text = history.read_text()
+          text = text.replace('import java.text.Normalizer\n', 'import java.text.Normalizer\nimport java.util.Calendar\n')
+          text = text.replace('enum class HistoryItemFilter {\n    ALL,\n    REFERENCES,\n    REMINDERS\n}\n', '''enum class HistoryItemFilter {\n    ALL,\n    REFERENCES,\n    REMINDERS\n}\n\nenum class HistoryDateFilter {\n    ALL,\n    TODAY,\n    LAST_7_DAYS,\n    LAST_30_DAYS\n}\n''')
+          marker = '''    fun includesReminders(filter: HistoryItemFilter): Boolean =\n        filter == HistoryItemFilter.ALL || filter == HistoryItemFilter.REMINDERS\n\n'''
+          replacement = marker + '''    fun matchesDate(\n        filter: HistoryDateFilter,\n        createdAtMillis: Long,\n        nowMillis: Long = System.currentTimeMillis()\n    ): Boolean {\n        if (filter == HistoryDateFilter.ALL) return true\n        val calendar = Calendar.getInstance().apply {\n            timeInMillis = nowMillis\n            set(Calendar.HOUR_OF_DAY, 0)\n            set(Calendar.MINUTE, 0)\n            set(Calendar.SECOND, 0)\n            set(Calendar.MILLISECOND, 0)\n            add(\n                Calendar.DAY_OF_YEAR,\n                when (filter) {\n                    HistoryDateFilter.TODAY -> 0\n                    HistoryDateFilter.LAST_7_DAYS -> -6\n                    HistoryDateFilter.LAST_30_DAYS -> -29\n                    HistoryDateFilter.ALL -> 0\n                }\n            )\n        }\n        return createdAtMillis in calendar.timeInMillis..nowMillis\n    }\n\n'''
+          if marker not in text:
+              raise SystemExit('HistorySearch insertion marker missing')
+          history.write_text(text.replace(marker, replacement))
+
+          main = Path('app/src/main/java/com/wolferdwolf/drop/MainActivity.kt')
+          text = main.read_text()
+          text = text.replace('import com.wolferdwolf.drop.history.HistoryItemFilter\n', 'import com.wolferdwolf.drop.history.HistoryDateFilter\nimport com.wolferdwolf.drop.history.HistoryItemFilter\n')
+          old = '''    var searchQuery by rememberSaveable { mutableStateOf("") }\n    var itemFilter by rememberSaveable { mutableStateOf(HistoryItemFilter.ALL) }\n    val filteredReferences = if (HistorySearch.includesReferences(itemFilter)) {\n        references.filter { HistorySearch.matches(searchQuery, it.title, it.originalText) }\n    } else emptyList()\n    val filteredReminders = if (HistorySearch.includesReminders(itemFilter)) {\n        reminders.filter { HistorySearch.matches(searchQuery, it.title, it.notes) }\n    } else emptyList()\n    val hasSavedItems = references.isNotEmpty() || reminders.isNotEmpty()\n    val hasMatches = filteredReferences.isNotEmpty() || filteredReminders.isNotEmpty()\n    val filtering = searchQuery.isNotBlank() || itemFilter != HistoryItemFilter.ALL\n'''
+          new = '''    var searchQuery by rememberSaveable { mutableStateOf("") }\n    var itemFilter by rememberSaveable { mutableStateOf(HistoryItemFilter.ALL) }\n    var dateFilter by rememberSaveable { mutableStateOf(HistoryDateFilter.ALL) }\n    val filteredReferences = if (HistorySearch.includesReferences(itemFilter)) {\n        references.filter {\n            HistorySearch.matches(searchQuery, it.title, it.originalText) &&\n                HistorySearch.matchesDate(dateFilter, it.createdAtEpochMillis)\n        }\n    } else emptyList()\n    val filteredReminders = if (HistorySearch.includesReminders(itemFilter)) {\n        reminders.filter {\n            HistorySearch.matches(searchQuery, it.title, it.notes) &&\n                HistorySearch.matchesDate(dateFilter, it.createdAtMillis)\n        }\n    } else emptyList()\n    val hasSavedItems = references.isNotEmpty() || reminders.isNotEmpty()\n    val hasMatches = filteredReferences.isNotEmpty() || filteredReminders.isNotEmpty()\n    val filtering = searchQuery.isNotBlank() || itemFilter != HistoryItemFilter.ALL || dateFilter != HistoryDateFilter.ALL\n'''
+          if old not in text:
+              raise SystemExit('MainActivity filter state marker missing')
+          text = text.replace(old, new)
+          action_block = '''            item {\n                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {\n                    Text("Filter by action type", style = MaterialTheme.typography.labelLarge)\n                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n                        if (itemFilter == HistoryItemFilter.ALL) {\n                            FilledTonalButton(onClick = { itemFilter = HistoryItemFilter.ALL }, modifier = Modifier.weight(1f)) { Text("All") }\n                        } else {\n                            OutlinedButton(onClick = { itemFilter = HistoryItemFilter.ALL }, modifier = Modifier.weight(1f)) { Text("All") }\n                        }\n                        if (itemFilter == HistoryItemFilter.REFERENCES) {\n                            FilledTonalButton(onClick = { itemFilter = HistoryItemFilter.REFERENCES }, modifier = Modifier.weight(1f)) { Text("Saved items") }\n                        } else {\n                            OutlinedButton(onClick = { itemFilter = HistoryItemFilter.REFERENCES }, modifier = Modifier.weight(1f)) { Text("Saved items") }\n                        }\n                        if (itemFilter == HistoryItemFilter.REMINDERS) {\n                            FilledTonalButton(onClick = { itemFilter = HistoryItemFilter.REMINDERS }, modifier = Modifier.weight(1f)) { Text("Reminders") }\n                        } else {\n                            OutlinedButton(onClick = { itemFilter = HistoryItemFilter.REMINDERS }, modifier = Modifier.weight(1f)) { Text("Reminders") }\n                        }\n                    }\n                }\n            }\n'''
+          date_block = action_block + '''            item {\n                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {\n                    Text("Filter by date", style = MaterialTheme.typography.labelLarge)\n                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n                        if (dateFilter == HistoryDateFilter.ALL) {\n                            FilledTonalButton(onClick = { dateFilter = HistoryDateFilter.ALL }, modifier = Modifier.weight(1f)) { Text("All dates") }\n                        } else {\n                            OutlinedButton(onClick = { dateFilter = HistoryDateFilter.ALL }, modifier = Modifier.weight(1f)) { Text("All dates") }\n                        }\n                        if (dateFilter == HistoryDateFilter.TODAY) {\n                            FilledTonalButton(onClick = { dateFilter = HistoryDateFilter.TODAY }, modifier = Modifier.weight(1f)) { Text("Today") }\n                        } else {\n                            OutlinedButton(onClick = { dateFilter = HistoryDateFilter.TODAY }, modifier = Modifier.weight(1f)) { Text("Today") }\n                        }\n                    }\n                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n                        if (dateFilter == HistoryDateFilter.LAST_7_DAYS) {\n                            FilledTonalButton(onClick = { dateFilter = HistoryDateFilter.LAST_7_DAYS }, modifier = Modifier.weight(1f)) { Text("Last 7 days") }\n                        } else {\n                            OutlinedButton(onClick = { dateFilter = HistoryDateFilter.LAST_7_DAYS }, modifier = Modifier.weight(1f)) { Text("Last 7 days") }\n                        }\n                        if (dateFilter == HistoryDateFilter.LAST_30_DAYS) {\n                            FilledTonalButton(onClick = { dateFilter = HistoryDateFilter.LAST_30_DAYS }, modifier = Modifier.weight(1f)) { Text("Last 30 days") }\n                        } else {\n                            OutlinedButton(onClick = { dateFilter = HistoryDateFilter.LAST_30_DAYS }, modifier = Modifier.weight(1f)) { Text("Last 30 days") }\n                        }\n                    }\n                }\n            }\n'''
+          if action_block not in text:
+              raise SystemExit('MainActivity action filter UI marker missing')
+          text = text.replace(action_block, date_block)
+          text = text.replace('"No saved actions match “${searchQuery.trim()}” in this filter. Try a different search or action type."', '"No saved actions match “${searchQuery.trim()}” in these filters. Try a different search, action type, or date."')
+          text = text.replace('"No saved actions are available in this action-type filter."', '"No saved actions are available in the selected filters."')
+          main.write_text(text)
+
+          unit = Path('app/src/test/java/com/wolferdwolf/drop/history/HistorySearchTest.kt')
+          text = unit.read_text()
+          insert = '''\n    @Test\n    fun dateFilterUsesLocalCalendarDayBoundaries() {\n        val calendar = Calendar.getInstance().apply {\n            set(2026, Calendar.AUGUST, 7, 18, 0, 0)\n            set(Calendar.MILLISECOND, 0)\n        }\n        val now = calendar.timeInMillis\n        val todayMorning = Calendar.getInstance().apply {\n            timeInMillis = now\n            set(Calendar.HOUR_OF_DAY, 8)\n        }.timeInMillis\n        val yesterday = Calendar.getInstance().apply {\n            timeInMillis = now\n            add(Calendar.DAY_OF_YEAR, -1)\n        }.timeInMillis\n        val eightDaysAgo = Calendar.getInstance().apply {\n            timeInMillis = now\n            add(Calendar.DAY_OF_YEAR, -8)\n        }.timeInMillis\n        val thirtyOneDaysAgo = Calendar.getInstance().apply {\n            timeInMillis = now\n            add(Calendar.DAY_OF_YEAR, -31)\n        }.timeInMillis\n\n        assertTrue(HistorySearch.matchesDate(HistoryDateFilter.ALL, thirtyOneDaysAgo, now))\n        assertTrue(HistorySearch.matchesDate(HistoryDateFilter.TODAY, todayMorning, now))\n        assertFalse(HistorySearch.matchesDate(HistoryDateFilter.TODAY, yesterday, now))\n        assertTrue(HistorySearch.matchesDate(HistoryDateFilter.LAST_7_DAYS, yesterday, now))\n        assertFalse(HistorySearch.matchesDate(HistoryDateFilter.LAST_7_DAYS, eightDaysAgo, now))\n        assertTrue(HistorySearch.matchesDate(HistoryDateFilter.LAST_30_DAYS, eightDaysAgo, now))\n        assertFalse(HistorySearch.matchesDate(HistoryDateFilter.LAST_30_DAYS, thirtyOneDaysAgo, now))\n    }\n'''
+          text = text.replace('import org.junit.Test\n', 'import org.junit.Test\nimport java.util.Calendar\n')
+          if '\n}\n' not in text:
+              raise SystemExit('HistorySearchTest closing marker missing')
+          unit.write_text(text.rsplit('\n}', 1)[0] + insert + '\n}\n')
+
+          android = Path('app/src/androidTest/java/com/wolferdwolf/drop/HistorySearchFlowTest.kt')
+          text = android.read_text()
+          text = text.replace('''        val second = store.save("Supplier invoice", "Replacement bearings and machine oil.", now = 9_002L)\n''', '''        val second = store.save("Supplier invoice", "Replacement bearings and machine oil.", now = 9_002L)\n        val recent = store.save("Today field note", "Fresh maintenance note saved today.", now = System.currentTimeMillis())\n''')
+          marker = '''                clickTextMatching(device, "All")\n                visible(device, "Café quarterly wolf strategy")\n                visible(device, "Supplier invoice")\n\n                search.text = "quarterly invoice"\n'''
+          replacement = '''                clickTextMatching(device, "All")\n                visible(device, "Café quarterly wolf strategy")\n                visible(device, "Supplier invoice")\n\n                clickTextMatching(device, "Today")\n                visible(device, "Today field note")\n                assertTrue("Today filter must hide older saved references", device.wait(Until.gone(By.text("Café quarterly wolf strategy")), TIMEOUT))\n                assertTrue("Today filter must hide unrelated older references", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))\n                capture(device, "/data/local/tmp/drop-history-filter-today.png")\n                clickTextMatching(device, "All dates")\n                visible(device, "Café quarterly wolf strategy")\n\n                search.text = "quarterly invoice"\n'''
+          if marker not in text:
+              raise SystemExit('HistorySearchFlowTest insertion marker missing')
+          text = text.replace(marker, replacement)
+          text = text.replace('''            store.delete(first.id)\n            store.delete(second.id)\n''', '''            store.delete(first.id)\n            store.delete(second.id)\n            store.delete(recent.id)\n''')
+          android.write_text(text)
+
+          script = Path('.github/scripts/run-screenshot-tests.sh')
+          text = script.read_text()
+          marker = '  drop-history-filter-reminders-empty\n'
+          if marker not in text:
+              raise SystemExit('screenshot list marker missing')
+          script.write_text(text.replace(marker, marker + '  drop-history-filter-today\n'))
+
+          Path('.github/workflows/history-date-filter-integration.yml').unlink()
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Add real History date filtering"
+          git push origin HEAD:automation/calendar-normal-flow-verification
