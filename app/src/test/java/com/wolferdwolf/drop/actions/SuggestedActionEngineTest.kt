@@ -67,6 +67,27 @@ class SuggestedActionEngineTest {
     }
 
     @Test
+    fun eventCategoryWithoutDateDoesNotSuggestCalendar() {
+        val text = "Team meeting in Wolf Hall. Agenda: launch review."
+        val actions = SuggestedActionEngine.suggest(text, emptyList())
+        val types = actions.map { it.type }
+
+        assertTrue(SuggestedActionType.SAVE_REFERENCE in types)
+        assertFalse(SuggestedActionType.CALENDAR in types)
+        assertFalse(SuggestedActionType.REMINDER in types)
+    }
+
+    @Test
+    fun timeOnlyEventStillDoesNotSuggestCalendarWithoutDate() {
+        val text = "Team meeting at 5:30 PM in Wolf Hall"
+        val results = listOf(result(ExtractionType.TIME, "5:30 PM"))
+        val types = SuggestedActionEngine.suggest(text, results).map { it.type }
+
+        assertTrue(SuggestedActionType.REMINDER in types)
+        assertFalse(SuggestedActionType.CALENDAR in types)
+    }
+
+    @Test
     fun missingDataSuppressesDependentSuggestedActions() {
         val actions = SuggestedActionEngine.suggest("Keep this note for later", emptyList())
         val types = actions.map { it.type }
