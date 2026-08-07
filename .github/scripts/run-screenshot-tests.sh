@@ -79,6 +79,8 @@ screenshots=(
   drop-year-first-dotted-date-actions
   drop-dotted-month-date-extraction
   drop-dotted-month-date-actions
+  drop-dotted-meridiem-time-extraction
+  drop-dotted-meridiem-time-actions
   drop-maps-curated-value
   drop-history-search-result
   drop-history-filter-reminders-empty
