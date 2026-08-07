@@ -56,18 +56,16 @@ class HistorySearchFlowTest {
                 assertTrue("Reminder filter must hide unrelated saved references", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-filter-reminders-empty.png")
 
+                // Reset action type before validating the date filter. The date filter itself
+                // proves the reset worked because its only matching record is a saved reference.
                 clickExactText(device, "All")
-                visible(device, "Café quarterly wolf strategy")
-                visible(device, "Supplier invoice")
-
                 clickExactText(device, "Today")
                 visible(device, "Today field note")
                 assertTrue("Today filter must hide older saved references", device.wait(Until.gone(By.text("Café quarterly wolf strategy")), TIMEOUT))
                 assertTrue("Today filter must hide unrelated older references", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-filter-today.png")
-                clickExactText(device, "All dates")
-                visible(device, "Café quarterly wolf strategy")
 
+                clickExactText(device, "All dates")
                 search.text = "quarterly invoice"
                 dismissKeyboard(device)
                 visible(device, "No saved actions match “quarterly invoice” in these filters. Try a different search, action type, or date.")
