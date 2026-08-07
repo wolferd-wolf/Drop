@@ -75,6 +75,8 @@ screenshots=(
   drop-compact-price-extraction
   drop-conversational-shorthand-price-extraction
   drop-conversational-shorthand-price-actions
+  drop-international-currency-extraction
+  drop-international-currency-actions
   drop-multiline-address-actions
   drop-extraction-edit-restored
   drop-hyphenated-date-actions
