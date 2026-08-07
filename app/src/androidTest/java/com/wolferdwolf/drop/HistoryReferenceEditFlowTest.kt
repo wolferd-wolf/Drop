@@ -25,8 +25,7 @@ class HistoryReferenceEditFlowTest {
             clickText(device, "Continue")
             clickText(device, "Extract details")
             clickText(device, "See suggested actions", scroll = true)
-            clickText(device, "Save reference", scroll = true)
-            visible(device, "Confirm before saving")
+            clickTextAndWaitForDestination(device, "Save reference", "Confirm before saving")
             val title = objectFor(device, By.clazz("android.widget.EditText"), "Reference title is missing")
             title.text = ORIGINAL_TITLE
             dismissKeyboard(device)
@@ -73,6 +72,61 @@ class HistoryReferenceEditFlowTest {
         }
     }
 
+    private fun clickTextAndWaitForDestination(
+        device: UiDevice,
+        sourceText: String,
+        destinationText: String
+    ) {
+        repeat(2) { attempt ->
+            tap(device, actionTargetAfterScroll(device, sourceText))
+            if (device.wait(Until.findObject(By.text(destinationText)), TIMEOUT) != null) return
+            if (attempt == 0) {
+                device.waitForIdle()
+                device.swipe(
+                    device.displayWidth / 2,
+                    device.displayHeight * 2 / 3,
+                    device.displayWidth / 2,
+                    device.displayHeight / 2,
+                    10
+                )
+                device.waitForIdle()
+            }
+        }
+        throw AssertionError("Expected visible text after activating $sourceText: $destinationText")
+    }
+
+    private fun actionTargetAfterScroll(device: UiDevice, text: String): UiObject2 {
+        repeat(9) { attempt ->
+            val candidates = device.findObjects(By.text(text))
+                .mapNotNull(::clickableAncestor)
+                .distinctBy { it.visibleBounds }
+                .filter { !it.visibleBounds.isEmpty }
+            if (candidates.isNotEmpty()) {
+                return candidates.minBy { it.visibleBounds.width() * it.visibleBounds.height() }
+            }
+            if (attempt < 8) {
+                device.swipe(
+                    device.displayWidth / 2,
+                    device.displayHeight * 3 / 4,
+                    device.displayWidth / 2,
+                    device.displayHeight / 4,
+                    20
+                )
+                device.waitForIdle()
+            }
+        }
+        throw AssertionError("Expected actionable control after scrolling: $text")
+    }
+
+    private fun clickableAncestor(node: UiObject2): UiObject2? {
+        var current: UiObject2? = node
+        while (current != null) {
+            if (current.isClickable) return current
+            current = current.parent
+        }
+        return null
+    }
+
     private fun clickText(device: UiDevice, text: String, scroll: Boolean = false) {
         val node = if (scroll) visibleAfterScroll(device, text) else visible(device, text)
         tap(device, node)
@@ -115,9 +169,7 @@ class HistoryReferenceEditFlowTest {
     }
 
     private fun tap(device: UiDevice, node: UiObject2) {
-        var target: UiObject2? = node
-        while (target != null && !target.isClickable) target = target.parent
-        target = target ?: node
+        val target = clickableAncestor(node) ?: node
         val bounds = target.visibleBounds
         assertTrue("Target has no tappable area", !bounds.isEmpty)
         assertTrue("Coordinate tap failed", device.click(bounds.centerX(), bounds.centerY()))
