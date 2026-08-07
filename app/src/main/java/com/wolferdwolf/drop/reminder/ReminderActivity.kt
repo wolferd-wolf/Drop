@@ -30,9 +30,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.wolferdwolf.drop.ui.theme.DropTheme
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
 
 class ReminderActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,11 +62,11 @@ private fun ReminderScreen(
     onClose: () -> Unit,
     schedule: (ReminderValidator.ValidReminder) -> Result<Unit>
 ) {
-    val today = remember { LocalDate.now() }
+    val prefill = remember(sourceText) { ReminderPrefillResolver.from(sourceText) }
     var title by rememberSaveable { mutableStateOf(sourceText.lineSequence().firstOrNull { it.isNotBlank() }?.take(120) ?: "Reminder") }
     var notes by rememberSaveable { mutableStateOf(sourceText) }
-    var date by rememberSaveable { mutableStateOf(today.plusDays(1).toString()) }
-    var time by rememberSaveable { mutableStateOf(LocalTime.now().plusHours(1).format(DateTimeFormatter.ofPattern("HH:mm"))) }
+    var date by rememberSaveable { mutableStateOf(prefill.date) }
+    var time by rememberSaveable { mutableStateOf(prefill.time) }
     var message by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingReminder by remember { mutableStateOf<ReminderValidator.ValidReminder?>(null) }
 
