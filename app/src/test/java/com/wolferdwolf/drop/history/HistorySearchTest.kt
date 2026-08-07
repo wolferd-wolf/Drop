@@ -44,6 +44,18 @@ class HistorySearchTest {
     }
 
     @Test
+    fun punctuationDifferencesDoNotHideSavedPhoneEmailOrUrlValues() {
+        assertTrue(HistorySearch.matches("9876543210", "Supplier contact", "Call +91 98765-43210"))
+        assertTrue(HistorySearch.matches("opswolfexamplecom", "Operations", "Email ops.wolf@example.com"))
+        assertTrue(HistorySearch.matches("examplecominvoices42", "Invoice", "https://example.com/invoices/42"))
+    }
+
+    @Test
+    fun queryContainingOnlyPunctuationDoesNotAccidentallyHideHistory() {
+        assertTrue(HistorySearch.matches("---", "Quarterly Strategy", "operations review"))
+    }
+
+    @Test
     fun queryDoesNotMatchUnrelatedFields() {
         assertFalse(HistorySearch.matches("invoice", "Quarterly Strategy", "operations review"))
     }
