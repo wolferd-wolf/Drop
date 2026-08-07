@@ -15,7 +15,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class HistorySearchFlowTest {
     @Test
-    fun historySearchFiltersTitleAndContentAndExplainsNoMatches() {
+    fun historySearchAndActionTypeFilterNarrowSavedActionsWithoutDeadEnds() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val store = SavedReferenceStore(context)
         val first = store.save("Quarterly wolf strategy", "Operations review notes for the northern region.", now = 9_001L)
@@ -26,6 +26,10 @@ class HistorySearchFlowTest {
                 val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
                 clickTextMatching(device, "History")
                 visible(device, "Saved actions")
+                visible(device, "Filter by action type")
+                visible(device, "All")
+                visible(device, "Saved items")
+                visible(device, "Reminders")
 
                 val search = assertNotNull(
                     "History search field is missing",
@@ -38,9 +42,21 @@ class HistorySearchFlowTest {
                 assertTrue("Unrelated reference must be filtered out", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-search-result.png")
 
+                search.text = ""
+                dismissKeyboard(device)
+                clickTextMatching(device, "Reminders")
+                visible(device, "No saved actions are available in this action-type filter.")
+                assertTrue("Reminder filter must hide saved references", device.wait(Until.gone(By.text("Quarterly wolf strategy")), TIMEOUT))
+                assertTrue("Reminder filter must hide unrelated saved references", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
+                capture(device, "/data/local/tmp/drop-history-filter-reminders-empty.png")
+
+                clickTextMatching(device, "All")
+                visible(device, "Quarterly wolf strategy")
+                visible(device, "Supplier invoice")
+
                 search.text = "unfindable-token"
                 dismissKeyboard(device)
-                visible(device, "No saved actions match “unfindable-token”. Try a different search.")
+                visible(device, "No saved actions match “unfindable-token” in this filter. Try a different search or action type.")
                 assertTrue("Search with no matches must hide saved cards", device.wait(Until.gone(By.text("Quarterly wolf strategy")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-search-empty.png")
             }
