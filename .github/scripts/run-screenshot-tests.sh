@@ -58,6 +58,7 @@ screenshots=(
   drop-calendar-confirmation
   drop-calendar-curated-values
   drop-calendar-normal-flow
+  drop-calendar-missing-date-suppressed
   drop-contact-confirmation
   drop-email-confirmation
   drop-open-link-confirmation
