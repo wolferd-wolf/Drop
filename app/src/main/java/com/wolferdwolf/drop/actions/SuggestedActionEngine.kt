@@ -62,8 +62,8 @@ object SuggestedActionEngine {
             )
         }
 
-        val isLikelyEvent = category == DocumentCategory.EVENT || ExtractionType.DATE in types && (
-            hasEventLanguage || (ExtractionType.TIME in types && !hasDeadlineLanguage)
+        val isLikelyEvent = ExtractionType.DATE in types && (
+            category == DocumentCategory.EVENT || hasEventLanguage || (ExtractionType.TIME in types && !hasDeadlineLanguage)
         )
         if (isLikelyEvent) {
             relevant += action(
