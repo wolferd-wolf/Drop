@@ -132,6 +132,11 @@ class MainActivity : ComponentActivity() {
                         ReferenceDetailScreen(
                             reference,
                             { screen = Screen.HISTORY },
+                            { title, notes ->
+                                val updated = referenceStore.update(reference, title, notes)
+                                selectedReference = updated
+                                refreshHistory()
+                            },
                             {
                                 referenceStore.delete(reference.id)
                                 selectedReference = null
@@ -352,7 +357,7 @@ private fun HistoryScreen(
     var dateFilter by rememberSaveable { mutableStateOf(HistoryDateFilter.ALL) }
     val filteredReferences = if (HistorySearch.includesReferences(itemFilter)) {
         references.filter {
-            HistorySearch.matches(searchQuery, it.title, it.originalText) &&
+            HistorySearch.matches(searchQuery, it.title, it.originalText, it.notes) &&
                 HistorySearch.matchesDate(dateFilter, it.createdAtEpochMillis)
         }
     } else emptyList()
@@ -486,8 +491,16 @@ private fun HistoryScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReferenceDetailScreen(reference: SavedReference, onBack: () -> Unit, onDelete: () -> Unit) {
+private fun ReferenceDetailScreen(
+    reference: SavedReference,
+    onBack: () -> Unit,
+    onUpdate: (String, String) -> Unit,
+    onDelete: () -> Unit
+) {
     var showDeleteConfirmation by rememberSaveable { mutableStateOf(false) }
+    var title by rememberSaveable(reference.id) { mutableStateOf(reference.title) }
+    var notes by rememberSaveable(reference.id) { mutableStateOf(reference.notes) }
+    var saveStatus by rememberSaveable(reference.id) { mutableStateOf<String?>(null) }
     if (showDeleteConfirmation) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
@@ -507,7 +520,34 @@ private fun ReferenceDetailScreen(reference: SavedReference, onBack: () -> Unit,
 
     Scaffold(topBar = { TopAppBar(title = { Text("Saved item details") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            item { Text(reference.title, style = MaterialTheme.typography.headlineSmall) }
+            item { Text("Edit saved reference", style = MaterialTheme.typography.headlineSmall) }
+            item {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it.take(SavedReferenceStore.MAX_TITLE_LENGTH); saveStatus = null },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Title") },
+                    singleLine = true
+                )
+            }
+            item {
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it; saveStatus = null },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Notes") },
+                    supportingText = { Text("Notes are stored locally and included in History search.") },
+                    minLines = 3
+                )
+            }
+            item {
+                Button(
+                    onClick = { onUpdate(title, notes); saveStatus = "Changes saved." },
+                    enabled = title.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Save changes") }
+            }
+            saveStatus?.let { status -> item { Text(status, color = MaterialTheme.colorScheme.primary) } }
             item { Text("Saved reference", style = MaterialTheme.typography.labelLarge) }
             item {
                 Card(Modifier.fillMaxWidth()) {

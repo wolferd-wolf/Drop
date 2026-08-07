@@ -94,6 +94,7 @@ screenshots=(
   drop-history-saved-reference
   drop-history-reference-restored
   drop-history-reference-detail
+  drop-history-reference-edited
   drop-history-detail-delete-confirmation
   drop-history-delete-confirmation
   drop-history-reference-deleted
