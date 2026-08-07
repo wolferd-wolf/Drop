@@ -67,6 +67,8 @@ screenshots=(
   drop-year-first-dotted-date-extraction
   drop-year-first-dotted-date-actions
   drop-maps-curated-value
+  drop-history-search-result
+  drop-history-search-empty
   drop-history-saved-reference
   drop-history-reference-restored
   drop-history-reference-detail
