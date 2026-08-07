@@ -18,55 +18,110 @@ class ReminderPrefillFlowTest {
     fun detectedDateAndTimeReachReminderConfirmation() {
         ActivityScenario.launch(MainActivity::class.java).use {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-            activateAndWait(device, "Paste text", "Add content for Drop to understand and turn into an action.")
-            val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), TIMEOUT)
-            assertNotNull("Paste intake must provide an editable field", input)
+            clickText(device, "Paste text")
+            visible(device, "Add content for Drop to understand and turn into an action.")
+            val input = objectFor(device, By.clazz("android.widget.EditText"), "Paste intake must provide an editable field")
             input.text = "Site visit on 2026-08-15 at 9:30 PM."
             device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
             device.waitForIdle()
 
-            activateAndWait(device, "Continue", "Import preview")
-            activateAndWait(device, "Extract details", "Extracted information")
-            activateAndWait(device, "See suggested actions", "Suggested actions", scroll = true)
-            activateAndWait(device, "Create reminder", "Confirm reminder details", scroll = true)
+            clickText(device, "Continue")
+            visible(device, "Import preview")
+            clickText(device, "Extract details")
+            visible(device, "Extracted information")
+            clickText(device, "See suggested actions", scroll = true)
+            visible(device, "Suggested actions")
+            clickTextAndWaitForDestination(device, "Create reminder", "Confirm reminder details")
 
-            assertVisibleAfterScroll(device, "2026-08-15", "Detected date must prefill Reminder confirmation")
-            assertVisibleAfterScroll(device, "21:30", "Detected time must prefill Reminder confirmation")
-            assertVisibleAfterScroll(device, "Schedule", "Reminder must remain explicitly confirmable")
-            assertVisibleAfterScroll(device, "Cancel", "Reminder must remain cancellable")
+            objectFor(device, By.clazz("android.widget.EditText").text("2026-08-15"), "Detected date must prefill Reminder confirmation")
+            objectFor(device, By.clazz("android.widget.EditText").text("21:30"), "Detected time must prefill Reminder confirmation")
+            visibleAfterScroll(device, "Schedule")
+            visibleAfterScroll(device, "Cancel")
             capture(device, "/data/local/tmp/drop-reminder-extraction-prefill.png")
         }
     }
 
-    private fun activateAndWait(device: UiDevice, sourceText: String, destinationText: String, scroll: Boolean = false) {
-        val source = if (scroll) assertVisibleAfterScroll(device, sourceText, "Expected action: $sourceText")
-            else assertVisible(device, sourceText, "Expected action: $sourceText")
-        tapResolvedTarget(device, source)
-        assertNotNull("Expected $destinationText after activating $sourceText", device.wait(Until.findObject(By.text(destinationText)), TIMEOUT))
+    private fun clickText(device: UiDevice, text: String, scroll: Boolean = false) {
+        val node = if (scroll) visibleAfterScroll(device, text) else visible(device, text)
+        tapResolvedTarget(device, node)
+        device.waitForIdle()
     }
 
-    private fun assertVisible(device: UiDevice, text: String, message: String): UiObject2 =
-        assertNotNull(message, device.wait(Until.findObject(By.text(text)), TIMEOUT)).let { device.findObject(By.text(text)) }
-
-    private fun assertVisibleAfterScroll(device: UiDevice, text: String, message: String): UiObject2 {
-        device.wait(Until.findObject(By.text(text)), 2_000L)?.let { return it }
-        repeat(8) {
-            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
-            device.waitForIdle()
-            device.wait(Until.findObject(By.text(text)), 2_000L)?.let { return it }
+    private fun clickTextAndWaitForDestination(device: UiDevice, sourceText: String, destinationText: String) {
+        repeat(2) { attempt ->
+            val source = actionTargetAfterScroll(device, sourceText)
+            tapResolvedTarget(device, source)
+            if (device.wait(Until.findObject(By.text(destinationText)), TIMEOUT) != null) return
+            if (attempt == 0) {
+                device.waitForIdle()
+                device.swipe(
+                    device.displayWidth / 2,
+                    device.displayHeight * 2 / 3,
+                    device.displayWidth / 2,
+                    device.displayHeight / 2,
+                    10
+                )
+                device.waitForIdle()
+            }
         }
-        return device.findObject(By.text(text)) ?: throw AssertionError(message)
+        throw AssertionError("Expected visible text after activating $sourceText: $destinationText")
+    }
+
+    private fun actionTargetAfterScroll(device: UiDevice, text: String): UiObject2 {
+        repeat(9) { attempt ->
+            val candidates = device.findObjects(By.text(text))
+                .mapNotNull(::clickableAncestor)
+                .distinctBy { it.visibleBounds }
+                .filter { !it.visibleBounds.isEmpty }
+            if (candidates.isNotEmpty()) {
+                return candidates.minBy { it.visibleBounds.width() * it.visibleBounds.height() }
+            }
+            if (attempt < 8) {
+                device.swipe(
+                    device.displayWidth / 2,
+                    device.displayHeight * 3 / 4,
+                    device.displayWidth / 2,
+                    device.displayHeight / 4,
+                    20
+                )
+                device.waitForIdle()
+            }
+        }
+        throw AssertionError("Expected actionable control after scrolling: $text")
+    }
+
+    private fun clickableAncestor(node: UiObject2): UiObject2? {
+        var current: UiObject2? = node
+        while (current != null) {
+            if (current.isClickable) return current
+            current = current.parent
+        }
+        return null
     }
 
     private fun tapResolvedTarget(device: UiDevice, node: UiObject2) {
-        var target: UiObject2? = node
-        while (target != null && !target.isClickable) target = target.parent
-        val resolved = target ?: node
-        val bounds = resolved.visibleBounds
+        val target = clickableAncestor(node) ?: node
+        val bounds = target.visibleBounds
         assertTrue("Target has no tappable area", !bounds.isEmpty)
         assertTrue("Coordinate tap failed", device.click(bounds.centerX(), bounds.centerY()))
-        device.waitForIdle()
     }
+
+    private fun visible(device: UiDevice, text: String): UiObject2 =
+        assertNotNull("Expected visible text: $text", device.wait(Until.findObject(By.text(text)), TIMEOUT))
+            .let { device.findObject(By.text(text)) }
+
+    private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
+        device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)?.let { return it }
+        repeat(8) {
+            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
+            device.waitForIdle()
+            device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)?.let { return it }
+        }
+        return device.findObject(By.text(text)) ?: throw AssertionError("Expected visible text after scrolling: $text")
+    }
+
+    private fun objectFor(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
+        assertNotNull(message, device.wait(Until.findObject(selector), TIMEOUT)).let { device.findObject(selector) }
 
     private fun capture(device: UiDevice, path: String) {
         device.waitForIdle()
@@ -75,5 +130,8 @@ class ReminderPrefillFlowTest {
         assertTrue(device.executeShellCommand("ls -l $path").contains(path.substringAfterLast('/')))
     }
 
-    private companion object { const val TIMEOUT = 20_000L }
+    private companion object {
+        const val TIMEOUT = 20_000L
+        const val SHORT_TIMEOUT = 2_000L
+    }
 }
