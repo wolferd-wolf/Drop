@@ -1,0 +1,92 @@
+package com.wolferdwolf.drop
+
+import androidx.test.core.app.ActivityScenario
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.Until
+import com.wolferdwolf.drop.data.SavedReferenceStore
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class HistorySearchFlowTest {
+    @Test
+    fun historySearchFiltersTitleAndContentAndExplainsNoMatches() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val store = SavedReferenceStore(context)
+        val first = store.save("Quarterly wolf strategy", "Operations review notes for the northern region.", now = 9_001L)
+        val second = store.save("Supplier invoice", "Replacement bearings and machine oil.", now = 9_002L)
+
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use {
+                val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+                clickTextMatching(device, "History")
+                visible(device, "Saved actions")
+
+                val search = assertNotNull(
+                    "History search field is missing",
+                    device.wait(Until.findObject(By.clazz("android.widget.EditText")), TIMEOUT)
+                ).let { device.findObject(By.clazz("android.widget.EditText")) }
+
+                search.text = "operations"
+                dismissKeyboard(device)
+                visible(device, "Quarterly wolf strategy")
+                assertTrue("Unrelated reference must be filtered out", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
+                capture(device, "/data/local/tmp/drop-history-search-result.png")
+
+                search.text = "unfindable-token"
+                dismissKeyboard(device)
+                visible(device, "No saved actions match “unfindable-token”. Try a different search.")
+                assertTrue("Search with no matches must hide saved cards", device.wait(Until.gone(By.text("Quarterly wolf strategy")), TIMEOUT))
+                capture(device, "/data/local/tmp/drop-history-search-empty.png")
+            }
+        } finally {
+            store.delete(first.id)
+            store.delete(second.id)
+        }
+    }
+
+    private fun clickTextMatching(device: UiDevice, prefix: String) {
+        val node = assertNotNull(
+            "Expected visible text beginning with: $prefix",
+            device.wait(Until.findObject(By.textStartsWith(prefix)), TIMEOUT)
+        ).let { device.findObject(By.textStartsWith(prefix)) }
+        val target = clickableAncestor(node) ?: node
+        val bounds = target.visibleBounds
+        assertTrue("History control has no tappable area", !bounds.isEmpty)
+        assertTrue(device.click(bounds.centerX(), bounds.centerY()))
+        device.waitForIdle()
+    }
+
+    private fun clickableAncestor(node: androidx.test.uiautomator.UiObject2): androidx.test.uiautomator.UiObject2? {
+        var current: androidx.test.uiautomator.UiObject2? = node
+        while (current != null) {
+            if (current.isClickable) return current
+            current = current.parent
+        }
+        return null
+    }
+
+    private fun dismissKeyboard(device: UiDevice) {
+        device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
+        device.waitForIdle()
+    }
+
+    private fun visible(device: UiDevice, text: String) =
+        assertNotNull("Expected visible text: $text", device.wait(Until.findObject(By.text(text)), TIMEOUT))
+
+    private fun capture(device: UiDevice, path: String) {
+        device.waitForIdle()
+        device.executeShellCommand("rm -f $path")
+        device.executeShellCommand("screencap -p $path")
+        assertTrue(device.executeShellCommand("ls -l $path").contains(path.substringAfterLast('/')))
+    }
+
+    private companion object {
+        const val TIMEOUT = 20_000L
+    }
+}
