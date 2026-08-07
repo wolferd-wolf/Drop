@@ -81,6 +81,8 @@ screenshots=(
   drop-dotted-month-date-actions
   drop-dotted-meridiem-time-extraction
   drop-dotted-meridiem-time-actions
+  drop-day-of-month-date-extraction
+  drop-day-of-month-date-actions
   drop-maps-curated-value
   drop-history-search-result
   drop-history-filter-reminders-empty
