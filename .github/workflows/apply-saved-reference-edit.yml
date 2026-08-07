@@ -1,0 +1,35 @@
+name: Apply saved reference edit patch
+
+on:
+  push:
+    branches:
+      - automation/calendar-normal-flow-verification
+    paths:
+      - tools/apply_saved_reference_edit.py
+      - .github/workflows/apply-saved-reference-edit.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: automation/calendar-normal-flow-verification
+          fetch-depth: 0
+      - name: Apply saved reference editing integration
+        run: python3 tools/apply_saved_reference_edit.py
+      - name: Commit integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/wolferdwolf/drop/MainActivity.kt \
+                  app/src/test/java/com/wolferdwolf/drop/data/SavedReferenceCodecTest.kt \
+                  app/src/androidTest/java/com/wolferdwolf/drop/HistoryReferenceEditFlowTest.kt \
+                  .github/scripts/run-screenshot-tests.sh
+          git diff --cached --quiet && exit 0
+          git commit -m "Make saved reference metadata editable"
+          git push origin HEAD:automation/calendar-normal-flow-verification
