@@ -50,22 +50,22 @@ class HistorySearchFlowTest {
 
                 search.text = ""
                 dismissKeyboard(device)
-                clickTextMatching(device, "Reminders")
+                clickExactText(device, "Reminders")
                 visible(device, "No saved actions are available in the selected filters.")
                 assertTrue("Reminder filter must hide saved references", device.wait(Until.gone(By.text("Café quarterly wolf strategy")), TIMEOUT))
                 assertTrue("Reminder filter must hide unrelated saved references", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-filter-reminders-empty.png")
 
-                clickTextMatching(device, "All")
+                clickExactText(device, "All")
                 visible(device, "Café quarterly wolf strategy")
                 visible(device, "Supplier invoice")
 
-                clickTextMatching(device, "Today")
+                clickExactText(device, "Today")
                 visible(device, "Today field note")
                 assertTrue("Today filter must hide older saved references", device.wait(Until.gone(By.text("Café quarterly wolf strategy")), TIMEOUT))
                 assertTrue("Today filter must hide unrelated older references", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-filter-today.png")
-                clickTextMatching(device, "All dates")
+                clickExactText(device, "All dates")
                 visible(device, "Café quarterly wolf strategy")
 
                 search.text = "quarterly invoice"
@@ -82,11 +82,23 @@ class HistorySearchFlowTest {
         }
     }
 
+    private fun clickExactText(device: UiDevice, text: String) {
+        val node = assertNotNull(
+            "Expected visible text: $text",
+            device.wait(Until.findObject(By.text(text)), TIMEOUT)
+        ).let { device.findObject(By.text(text)) }
+        clickNode(device, node)
+    }
+
     private fun clickTextMatching(device: UiDevice, prefix: String) {
         val node = assertNotNull(
             "Expected visible text beginning with: $prefix",
             device.wait(Until.findObject(By.textStartsWith(prefix)), TIMEOUT)
         ).let { device.findObject(By.textStartsWith(prefix)) }
+        clickNode(device, node)
+    }
+
+    private fun clickNode(device: UiDevice, node: androidx.test.uiautomator.UiObject2) {
         val target = clickableAncestor(node) ?: node
         val bounds = target.visibleBounds
         assertTrue("History control has no tappable area", !bounds.isEmpty)
