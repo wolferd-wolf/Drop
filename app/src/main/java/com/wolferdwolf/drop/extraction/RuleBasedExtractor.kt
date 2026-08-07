@@ -10,6 +10,8 @@ object RuleBasedExtractor {
     private val rules = listOf(
         Rule(ExtractionType.EMAIL, Regex("(?i)\\b[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b"), 0.98f),
         Rule(ExtractionType.URL, Regex("(?i)\\b(?:(?:https?://|www\\.)[^\\s<>()]+|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+(?:com|org|net|in|io|app|co|dev|ai|me|tech|store|online|site|xyz|cloud|live|news|shop|info|biz|edu|gov|travel|design|agency|company|solutions|services|digital|studio|world|today|website|space|systems|software|network|media|pro|work|life|art|photography|uk|us|ca|au|de|fr|jp|sg|ae|nz|ch|nl|it|es)(?:/[^\\s<>()]*)?)"), 0.96f),
+        Rule(ExtractionType.PRICE, Regex("(?i)(?<![A-Z0-9])(?:AUD|CAD|SGD|AED|NZD|CHF|CNY|HKD|KRW|ZAR)\\s*\\d{1,3}(?:(?:,\\d{2})*,\\d{3}|(?:,\\d{3})*|\\d*)(?:\\.\\d{1,2})?(?![\\d/])"), 0.97f),
+        Rule(ExtractionType.PRICE, Regex("(?i)(?<![\\d/])\\d{1,3}(?:(?:,\\d{2})*,\\d{3}|(?:,\\d{3})*|\\d*)(?:\\.\\d{1,2})?\\s*(?:AUD|CAD|SGD|AED|NZD|CHF|CNY|HKD|KRW|ZAR)\\b"), 0.95f),
         Rule(ExtractionType.PRICE, Regex("(?i)(?<![A-Z0-9])(?:₹|Rs\\.?|INR|\\$|USD|€|EUR|£|GBP|¥|JPY)\\s*\\d+(?:[.,]\\d+)?\\s*(?:k|thousand|lakh|lac|crore|million|billion)\\b"), 0.99f),
         Rule(ExtractionType.PRICE, Regex("(?i)\\b(?:rupees?|dollars?|euros?|pounds?|yen)\\s*\\d+(?:[.,]\\d+)?\\s*(?:k|thousand|lakh|lac|crore|million|billion)\\b"), 0.97f),
         Rule(ExtractionType.PRICE, Regex("(?i)(?<![\\d/])\\d+(?:[.,]\\d+)?\\s*(?:k|thousand|lakh|lac|crore|million|billion)\\s*(?:INR|USD|EUR|GBP|JPY|rupees?|dollars?|euros?|pounds?|yen)\\b"), 0.97f),
