@@ -51,6 +51,13 @@ class HistorySearchTest {
     }
 
     @Test
+    fun accentsDoNotHideSavedTitlesOrContent() {
+        assertTrue(HistorySearch.matches("cafe", "Café meeting", "Vendor review"))
+        assertTrue(HistorySearch.matches("resume", "Candidate résumé", "Interview notes"))
+        assertTrue(HistorySearch.matches("sao", "Travel reference", "São Paulo office"))
+    }
+
+    @Test
     fun queryContainingOnlyPunctuationDoesNotAccidentallyHideHistory() {
         assertTrue(HistorySearch.matches("---", "Quarterly Strategy", "operations review"))
     }
