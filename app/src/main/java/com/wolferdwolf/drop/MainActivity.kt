@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -50,6 +51,7 @@ import com.wolferdwolf.drop.extraction.EditableExtractionState
 import com.wolferdwolf.drop.extraction.ExtractionResult
 import com.wolferdwolf.drop.extraction.ExtractionType
 import com.wolferdwolf.drop.extraction.RuleBasedExtractor
+import com.wolferdwolf.drop.history.HistoryItemFilter
 import com.wolferdwolf.drop.history.HistorySearch
 import com.wolferdwolf.drop.link.OpenLinkConfirmationActivity
 import com.wolferdwolf.drop.maps.MapConfirmationActivity
@@ -346,14 +348,16 @@ private fun HistoryScreen(
 ) {
     var pendingDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
-    val filteredReferences = references.filter {
-        HistorySearch.matches(searchQuery, it.title, it.originalText)
-    }
-    val filteredReminders = reminders.filter {
-        HistorySearch.matches(searchQuery, it.title, it.notes)
-    }
+    var itemFilter by rememberSaveable { mutableStateOf(HistoryItemFilter.ALL) }
+    val filteredReferences = if (HistorySearch.includesReferences(itemFilter)) {
+        references.filter { HistorySearch.matches(searchQuery, it.title, it.originalText) }
+    } else emptyList()
+    val filteredReminders = if (HistorySearch.includesReminders(itemFilter)) {
+        reminders.filter { HistorySearch.matches(searchQuery, it.title, it.notes) }
+    } else emptyList()
     val hasSavedItems = references.isNotEmpty() || reminders.isNotEmpty()
     val hasMatches = filteredReferences.isNotEmpty() || filteredReminders.isNotEmpty()
+    val filtering = searchQuery.isNotBlank() || itemFilter != HistoryItemFilter.ALL
 
     references.firstOrNull { it.id == pendingDeleteId }?.let { reference ->
         AlertDialog(
@@ -385,9 +389,37 @@ private fun HistoryScreen(
                     singleLine = true
                 )
             }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Filter by action type", style = MaterialTheme.typography.labelLarge)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (itemFilter == HistoryItemFilter.ALL) {
+                            FilledTonalButton(onClick = { itemFilter = HistoryItemFilter.ALL }, modifier = Modifier.weight(1f)) { Text("All") }
+                        } else {
+                            OutlinedButton(onClick = { itemFilter = HistoryItemFilter.ALL }, modifier = Modifier.weight(1f)) { Text("All") }
+                        }
+                        if (itemFilter == HistoryItemFilter.REFERENCES) {
+                            FilledTonalButton(onClick = { itemFilter = HistoryItemFilter.REFERENCES }, modifier = Modifier.weight(1f)) { Text("Saved items") }
+                        } else {
+                            OutlinedButton(onClick = { itemFilter = HistoryItemFilter.REFERENCES }, modifier = Modifier.weight(1f)) { Text("Saved items") }
+                        }
+                        if (itemFilter == HistoryItemFilter.REMINDERS) {
+                            FilledTonalButton(onClick = { itemFilter = HistoryItemFilter.REMINDERS }, modifier = Modifier.weight(1f)) { Text("Reminders") }
+                        } else {
+                            OutlinedButton(onClick = { itemFilter = HistoryItemFilter.REMINDERS }, modifier = Modifier.weight(1f)) { Text("Reminders") }
+                        }
+                    }
+                }
+            }
             if (!hasSavedItems) item { Text("Nothing has been saved yet.") }
-            else if (!hasMatches && searchQuery.isNotBlank()) item {
-                Text("No saved actions match “${searchQuery.trim()}”. Try a different search.")
+            else if (!hasMatches && filtering) item {
+                Text(
+                    if (searchQuery.isNotBlank()) {
+                        "No saved actions match “${searchQuery.trim()}” in this filter. Try a different search or action type."
+                    } else {
+                        "No saved actions are available in this action-type filter."
+                    }
+                )
             }
             if (filteredReminders.isNotEmpty()) item { Text("Scheduled reminders", style = MaterialTheme.typography.titleLarge) }
             items(filteredReminders, key = ReminderRecord::id) { reminder ->
