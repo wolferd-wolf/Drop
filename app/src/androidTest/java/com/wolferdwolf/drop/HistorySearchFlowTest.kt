@@ -36,9 +36,10 @@ class HistorySearchFlowTest {
                     device.wait(Until.findObject(By.clazz("android.widget.EditText")), TIMEOUT)
                 ).let { device.findObject(By.clazz("android.widget.EditText")) }
 
-                search.text = "operations"
+                search.text = "quarterly operations"
                 dismissKeyboard(device)
                 visible(device, "Quarterly wolf strategy")
+                assertTrue("Multi-term search must match across title and saved content", device.wait(Until.hasObject(By.text("Quarterly wolf strategy")), TIMEOUT))
                 assertTrue("Unrelated reference must be filtered out", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-search-result.png")
 
@@ -54,10 +55,11 @@ class HistorySearchFlowTest {
                 visible(device, "Quarterly wolf strategy")
                 visible(device, "Supplier invoice")
 
-                search.text = "unfindable-token"
+                search.text = "quarterly invoice"
                 dismissKeyboard(device)
-                visible(device, "No saved actions match “unfindable-token” in this filter. Try a different search or action type.")
-                assertTrue("Search with no matches must hide saved cards", device.wait(Until.gone(By.text("Quarterly wolf strategy")), TIMEOUT))
+                visible(device, "No saved actions match “quarterly invoice” in this filter. Try a different search or action type.")
+                assertTrue("Search must require every entered term to match the same saved item", device.wait(Until.gone(By.text("Quarterly wolf strategy")), TIMEOUT))
+                assertTrue("Search must not combine terms across separate saved items", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-search-empty.png")
             }
         } finally {
