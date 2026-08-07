@@ -79,6 +79,7 @@ class HistorySearchTest {
         assertFalse(HistorySearch.includesReferences(HistoryItemFilter.REMINDERS))
         assertTrue(HistorySearch.includesReminders(HistoryItemFilter.REMINDERS))
     }
+
     @Test
     fun dateFilterUsesLocalCalendarDayBoundaries() {
         val calendar = Calendar.getInstance().apply {
@@ -102,6 +103,10 @@ class HistorySearchTest {
             timeInMillis = now
             add(Calendar.DAY_OF_YEAR, -31)
         }.timeInMillis
+        val future = Calendar.getInstance().apply {
+            timeInMillis = now
+            add(Calendar.MINUTE, 1)
+        }.timeInMillis
 
         assertTrue(HistorySearch.matchesDate(HistoryDateFilter.ALL, thirtyOneDaysAgo, now))
         assertTrue(HistorySearch.matchesDate(HistoryDateFilter.TODAY, todayMorning, now))
@@ -110,6 +115,6 @@ class HistorySearchTest {
         assertFalse(HistorySearch.matchesDate(HistoryDateFilter.LAST_7_DAYS, eightDaysAgo, now))
         assertTrue(HistorySearch.matchesDate(HistoryDateFilter.LAST_30_DAYS, eightDaysAgo, now))
         assertFalse(HistorySearch.matchesDate(HistoryDateFilter.LAST_30_DAYS, thirtyOneDaysAgo, now))
+        assertFalse(HistorySearch.matchesDate(HistoryDateFilter.TODAY, future, now))
     }
-
 }
