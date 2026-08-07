@@ -61,6 +61,7 @@ screenshots=(
   drop-calendar-missing-date-suppressed
   drop-contact-confirmation
   drop-email-confirmation
+  drop-apostrophe-email-action
   drop-open-link-confirmation
   drop-call-confirmation
   drop-image-review
