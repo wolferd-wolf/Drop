@@ -20,4 +20,16 @@ class HistorySearchTest {
     fun queryDoesNotMatchUnrelatedFields() {
         assertFalse(HistorySearch.matches("invoice", "Quarterly Strategy", "operations review"))
     }
+
+    @Test
+    fun actionTypeFilterIncludesOnlyRequestedHistoryKind() {
+        assertTrue(HistorySearch.includesReferences(HistoryItemFilter.ALL))
+        assertTrue(HistorySearch.includesReminders(HistoryItemFilter.ALL))
+
+        assertTrue(HistorySearch.includesReferences(HistoryItemFilter.REFERENCES))
+        assertFalse(HistorySearch.includesReminders(HistoryItemFilter.REFERENCES))
+
+        assertFalse(HistorySearch.includesReferences(HistoryItemFilter.REMINDERS))
+        assertTrue(HistorySearch.includesReminders(HistoryItemFilter.REMINDERS))
+    }
 }
