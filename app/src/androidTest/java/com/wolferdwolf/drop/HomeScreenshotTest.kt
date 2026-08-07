@@ -161,14 +161,10 @@ class HomeScreenshotTest {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             assertVisible(device, "Review PDF text", "PDF import must open a visible review")
             assertVisible(device, "Embedded text extracted offline from 1 page.", "PDF review must explain offline extraction")
-            val continueAction = assertVisible(device, "Continue to Drop actions", "PDF must offer the universal action flow")
             capture(device, "/data/local/tmp/drop-pdf-review.png")
-            continueAction.click()
-            assertVisible(device, "Import preview", "PDF text must reach Import Preview")
-            assertVisible(device, "Extract details", "PDF preview must reach extraction").click()
-            assertVisible(device, "Extracted information", "PDF must reach extraction")
-            assertVisibleAfterScroll(device, "See suggested actions", "PDF must reach Suggested Actions").click()
-            assertVisible(device, "Suggested actions", "PDF must reach the universal Suggested Actions screen")
+            activateAndWait(device, "Continue to Drop actions", "Import preview")
+            activateAndWait(device, "Extract details", "Extracted information")
+            activateAndWait(device, "See suggested actions", "Suggested actions", scroll = true)
             assertVisible(device, "Save reference", "PDF flow must retain Save reference")
         }
     }
