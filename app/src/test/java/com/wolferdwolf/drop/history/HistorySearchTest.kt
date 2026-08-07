@@ -3,6 +3,7 @@ package com.wolferdwolf.drop.history
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Calendar
 
 class HistorySearchTest {
     @Test
@@ -78,4 +79,37 @@ class HistorySearchTest {
         assertFalse(HistorySearch.includesReferences(HistoryItemFilter.REMINDERS))
         assertTrue(HistorySearch.includesReminders(HistoryItemFilter.REMINDERS))
     }
+    @Test
+    fun dateFilterUsesLocalCalendarDayBoundaries() {
+        val calendar = Calendar.getInstance().apply {
+            set(2026, Calendar.AUGUST, 7, 18, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val now = calendar.timeInMillis
+        val todayMorning = Calendar.getInstance().apply {
+            timeInMillis = now
+            set(Calendar.HOUR_OF_DAY, 8)
+        }.timeInMillis
+        val yesterday = Calendar.getInstance().apply {
+            timeInMillis = now
+            add(Calendar.DAY_OF_YEAR, -1)
+        }.timeInMillis
+        val eightDaysAgo = Calendar.getInstance().apply {
+            timeInMillis = now
+            add(Calendar.DAY_OF_YEAR, -8)
+        }.timeInMillis
+        val thirtyOneDaysAgo = Calendar.getInstance().apply {
+            timeInMillis = now
+            add(Calendar.DAY_OF_YEAR, -31)
+        }.timeInMillis
+
+        assertTrue(HistorySearch.matchesDate(HistoryDateFilter.ALL, thirtyOneDaysAgo, now))
+        assertTrue(HistorySearch.matchesDate(HistoryDateFilter.TODAY, todayMorning, now))
+        assertFalse(HistorySearch.matchesDate(HistoryDateFilter.TODAY, yesterday, now))
+        assertTrue(HistorySearch.matchesDate(HistoryDateFilter.LAST_7_DAYS, yesterday, now))
+        assertFalse(HistorySearch.matchesDate(HistoryDateFilter.LAST_7_DAYS, eightDaysAgo, now))
+        assertTrue(HistorySearch.matchesDate(HistoryDateFilter.LAST_30_DAYS, eightDaysAgo, now))
+        assertFalse(HistorySearch.matchesDate(HistoryDateFilter.LAST_30_DAYS, thirtyOneDaysAgo, now))
+    }
+
 }

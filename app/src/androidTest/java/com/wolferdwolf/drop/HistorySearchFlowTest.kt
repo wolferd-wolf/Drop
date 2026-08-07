@@ -24,6 +24,7 @@ class HistorySearchFlowTest {
             now = 9_001L
         )
         val second = store.save("Supplier invoice", "Replacement bearings and machine oil.", now = 9_002L)
+        val recent = store.save("Today field note", "Fresh maintenance note saved today.", now = System.currentTimeMillis())
 
         try {
             ActivityScenario.launch(MainActivity::class.java).use {
@@ -59,6 +60,14 @@ class HistorySearchFlowTest {
                 visible(device, "Café quarterly wolf strategy")
                 visible(device, "Supplier invoice")
 
+                clickTextMatching(device, "Today")
+                visible(device, "Today field note")
+                assertTrue("Today filter must hide older saved references", device.wait(Until.gone(By.text("Café quarterly wolf strategy")), TIMEOUT))
+                assertTrue("Today filter must hide unrelated older references", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
+                capture(device, "/data/local/tmp/drop-history-filter-today.png")
+                clickTextMatching(device, "All dates")
+                visible(device, "Café quarterly wolf strategy")
+
                 search.text = "quarterly invoice"
                 dismissKeyboard(device)
                 visible(device, "No saved actions match “quarterly invoice” in this filter. Try a different search or action type.")
@@ -69,6 +78,7 @@ class HistorySearchFlowTest {
         } finally {
             store.delete(first.id)
             store.delete(second.id)
+            store.delete(recent.id)
         }
     }
 

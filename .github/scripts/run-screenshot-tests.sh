@@ -89,6 +89,7 @@ screenshots=(
   drop-maps-curated-value
   drop-history-search-result
   drop-history-filter-reminders-empty
+  drop-history-filter-today
   drop-history-search-empty
   drop-history-saved-reference
   drop-history-reference-restored

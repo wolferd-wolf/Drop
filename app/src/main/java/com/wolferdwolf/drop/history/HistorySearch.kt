@@ -1,11 +1,19 @@
 package com.wolferdwolf.drop.history
 
 import java.text.Normalizer
+import java.util.Calendar
 
 enum class HistoryItemFilter {
     ALL,
     REFERENCES,
     REMINDERS
+}
+
+enum class HistoryDateFilter {
+    ALL,
+    TODAY,
+    LAST_7_DAYS,
+    LAST_30_DAYS
 }
 
 object HistorySearch {
@@ -24,6 +32,31 @@ object HistorySearch {
 
     fun includesReminders(filter: HistoryItemFilter): Boolean =
         filter == HistoryItemFilter.ALL || filter == HistoryItemFilter.REMINDERS
+
+    fun matchesDate(
+        filter: HistoryDateFilter,
+        createdAtMillis: Long,
+        nowMillis: Long = System.currentTimeMillis()
+    ): Boolean {
+        if (filter == HistoryDateFilter.ALL) return true
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = nowMillis
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            add(
+                Calendar.DAY_OF_YEAR,
+                when (filter) {
+                    HistoryDateFilter.TODAY -> 0
+                    HistoryDateFilter.LAST_7_DAYS -> -6
+                    HistoryDateFilter.LAST_30_DAYS -> -29
+                    HistoryDateFilter.ALL -> 0
+                }
+            )
+        }
+        return createdAtMillis in calendar.timeInMillis..nowMillis
+    }
 
     private fun normalize(value: String): String {
         val decomposed = Normalizer.normalize(value, Normalizer.Form.NFD)

@@ -50,6 +50,7 @@ import com.wolferdwolf.drop.extraction.EditableExtractionState
 import com.wolferdwolf.drop.extraction.ExtractionResult
 import com.wolferdwolf.drop.extraction.ExtractionType
 import com.wolferdwolf.drop.extraction.RuleBasedExtractor
+import com.wolferdwolf.drop.history.HistoryDateFilter
 import com.wolferdwolf.drop.history.HistoryItemFilter
 import com.wolferdwolf.drop.history.HistorySearch
 import com.wolferdwolf.drop.link.OpenLinkConfirmationActivity
@@ -348,15 +349,22 @@ private fun HistoryScreen(
     var pendingDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var itemFilter by rememberSaveable { mutableStateOf(HistoryItemFilter.ALL) }
+    var dateFilter by rememberSaveable { mutableStateOf(HistoryDateFilter.ALL) }
     val filteredReferences = if (HistorySearch.includesReferences(itemFilter)) {
-        references.filter { HistorySearch.matches(searchQuery, it.title, it.originalText) }
+        references.filter {
+            HistorySearch.matches(searchQuery, it.title, it.originalText) &&
+                HistorySearch.matchesDate(dateFilter, it.createdAtEpochMillis)
+        }
     } else emptyList()
     val filteredReminders = if (HistorySearch.includesReminders(itemFilter)) {
-        reminders.filter { HistorySearch.matches(searchQuery, it.title, it.notes) }
+        reminders.filter {
+            HistorySearch.matches(searchQuery, it.title, it.notes) &&
+                HistorySearch.matchesDate(dateFilter, it.createdAtMillis)
+        }
     } else emptyList()
     val hasSavedItems = references.isNotEmpty() || reminders.isNotEmpty()
     val hasMatches = filteredReferences.isNotEmpty() || filteredReminders.isNotEmpty()
-    val filtering = searchQuery.isNotBlank() || itemFilter != HistoryItemFilter.ALL
+    val filtering = searchQuery.isNotBlank() || itemFilter != HistoryItemFilter.ALL || dateFilter != HistoryDateFilter.ALL
 
     references.firstOrNull { it.id == pendingDeleteId }?.let { reference ->
         AlertDialog(
@@ -410,13 +418,42 @@ private fun HistoryScreen(
                     }
                 }
             }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Filter by date", style = MaterialTheme.typography.labelLarge)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (dateFilter == HistoryDateFilter.ALL) {
+                            FilledTonalButton(onClick = { dateFilter = HistoryDateFilter.ALL }, modifier = Modifier.weight(1f)) { Text("All dates") }
+                        } else {
+                            OutlinedButton(onClick = { dateFilter = HistoryDateFilter.ALL }, modifier = Modifier.weight(1f)) { Text("All dates") }
+                        }
+                        if (dateFilter == HistoryDateFilter.TODAY) {
+                            FilledTonalButton(onClick = { dateFilter = HistoryDateFilter.TODAY }, modifier = Modifier.weight(1f)) { Text("Today") }
+                        } else {
+                            OutlinedButton(onClick = { dateFilter = HistoryDateFilter.TODAY }, modifier = Modifier.weight(1f)) { Text("Today") }
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (dateFilter == HistoryDateFilter.LAST_7_DAYS) {
+                            FilledTonalButton(onClick = { dateFilter = HistoryDateFilter.LAST_7_DAYS }, modifier = Modifier.weight(1f)) { Text("Last 7 days") }
+                        } else {
+                            OutlinedButton(onClick = { dateFilter = HistoryDateFilter.LAST_7_DAYS }, modifier = Modifier.weight(1f)) { Text("Last 7 days") }
+                        }
+                        if (dateFilter == HistoryDateFilter.LAST_30_DAYS) {
+                            FilledTonalButton(onClick = { dateFilter = HistoryDateFilter.LAST_30_DAYS }, modifier = Modifier.weight(1f)) { Text("Last 30 days") }
+                        } else {
+                            OutlinedButton(onClick = { dateFilter = HistoryDateFilter.LAST_30_DAYS }, modifier = Modifier.weight(1f)) { Text("Last 30 days") }
+                        }
+                    }
+                }
+            }
             if (!hasSavedItems) item { Text("Nothing has been saved yet.") }
             else if (!hasMatches && filtering) item {
                 Text(
                     if (searchQuery.isNotBlank()) {
-                        "No saved actions match “${searchQuery.trim()}” in this filter. Try a different search or action type."
+                        "No saved actions match “${searchQuery.trim()}” in these filters. Try a different search, action type, or date."
                     } else {
-                        "No saved actions are available in this action-type filter."
+                        "No saved actions are available in the selected filters."
                     }
                 )
             }
