@@ -17,6 +17,33 @@ class HistorySearchTest {
     }
 
     @Test
+    fun multiTermQueryCanMatchAcrossDifferentSavedFields() {
+        assertTrue(
+            HistorySearch.matches(
+                "quarterly operations",
+                "Quarterly wolf strategy",
+                "Operations review notes for the northern region."
+            )
+        )
+    }
+
+    @Test
+    fun multiTermQueryRequiresEveryTermToMatchSomeSavedField() {
+        assertFalse(
+            HistorySearch.matches(
+                "quarterly invoice",
+                "Quarterly wolf strategy",
+                "Operations review notes for the northern region."
+            )
+        )
+    }
+
+    @Test
+    fun repeatedWhitespaceDoesNotBreakMultiTermSearch() {
+        assertTrue(HistorySearch.matches("  wolf   northern  ", "Quarterly wolf strategy", "Northern region notes"))
+    }
+
+    @Test
     fun queryDoesNotMatchUnrelatedFields() {
         assertFalse(HistorySearch.matches("invoice", "Quarterly Strategy", "operations review"))
     }
