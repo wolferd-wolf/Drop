@@ -26,8 +26,8 @@ object RuleBasedExtractor {
         Rule(ExtractionType.DATE, Regex("(?i)\\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?[-\\s]+(?:0?[1-9]|[12]\\d|3[01])(?:st|nd|rd|th)?(?:[-,\\s]+'?\\d{2,4})?\\b"), 0.93f),
         Rule(ExtractionType.DATE, Regex("(?i)\\b(?:day after tomorrow|today|tonight|(?<!after )tomorrow)\\b"), 0.90f),
         Rule(ExtractionType.DATE, Regex("(?i)\\b(?:(?:this|next)\\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b"), 0.88f),
-        Rule(ExtractionType.TIME, Regex("(?i)\\b(?:1[0-2]|0?[1-9])(?::[0-5]\\d)?\\s?(?:am|pm)\\b"), 0.95f),
-        Rule(ExtractionType.TIME, Regex("(?i)(?<![\\d.])(?:1[0-2]|0?[1-9])\\.[0-5]\\d\\s?(?:am|pm)\\b"), 0.94f),
+        Rule(ExtractionType.TIME, Regex("(?i)\\b(?:1[0-2]|0?[1-9])(?::[0-5]\\d)?\\s?(?:a\\.?m\\.?|p\\.?m\\.?)\\b"), 0.95f),
+        Rule(ExtractionType.TIME, Regex("(?i)(?<![\\d.])(?:1[0-2]|0?[1-9])\\.[0-5]\\d\\s?(?:a\\.?m\\.?|p\\.?m\\.?)\\b"), 0.94f),
         Rule(ExtractionType.TIME, Regex("(?i)(?<!\\d)(?:[01]?\\d|2[0-3])h[0-5]\\d(?!\\d)"), 0.92f),
         Rule(ExtractionType.TIME, Regex("(?<!\\d)(?:[01]?\\d|2[0-3]):[0-5]\\d(?!\\d)"), 0.92f),
         Rule(ExtractionType.TIME, Regex("(?i)\\b(?:noon|midnight)\\b"), 0.90f)
