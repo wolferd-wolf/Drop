@@ -1,5 +1,7 @@
 package com.wolferdwolf.drop.history
 
+import java.text.Normalizer
+
 enum class HistoryItemFilter {
     ALL,
     REFERENCES,
@@ -23,9 +25,12 @@ object HistorySearch {
     fun includesReminders(filter: HistoryItemFilter): Boolean =
         filter == HistoryItemFilter.ALL || filter == HistoryItemFilter.REMINDERS
 
-    private fun normalize(value: String): String = buildString(value.length) {
-        value.forEach { character ->
-            if (character.isLetterOrDigit()) append(character.lowercaseChar())
+    private fun normalize(value: String): String {
+        val decomposed = Normalizer.normalize(value, Normalizer.Form.NFD)
+        return buildString(decomposed.length) {
+            decomposed.forEach { character ->
+                if (character.isLetterOrDigit()) append(character.lowercaseChar())
+            }
         }
     }
 }
