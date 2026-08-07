@@ -29,15 +29,64 @@ class ApostropheEmailFlowTest {
             tap(visibleAfterScroll(device, "See suggested actions"), device)
 
             visible(device, "Suggested actions")
-            visibleAfterScroll(device, "Send email")
-            tap(visibleAfterScroll(device, "Send email"), device)
+            clickTextAndWaitForDestination(device, "Send email", "Confirm email")
 
-            visible(device, "Confirm email")
             objectFor(device, By.clazz("android.widget.EditText").text("o'connor@example.com"), "Email confirmation must preserve the detected recipient")
+            capture(device, "/data/local/tmp/drop-apostrophe-email-action.png")
             visibleAfterScroll(device, "Continue to Email")
             visibleAfterScroll(device, "Cancel")
-            capture(device, "/data/local/tmp/drop-apostrophe-email-action.png")
         }
+    }
+
+    private fun clickTextAndWaitForDestination(device: UiDevice, sourceText: String, destinationText: String) {
+        repeat(2) { attempt ->
+            tap(actionTargetAfterScroll(device, sourceText), device)
+            if (device.wait(Until.findObject(By.text(destinationText)), TIMEOUT) != null) return
+            if (attempt == 0) {
+                device.waitForIdle()
+                device.swipe(
+                    device.displayWidth / 2,
+                    device.displayHeight * 2 / 3,
+                    device.displayWidth / 2,
+                    device.displayHeight / 2,
+                    10
+                )
+                device.waitForIdle()
+            }
+        }
+        throw AssertionError("Expected visible text after activating $sourceText: $destinationText")
+    }
+
+    private fun actionTargetAfterScroll(device: UiDevice, text: String): UiObject2 {
+        repeat(9) { attempt ->
+            val candidates = device.findObjects(By.text(text))
+                .mapNotNull(::clickableAncestor)
+                .distinctBy { it.visibleBounds }
+                .filter { !it.visibleBounds.isEmpty }
+            if (candidates.isNotEmpty()) {
+                return candidates.minBy { it.visibleBounds.width() * it.visibleBounds.height() }
+            }
+            if (attempt < 8) {
+                device.swipe(
+                    device.displayWidth / 2,
+                    device.displayHeight * 3 / 4,
+                    device.displayWidth / 2,
+                    device.displayHeight / 4,
+                    20
+                )
+                device.waitForIdle()
+            }
+        }
+        throw AssertionError("Expected actionable control after scrolling: $text")
+    }
+
+    private fun clickableAncestor(node: UiObject2): UiObject2? {
+        var current: UiObject2? = node
+        while (current != null) {
+            if (current.isClickable) return current
+            current = current.parent
+        }
+        return null
     }
 
     private fun visible(device: UiDevice, text: String): UiObject2 =
@@ -58,9 +107,8 @@ class ApostropheEmailFlowTest {
         assertNotNull(message, device.wait(Until.findObject(selector), TIMEOUT)).let { device.findObject(selector) }
 
     private fun tap(node: UiObject2, device: UiDevice) {
-        var target: UiObject2? = node
-        while (target != null && !target.isClickable) target = target.parent
-        val bounds = (target ?: node).visibleBounds
+        val target = clickableAncestor(node) ?: node
+        val bounds = target.visibleBounds
         assertTrue("Target has no tappable area", !bounds.isEmpty)
         assertTrue("Coordinate tap failed", device.click(bounds.centerX(), bounds.centerY()))
         device.waitForIdle()
