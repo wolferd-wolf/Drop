@@ -21,6 +21,7 @@ object RuleBasedExtractor {
         Rule(ExtractionType.DATE, Regex("\\b(?:19|20)\\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])\\b"), 0.96f),
         Rule(ExtractionType.DATE, Regex("(?<!\\d)(?:19|20)\\d{2}[/.](?:0?[1-9]|1[0-2])[/.](?:0?[1-9]|[12]\\d|3[01])(?!\\d)"), 0.95f),
         Rule(ExtractionType.DATE, Regex("(?i)\\b(?:0?[1-9]|[12]\\d|3[01])[/-](?:0?[1-9]|1[0-2])[/-](?:\\d{2}|\\d{4})\\b"), 0.91f),
+        Rule(ExtractionType.DATE, Regex("(?i)\\b(?:0?[1-9]|1[0-2])[/-](?:0?[1-9]|[12]\\d|3[01])[/-](?:\\d{2}|\\d{4})\\b"), 0.89f),
         Rule(ExtractionType.DATE, Regex("(?<!\\d)(?:0?[1-9]|[12]\\d|3[01])\\.(?:0?[1-9]|1[0-2])\\.(?:\\d{2}|\\d{4})(?!\\d)"), 0.91f),
         Rule(ExtractionType.DATE, Regex("(?i)\\b(?:0?[1-9]|[12]\\d|3[01])(?:st|nd|rd|th)?[-\\s]+(?:of\\s+)?(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?(?:[-,\\s]+'?\\d{2,4})?\\b"), 0.93f),
         Rule(ExtractionType.DATE, Regex("(?i)\\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?[-\\s]+(?:0?[1-9]|[12]\\d|3[01])(?:st|nd|rd|th)?(?:[-,\\s]+'?\\d{2,4})?\\b"), 0.93f),
@@ -90,9 +91,13 @@ object RuleBasedExtractor {
 
         val dayFirst = DAY_FIRST_NUMERIC_DATE.matchEntire(value)
         if (dayFirst != null) {
-            val (day, month, yearText) = dayFirst.destructured
+            val (first, second, yearText) = dayFirst.destructured
             val year = if (yearText.length == 2) 2000 + yearText.toInt() else yearText.toInt()
-            return isValidCalendarDate(year, month.toInt(), day.toInt())
+            val firstNumber = first.toInt()
+            val secondNumber = second.toInt()
+            val dayFirstValid = isValidCalendarDate(year, secondNumber, firstNumber)
+            val monthFirstValid = isValidCalendarDate(year, firstNumber, secondNumber)
+            return dayFirstValid || monthFirstValid
         }
 
         return true
