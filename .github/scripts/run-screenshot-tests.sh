@@ -73,6 +73,8 @@ screenshots=(
   drop-modern-link-actions
   drop-country-code-link-actions
   drop-compact-price-extraction
+  drop-conversational-shorthand-price-extraction
+  drop-conversational-shorthand-price-actions
   drop-multiline-address-actions
   drop-extraction-edit-restored
   drop-hyphenated-date-actions
