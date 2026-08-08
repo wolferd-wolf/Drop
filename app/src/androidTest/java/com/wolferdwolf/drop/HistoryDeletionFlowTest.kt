@@ -257,7 +257,9 @@ class HistoryDeletionFlowTest {
     private fun modernScrollForward(device: UiDevice) {
         val scrollable = device.findObjects(By.scrollable(true)).firstOrNull { !it.visibleBounds.isEmpty }
         if (scrollable != null) {
-            runCatching { scrollable.scroll(Direction.DOWN, 0.65f) }
+            // UiAutomator scrolls the content in the supplied direction. Move content up to reveal
+            // controls that are below the fold, matching the fallback swipe gesture.
+            runCatching { scrollable.scroll(Direction.UP, 0.65f) }
         } else {
             val x = device.displayWidth / 2
             device.swipe(x, device.displayHeight * 3 / 4, x, device.displayHeight / 4, 24)
