@@ -99,6 +99,7 @@ screenshots=(
   drop-calendar-curated-values
   drop-calendar-normal-flow
   drop-reminder-extraction-prefill
+  drop-reminder-scheduled-guard
   drop-calendar-missing-date-suppressed
   drop-time-only-reminder-suppressed
   drop-non-event-calendar-suppressed
