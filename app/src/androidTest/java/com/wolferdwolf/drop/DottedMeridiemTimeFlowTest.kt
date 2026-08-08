@@ -21,7 +21,7 @@ class DottedMeridiemTimeFlowTest {
             activateAndWait(device, "Paste text", "Add content for Drop to understand and turn into an action.")
             val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), TIMEOUT)
             assertNotNull("Paste intake must provide an editable field", input)
-            input.text = "Boarding closes tomorrow at 17.30 at Gate 4."
+            input.text = "Travel event tomorrow: boarding closes at 17.30 at Gate 4."
             device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
             device.waitForIdle()
 
@@ -31,8 +31,8 @@ class DottedMeridiemTimeFlowTest {
             capture(device, "/data/local/tmp/drop-dotted-meridiem-time-extraction.png")
 
             activateAndWait(device, "See suggested actions", "Suggested actions", scroll = true)
-            assertVisibleAfterScroll(device, "Create reminder", "Detected date and dotted 24-hour time must unlock Reminder")
-            assertVisibleAfterScroll(device, "Add calendar event", "Detected date and dotted 24-hour time must unlock Calendar")
+            assertVisibleAfterScroll(device, "Create reminder", "Detected event date must unlock Reminder")
+            assertVisibleAfterScroll(device, "Add calendar event", "Event-like content must unlock Calendar")
             assertVisibleAfterScroll(device, "Choose another action", "Manual action path must remain available")
             capture(device, "/data/local/tmp/drop-dotted-meridiem-time-actions.png")
         }
