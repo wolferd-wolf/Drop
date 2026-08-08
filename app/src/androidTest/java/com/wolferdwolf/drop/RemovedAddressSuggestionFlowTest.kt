@@ -60,35 +60,62 @@ class RemovedAddressSuggestionFlowTest {
     }
 
     private fun actionTarget(device: UiDevice, text: String): UiObject2 {
-        val candidates = device.findObjects(By.text(text))
-            .map { clickableAncestor(it) ?: it }
-            .distinctBy { it.visibleBounds }
-            .filter { !it.visibleBounds.isEmpty }
+        val candidates = visibleActionTargets(device, text)
         return candidates.minByOrNull { it.visibleBounds.width() * it.visibleBounds.height() }
             ?: visible(device, text)
     }
 
     private fun actionTargetAfterScroll(device: UiDevice, text: String): UiObject2 {
-        repeat(10) { attempt ->
-            val candidates = device.findObjects(By.text(text))
-                .map { clickableAncestor(it) ?: it }
-                .distinctBy { it.visibleBounds }
-                .filter { !it.visibleBounds.isEmpty }
-            if (candidates.isNotEmpty()) {
-                return candidates.minBy { it.visibleBounds.width() * it.visibleBounds.height() }
-            }
-            if (attempt < 9) {
-                device.swipe(
-                    device.displayWidth / 2,
-                    device.displayHeight * 3 / 4,
-                    device.displayWidth / 2,
-                    device.displayHeight / 4,
-                    20
-                )
-                device.waitForIdle()
-            }
+        visibleActionTargets(device, text).minByOrNull { it.visibleBounds.width() * it.visibleBounds.height() }
+            ?.let { return it }
+
+        repeat(SCROLL_STEPS) {
+            swipeUp(device)
+            visibleActionTargets(device, text).minByOrNull { it.visibleBounds.width() * it.visibleBounds.height() }
+                ?.let { return it }
         }
-        throw AssertionError("Expected actionable control after scrolling: $text")
+
+        repeat(SCROLL_STEPS * 2) {
+            swipeDown(device)
+            visibleActionTargets(device, text).minByOrNull { it.visibleBounds.width() * it.visibleBounds.height() }
+                ?.let { return it }
+        }
+
+        repeat(SCROLL_STEPS * 2) {
+            swipeUp(device)
+            visibleActionTargets(device, text).minByOrNull { it.visibleBounds.width() * it.visibleBounds.height() }
+                ?.let { return it }
+        }
+
+        throw AssertionError("Expected actionable control after bidirectional scrolling: $text")
+    }
+
+    private fun visibleActionTargets(device: UiDevice, text: String): List<UiObject2> =
+        device.findObjects(By.text(text))
+            .map { clickableAncestor(it) ?: it }
+            .distinctBy { it.visibleBounds }
+            .filter { !it.visibleBounds.isEmpty }
+
+    private fun swipeUp(device: UiDevice) {
+        device.swipe(
+            device.displayWidth / 2,
+            device.displayHeight * 3 / 4,
+            device.displayWidth / 2,
+            device.displayHeight / 4,
+            20
+        )
+        device.waitForIdle()
+    }
+
+    private fun swipeDown(device: UiDevice) {
+        device.swipe(
+            device.displayWidth / 2,
+            device.displayHeight / 4,
+            device.displayWidth / 2,
+            device.displayHeight * 3 / 4,
+            20
+        )
+        device.waitForIdle()
     }
 
     private fun clickText(device: UiDevice, text: String) {
@@ -133,5 +160,6 @@ class RemovedAddressSuggestionFlowTest {
 
     private companion object {
         const val TIMEOUT = 20_000L
+        const val SCROLL_STEPS = 8
     }
 }
