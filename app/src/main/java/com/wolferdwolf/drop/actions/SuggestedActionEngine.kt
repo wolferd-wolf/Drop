@@ -62,7 +62,7 @@ object SuggestedActionEngine {
         }
 
         val isLikelyEvent = ExtractionType.DATE in types && (
-            category == DocumentCategory.EVENT || hasEventLanguage || (ExtractionType.TIME in types && !hasDeadlineLanguage)
+            category == DocumentCategory.EVENT || hasEventLanguage
         )
         if (isLikelyEvent) {
             relevant += action(
@@ -138,7 +138,6 @@ object SuggestedActionEngine {
     }
 
     fun manualActions(results: List<ExtractionResult>): List<SuggestedAction> {
-        val types = results.mapTo(mutableSetOf()) { it.type }
         return buildList {
             add(action(SuggestedActionType.SAVE_REFERENCE, "Save reference", "Save the imported content in Drop.", 0))
             add(action(SuggestedActionType.REMINDER, "Create reminder", "Choose the reminder title, date, and time.", 0))
