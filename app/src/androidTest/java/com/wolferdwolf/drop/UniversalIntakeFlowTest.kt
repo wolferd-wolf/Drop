@@ -65,7 +65,9 @@ class UniversalIntakeFlowTest {
             )
 
             reachSuggestedActions(device, "Image OCR")
-            assertVisibleAfterScroll(device, "Save reference", "Image OCR must retain the safe default action")
+            assertVisibleAfterScroll(device, "Create reminder", "Image OCR date must surface Reminder")
+            assertVisibleAfterScroll(device, "Add calendar event", "Image OCR date and time must surface Calendar")
+            assertVisibleAfterScroll(device, "Save contact", "Image OCR email must surface Contact")
             capture(device, "/data/local/tmp/drop-image-intake-actions.png")
         }
     }
@@ -86,7 +88,9 @@ class UniversalIntakeFlowTest {
             tap(assertVisible(device, "Continue to Drop actions", "PDF review must offer the universal flow"), device)
 
             reachSuggestedActions(device, "PDF")
-            assertVisibleAfterScroll(device, "Save reference", "PDF must retain the safe default action")
+            assertVisibleAfterScroll(device, "Create reminder", "PDF date must surface Reminder")
+            assertVisibleAfterScroll(device, "Add calendar event", "PDF appointment details must surface Calendar")
+            assertVisibleAfterScroll(device, "Save contact", "PDF email must surface Contact")
             capture(device, "/data/local/tmp/drop-pdf-intake-actions.png")
         }
     }
