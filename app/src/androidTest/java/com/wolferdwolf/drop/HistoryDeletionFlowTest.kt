@@ -286,11 +286,11 @@ class HistoryDeletionFlowTest {
     }
 
     private fun swipeContentUp(device: UiDevice) {
-        // Compose History contains nested interactive cards. UiDevice.swipe from
-        // screen centre can start on a child control and be consumed without
-        // moving the parent list. Dispatch the gesture near the right edge so
-        // it reliably targets the vertical History surface on API 35 as well.
-        val x = device.displayWidth * 9 / 10
+        // History cards span most of the Pixel 6 test viewport. A 90%-width
+        // swipe still begins inside the interactive card, where nested Compose
+        // controls can consume the gesture. Start in the narrow content gutter
+        // outside the cards so the parent vertical History surface scrolls.
+        val x = device.displayWidth * 95 / 100
         val startY = device.displayHeight * 4 / 5
         val endY = device.displayHeight / 3
         device.executeShellCommand("input swipe $x $startY $x $endY 300")
