@@ -302,18 +302,16 @@ class HistoryDeletionFlowTest {
     }
 
     private fun swipeVisibleContentUp(device: UiDevice) {
-        // Swipe through the visible saved-reference card, not the gesture gutter.
-        // UiDevice.swipe can report success even when Compose does not receive the
-        // gesture; Android's input command has proven more reliable for the
-        // process-restart phase while still exercising the real scroll surface.
+        // Start inside the actual restored reference card. The previous verifier
+        // clamped this Y coordinate to 75% of the screen, which landed on the
+        // date-filter buttons and prevented Compose's History list from owning
+        // the gesture even though the saved-card text was visible below them.
         val anchor = visibleNode(device, UNIQUE_CONTENT) ?: visibleNode(device, UNIQUE_TITLE)
         val bounds = anchor?.visibleBounds
-        val x = (bounds?.centerX() ?: device.displayWidth / 2)
-            .coerceIn(device.displayWidth / 4, device.displayWidth * 3 / 4)
-        val startY = ((bounds?.centerY() ?: device.displayHeight * 3 / 4)
-            .coerceAtMost(device.displayHeight * 3 / 4))
-            .coerceAtLeast(device.displayHeight / 2)
-        val endY = device.displayHeight / 4
+            ?: throw AssertionError("Expected visible saved-reference content before History swipe")
+        val x = bounds.centerX().coerceIn(device.displayWidth / 4, device.displayWidth * 3 / 4)
+        val startY = bounds.centerY().coerceIn(device.displayHeight / 2, device.displayHeight - 160)
+        val endY = (device.displayHeight / 3).coerceAtMost(startY - 200)
         device.executeShellCommand("input swipe $x $startY $x $endY 450")
     }
 
