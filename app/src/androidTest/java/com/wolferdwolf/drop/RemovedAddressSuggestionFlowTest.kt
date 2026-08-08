@@ -31,7 +31,7 @@ class RemovedAddressSuggestionFlowTest {
                 By.clazz("android.widget.EditText").text("MG Road, Vijayawada"),
                 "Expected a detected editable address before removal"
             )
-            activateAndWait(device, "Remove Address", "See suggested actions", scroll = true)
+            activateAndWait(device, "Remove Address or venue", "See suggested actions", scroll = true)
             activateAndWait(device, "See suggested actions", "Suggested actions", scroll = true)
 
             visible(device, "Save reference")
