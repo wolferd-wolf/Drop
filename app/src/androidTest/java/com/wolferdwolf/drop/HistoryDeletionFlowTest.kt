@@ -232,21 +232,16 @@ class HistoryDeletionFlowTest {
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
         visibleNode(device, text)?.let { return it }
 
-        // History may restore a previous list position after process recreation or detail navigation.
-        // Search in both directions so persistence/deletion verification is independent of that state.
         repeat(8) {
-            modernScrollForward(device)
-            device.waitForIdle()
+            swipeUp(device)
             visibleNode(device, text)?.let { return it }
         }
         repeat(16) {
-            modernScrollBackward(device)
-            device.waitForIdle()
+            swipeDown(device)
             visibleNode(device, text)?.let { return it }
         }
         repeat(16) {
-            modernScrollForward(device)
-            device.waitForIdle()
+            swipeUp(device)
             visibleNode(device, text)?.let { return it }
         }
         capture(device, "/data/local/tmp/drop-history-scroll-failure.png")
@@ -261,6 +256,18 @@ class HistoryDeletionFlowTest {
         }
     }
 
+    private fun swipeUp(device: UiDevice) {
+        val x = device.displayWidth / 2
+        device.swipe(x, device.displayHeight * 3 / 4, x, device.displayHeight / 4, 20)
+        device.waitForIdle()
+    }
+
+    private fun swipeDown(device: UiDevice) {
+        val x = device.displayWidth / 2
+        device.swipe(x, device.displayHeight / 4, x, device.displayHeight * 3 / 4, 20)
+        device.waitForIdle()
+    }
+
     private fun scrollIntoView(device: UiDevice, text: String) {
         if (visibleNode(device, text) != null) return
         modernScrollForward(device)
@@ -273,18 +280,7 @@ class HistoryDeletionFlowTest {
         if (scrollable != null) {
             runCatching { scrollable.scroll(Direction.UP, 0.65f) }
         } else {
-            val x = device.displayWidth / 2
-            device.swipe(x, device.displayHeight * 3 / 4, x, device.displayHeight / 4, 24)
-        }
-    }
-
-    private fun modernScrollBackward(device: UiDevice) {
-        val scrollable = device.findObjects(By.scrollable(true)).firstOrNull { !it.visibleBounds.isEmpty }
-        if (scrollable != null) {
-            runCatching { scrollable.scroll(Direction.DOWN, 0.65f) }
-        } else {
-            val x = device.displayWidth / 2
-            device.swipe(x, device.displayHeight / 4, x, device.displayHeight * 3 / 4, 24)
+            swipeUp(device)
         }
     }
 
