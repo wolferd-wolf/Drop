@@ -4,7 +4,6 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
-import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -187,9 +186,10 @@ class HistoryDeletionFlowTest {
                 return candidates.minBy { it.visibleBounds.width() * it.visibleBounds.height() }
             }
             if (attempt < 8) {
-                scrollLargestSurface(device)
+                deliberateScroll(device)
             }
         }
+        capture(device, "/data/local/tmp/drop-history-scroll-failure.png")
         throw AssertionError("Expected actionable control after scrolling: $text")
     }
 
@@ -236,10 +236,11 @@ class HistoryDeletionFlowTest {
 
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
         visibleNode(device, text)?.let { return it }
-        repeat(10) {
-            scrollLargestSurface(device)
+        repeat(8) {
+            deliberateScroll(device)
             visibleNode(device, text)?.let { return it }
         }
+        capture(device, "/data/local/tmp/drop-history-scroll-failure.png")
         throw AssertionError("Expected visible text after scrolling: $text")
     }
 
@@ -251,21 +252,13 @@ class HistoryDeletionFlowTest {
         }
     }
 
-    private fun scrollLargestSurface(device: UiDevice) {
-        val scrollable = device.findObjects(By.scrollable(true))
-            .filter { !it.visibleBounds.isEmpty }
-            .maxByOrNull { it.visibleBounds.width() * it.visibleBounds.height() }
-        val scrolled = scrollable?.let { runCatching { it.scroll(Direction.DOWN, 0.8f) }.getOrDefault(false) } == true
-        if (!scrolled) {
-            device.swipe(
-                device.displayWidth / 2,
-                device.displayHeight * 3 / 4,
-                device.displayWidth / 2,
-                device.displayHeight / 4,
-                20
-            )
-        }
+    private fun deliberateScroll(device: UiDevice) {
+        val x = device.displayWidth * 9 / 10
+        val startY = device.displayHeight * 7 / 8
+        val endY = device.displayHeight / 3
+        device.executeShellCommand("input touchscreen swipe $x $startY $x $endY 650")
         device.waitForIdle()
+        Thread.sleep(250)
     }
 
     private fun objectFor(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
