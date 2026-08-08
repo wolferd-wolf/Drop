@@ -238,7 +238,9 @@ class HistoryDeletionFlowTest {
         }
 
         repeat(12) {
-            swipeContentUp(device)
+            if (!accessibilityScrollForward(device)) {
+                swipeContentUp(device)
+            }
             device.waitForIdle()
             Thread.sleep(300)
             visibleNode(device, text)?.let { return it }
@@ -280,17 +282,28 @@ class HistoryDeletionFlowTest {
         return false
     }
 
+    private fun accessibilityScrollForward(device: UiDevice): Boolean {
+        repeat(MAX_SCROLLABLE_CONTAINERS) { index ->
+            val scrollable = UiScrollable(UiSelector().scrollable(true).instance(index)).apply {
+                setAsVerticalList()
+            }
+            if (!runCatching { scrollable.exists() }.getOrDefault(false)) return@repeat
+            val moved = runCatching { scrollable.scrollForward(24) }.getOrDefault(false)
+            if (moved) return true
+        }
+        return false
+    }
+
     private fun modernScrollForward(device: UiDevice) {
-        swipeContentUp(device)
+        if (!accessibilityScrollForward(device)) swipeContentUp(device)
         device.waitForIdle()
     }
 
     private fun swipeContentUp(device: UiDevice) {
-        // History cards span most of the Pixel 6 test viewport. A 90%-width
-        // swipe still begins inside the interactive card, where nested Compose
-        // controls can consume the gesture. Start in the narrow content gutter
-        // outside the cards so the parent vertical History surface scrolls.
-        val x = device.displayWidth * 95 / 100
+        // Coordinate fallback only. Prefer accessibility scrolling because the
+        // History cards occupy almost the entire viewport and can consume a
+        // gesture that begins over one of their nested interactive controls.
+        val x = device.displayWidth / 2
         val startY = device.displayHeight * 4 / 5
         val endY = device.displayHeight / 3
         device.executeShellCommand("input swipe $x $startY $x $endY 300")
