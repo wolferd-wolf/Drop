@@ -238,14 +238,11 @@ class HistoryDeletionFlowTest {
         }
 
         repeat(12) {
-            // Some Compose containers report a successful accessibility scroll
-            // without moving the outer History surface. Give that path a chance,
-            // then always perform one physical gutter swipe before re-checking.
             accessibilityScrollForward()
             device.waitForIdle()
             visibleNode(device, text)?.let { return it }
 
-            swipeContentUp(device)
+            swipeVisibleContentUp(device)
             device.waitForIdle()
             Thread.sleep(300)
             visibleNode(device, text)?.let { return it }
@@ -300,17 +297,25 @@ class HistoryDeletionFlowTest {
 
     private fun modernScrollForward(device: UiDevice) {
         accessibilityScrollForward()
-        swipeContentUp(device)
+        swipeVisibleContentUp(device)
         device.waitForIdle()
     }
 
-    private fun swipeContentUp(device: UiDevice) {
-        // Keep the swipe in the real content gutter, but outside Android's
-        // left-edge back-gesture zone. The History card starts near 5% width.
-        val x = (device.displayWidth * 4 / 100).coerceAtLeast(1)
-        val startY = device.displayHeight * 4 / 5
+    private fun swipeVisibleContentUp(device: UiDevice) {
+        // The restored reference title/body is already visible when its actions
+        // are below the fold. Start the gesture on that non-clickable content so
+        // Compose's actual History LazyColumn receives it instead of Android's
+        // edge-navigation region or a nested action button.
+        val anchor = visibleNode(device, UNIQUE_CONTENT) ?: visibleNode(device, UNIQUE_TITLE)
+        val bounds = anchor?.visibleBounds
+        val x = bounds?.centerX() ?: device.displayWidth / 2
+        val startY = (bounds?.centerY() ?: device.displayHeight * 4 / 5)
+            .coerceIn(device.displayHeight / 2, device.displayHeight * 4 / 5)
         val endY = device.displayHeight / 3
-        device.executeShellCommand("input swipe $x $startY $x $endY 300")
+        assertTrue(
+            "History content swipe failed",
+            device.swipe(x, startY, x, endY, 24)
+        )
     }
 
     private fun objectFor(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
