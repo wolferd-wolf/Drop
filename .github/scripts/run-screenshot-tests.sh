@@ -101,6 +101,7 @@ screenshots=(
   drop-maps-curated-value
   drop-removed-address-maps-suppressed
   drop-history-search-result
+  drop-history-filter-pdf-source
   drop-history-filter-reminders-empty
   drop-history-filter-today
   drop-history-search-empty
