@@ -96,6 +96,7 @@ screenshots=(
   drop-month-first-date-extraction
   drop-month-first-date-actions
   drop-maps-curated-value
+  drop-removed-address-maps-suppressed
   drop-history-search-result
   drop-history-filter-reminders-empty
   drop-history-filter-today
