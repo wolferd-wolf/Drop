@@ -238,9 +238,14 @@ class HistoryDeletionFlowTest {
         }
 
         repeat(12) {
-            if (!accessibilityScrollForward(device)) {
-                swipeContentUp(device)
-            }
+            // Some Compose containers report a successful accessibility scroll
+            // without moving the outer History surface. Give that path a chance,
+            // then always perform one physical gutter swipe before re-checking.
+            accessibilityScrollForward()
+            device.waitForIdle()
+            visibleNode(device, text)?.let { return it }
+
+            swipeContentUp(device)
             device.waitForIdle()
             Thread.sleep(300)
             visibleNode(device, text)?.let { return it }
@@ -282,28 +287,28 @@ class HistoryDeletionFlowTest {
         return false
     }
 
-    private fun accessibilityScrollForward(device: UiDevice): Boolean {
+    private fun accessibilityScrollForward(): Boolean {
         repeat(MAX_SCROLLABLE_CONTAINERS) { index ->
             val scrollable = UiScrollable(UiSelector().scrollable(true).instance(index)).apply {
                 setAsVerticalList()
             }
             if (!runCatching { scrollable.exists() }.getOrDefault(false)) return@repeat
-            val moved = runCatching { scrollable.scrollForward(24) }.getOrDefault(false)
-            if (moved) return true
+            if (runCatching { scrollable.scrollForward(24) }.getOrDefault(false)) return true
         }
         return false
     }
 
     private fun modernScrollForward(device: UiDevice) {
-        if (!accessibilityScrollForward(device)) swipeContentUp(device)
+        accessibilityScrollForward()
+        swipeContentUp(device)
         device.waitForIdle()
     }
 
     private fun swipeContentUp(device: UiDevice) {
-        // Coordinate fallback only. Prefer accessibility scrolling because the
-        // History cards occupy almost the entire viewport and can consume a
-        // gesture that begins over one of their nested interactive controls.
-        val x = device.displayWidth / 2
+        // The History card extends to roughly 95% of the Pixel 6 viewport.
+        // Previous 90-95% gestures therefore still began on an interactive
+        // card. Use the real left content gutter, outside the card surface.
+        val x = (device.displayWidth * 2 / 100).coerceAtLeast(1)
         val startY = device.displayHeight * 4 / 5
         val endY = device.displayHeight / 3
         device.executeShellCommand("input swipe $x $startY $x $endY 300")
