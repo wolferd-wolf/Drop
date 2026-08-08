@@ -106,6 +106,18 @@ class SuggestedActionEngineTest {
     }
 
     @Test
+    fun removingCuratedAddressSuppressesMapsEvenWhenOriginalTextStillContainsVenue() {
+        val text = "Product launch meeting. Venue: MG Road, Vijayawada"
+        val originalResults = listOf(result(ExtractionType.ADDRESS, "MG Road, Vijayawada"))
+        val originalTypes = SuggestedActionEngine.suggest(text, originalResults).map { it.type }
+        val curatedTypes = SuggestedActionEngine.suggest(text, emptyList()).map { it.type }
+
+        assertTrue(SuggestedActionType.MAPS in originalTypes)
+        assertFalse(SuggestedActionType.MAPS in curatedTypes)
+        assertEquals(listOf(SuggestedActionType.SAVE_REFERENCE), curatedTypes)
+    }
+
+    @Test
     fun manualChooserAlwaysOffersActionsWhoseFormsCanCollectMissingData() {
         val actions = SuggestedActionEngine.manualActions(emptyList())
         val types = actions.map { it.type }
