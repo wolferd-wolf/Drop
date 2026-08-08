@@ -61,21 +61,10 @@ class HistoryDeletionFlowTest {
         visible(device, UNIQUE_CONTENT)
         capture(device, "/data/local/tmp/drop-history-reference-restored.png")
 
-        // The restored card begins at the bottom of the Pixel 6 viewport while its
-        // action row is below the fold. Start a deliberate long gesture inside the
-        // History content, rather than on the filter controls that can consume the
-        // generic UiAutomator swipe without moving the Compose LazyColumn.
-        repeat(3) {
-            if (visibleNode(device, "View details") == null) {
-                val x = device.displayWidth / 2
-                val startY = (device.displayHeight - 220).coerceAtLeast(device.displayHeight * 2 / 3)
-                val endY = device.displayHeight / 3
-                device.executeShellCommand("input swipe $x $startY $x $endY 650")
-                device.waitForIdle()
-                Thread.sleep(250)
-            }
-        }
-        clickText(device, "View details")
+        // Use the same card-anchored scroll helper that already handles this long
+        // History layout. Keeping one path avoids bypassing the verified fallback
+        // logic with a separate fixed-coordinate gesture.
+        clickText(device, "View details", scroll = true)
         visible(device, "Saved item details")
         visible(device, UNIQUE_TITLE)
         visible(device, "Saved reference")
