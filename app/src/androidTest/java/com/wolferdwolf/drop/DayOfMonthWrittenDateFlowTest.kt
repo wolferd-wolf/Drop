@@ -21,7 +21,7 @@ class DayOfMonthWrittenDateFlowTest {
             activateAndWait(device, "Paste text", "Add content for Drop to understand and turn into an action.")
             val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), TIMEOUT)
             assertNotNull("Paste intake must provide an editable field", input)
-            input.text = "Board review on 15th of August 2026 at 10:30 AM."
+            input.text = "Board review meeting on 15th of August 2026 at 10:30 AM."
             device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
             device.waitForIdle()
 
@@ -31,8 +31,8 @@ class DayOfMonthWrittenDateFlowTest {
             capture(device, "/data/local/tmp/drop-day-of-month-date-extraction.png")
 
             activateAndWait(device, "See suggested actions", "Suggested actions", scroll = true)
-            assertVisibleAfterScroll(device, "Create reminder", "Detected date and time must unlock Reminder")
-            assertVisibleAfterScroll(device, "Add calendar event", "Detected date and time must unlock Calendar")
+            assertVisibleAfterScroll(device, "Create reminder", "Detected event date must unlock Reminder")
+            assertVisibleAfterScroll(device, "Add calendar event", "Event-like content with a detected date must unlock Calendar")
             assertVisibleAfterScroll(device, "Choose another action", "Manual action path must remain visible")
             capture(device, "/data/local/tmp/drop-day-of-month-date-actions.png")
         }
