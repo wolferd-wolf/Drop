@@ -6,8 +6,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
-import androidx.test.uiautomator.UiScrollable
-import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -238,7 +236,7 @@ class HistoryDeletionFlowTest {
 
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
         visibleNode(device, text)?.let { return it }
-        repeat(3) {
+        repeat(4) {
             scrollIntoView(device, text)
             visibleNode(device, text)?.let { return it }
         }
@@ -255,13 +253,14 @@ class HistoryDeletionFlowTest {
     }
 
     private fun scrollIntoView(device: UiDevice, text: String) {
-        val selector = UiSelector().scrollable(true)
-        if (UiScrollable(selector).exists()) {
-            runCatching {
-                UiScrollable(selector).apply { setAsVerticalList() }
-                    .scrollIntoView(UiSelector().text(text))
-            }
-        }
+        if (visibleNode(device, text) != null) return
+        val x = device.displayWidth / 2
+        val startY = device.displayHeight * 3 / 4
+        val endY = device.displayHeight / 4
+        assertTrue(
+            "History scroll gesture failed while looking for: $text",
+            device.swipe(x, startY, x, endY, 24)
+        )
         device.waitForIdle()
         Thread.sleep(300)
     }
