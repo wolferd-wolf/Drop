@@ -15,24 +15,24 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class DottedMeridiemTimeFlowTest {
     @Test
-    fun dottedMeridiemTimeReachesEditableExtractionAndSuggestedActions() {
+    fun dottedTwentyFourHourTimeReachesEditableExtractionAndSuggestedActions() {
         ActivityScenario.launch(MainActivity::class.java).use {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             activateAndWait(device, "Paste text", "Add content for Drop to understand and turn into an action.")
             val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), TIMEOUT)
             assertNotNull("Paste intake must provide an editable field", input)
-            input.text = "Quarterly review tomorrow at 10:30 p.m."
+            input.text = "Boarding closes tomorrow at 17.30 at Gate 4."
             device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
             device.waitForIdle()
 
             activateAndWait(device, "Continue", "Import preview")
             activateAndWait(device, "Extract details", "Extracted information")
-            assertVisibleAfterScroll(device, "10:30 p.m", "Dotted p.m. time must be visible and editable")
+            assertVisibleAfterScroll(device, "17.30", "Dotted 24-hour time must be visible and editable")
             capture(device, "/data/local/tmp/drop-dotted-meridiem-time-extraction.png")
 
             activateAndWait(device, "See suggested actions", "Suggested actions", scroll = true)
-            assertVisibleAfterScroll(device, "Create reminder", "Detected date and dotted-meridiem time must unlock Reminder")
-            assertVisibleAfterScroll(device, "Add calendar event", "Detected date and dotted-meridiem time must unlock Calendar")
+            assertVisibleAfterScroll(device, "Create reminder", "Detected date and dotted 24-hour time must unlock Reminder")
+            assertVisibleAfterScroll(device, "Add calendar event", "Detected date and dotted 24-hour time must unlock Calendar")
             assertVisibleAfterScroll(device, "Choose another action", "Manual action path must remain available")
             capture(device, "/data/local/tmp/drop-dotted-meridiem-time-actions.png")
         }
