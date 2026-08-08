@@ -4,7 +4,6 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
-import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -232,18 +231,10 @@ class HistoryDeletionFlowTest {
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
         visibleNode(device, text)?.let { return it }
 
-        val scrollable = verticalScrollable(device)
-        if (scrollable != null) {
-            repeat(12) {
-                runCatching { scrollable.scroll(Direction.UP, 0.82f) }
-                device.waitForIdle()
-                visibleNode(device, text)?.let { return it }
-            }
-        }
-
-        repeat(12) {
-            swipeContentUp(device, scrollable)
+        repeat(10) {
+            swipeContentUp(device)
             device.waitForIdle()
+            Thread.sleep(250)
             visibleNode(device, text)?.let { return it }
         }
         capture(device, "/data/local/tmp/drop-history-scroll-failure.png")
@@ -266,28 +257,15 @@ class HistoryDeletionFlowTest {
     }
 
     private fun modernScrollForward(device: UiDevice) {
-        val scrollable = verticalScrollable(device)
-        if (scrollable != null) {
-            runCatching { scrollable.scroll(Direction.UP, 0.65f) }
-        } else {
-            swipeContentUp(device, null)
-            device.waitForIdle()
-        }
+        swipeContentUp(device)
+        device.waitForIdle()
     }
 
-    private fun verticalScrollable(device: UiDevice): UiObject2? =
-        device.findObjects(By.scrollable(true))
-            .filter { !it.visibleBounds.isEmpty }
-            .maxByOrNull { it.visibleBounds.height() }
-
-    private fun swipeContentUp(device: UiDevice, scrollable: UiObject2?) {
-        val bounds = scrollable?.visibleBounds
-        val x = bounds?.centerX() ?: device.displayWidth / 2
-        val top = bounds?.top?.coerceAtLeast(0) ?: 0
-        val bottom = bounds?.bottom?.coerceAtMost(device.displayHeight) ?: device.displayHeight
-        val startY = top + ((bottom - top) * 4 / 5)
-        val endY = top + ((bottom - top) / 4)
-        device.executeShellCommand("input swipe $x $startY $x $endY 420")
+    private fun swipeContentUp(device: UiDevice) {
+        val x = device.displayWidth / 2
+        val startY = device.displayHeight * 4 / 5
+        val endY = device.displayHeight * 2 / 5
+        assertTrue("History swipe gesture failed", device.swipe(x, startY, x, endY, 24))
     }
 
     private fun objectFor(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
