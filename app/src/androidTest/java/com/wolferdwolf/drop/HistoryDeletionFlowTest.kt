@@ -233,16 +233,14 @@ class HistoryDeletionFlowTest {
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
         visibleNode(device, text)?.let { return it }
 
-        // On the restored History screen the saved card begins at the bottom edge while
-        // filter controls occupy the centre of the display. A generic centre-screen
-        // swipe can therefore start on a filter button and never reach the History list.
-        // Start the gesture on the restored card itself so Compose delivers it to the
-        // vertical History container and the card's actions become visible deterministically.
+        // The restored reference text is visible at the bottom edge while the action
+        // row is below the fold. Start each gesture from the visible text itself rather
+        // than the card's clipped bottom edge; the latter can land in the system gesture
+        // area and never reach Compose's vertical History container.
         repeat(8) {
             val anchor = visibleNode(device, UNIQUE_TITLE) ?: visibleNode(device, UNIQUE_CONTENT)
             if (anchor != null) {
-                val card = ancestorWithDescendantText(anchor, UNIQUE_CONTENT) ?: anchor
-                swipeUpFromNode(device, card)
+                swipeUpFromNode(device, anchor)
             } else {
                 swipeUp(device)
             }
@@ -270,7 +268,8 @@ class HistoryDeletionFlowTest {
             return
         }
         val x = bounds.centerX().coerceIn(48, device.displayWidth - 48)
-        val startY = (bounds.bottom - 24).coerceIn(device.displayHeight / 2, device.displayHeight - 80)
+        val safeBottom = (device.displayHeight - 200).coerceAtLeast(240)
+        val startY = bounds.centerY().coerceIn(120, safeBottom)
         val endY = (device.displayHeight / 3).coerceAtMost(startY - 120)
         device.swipe(x, startY, x, endY, 24)
         device.waitForIdle()
