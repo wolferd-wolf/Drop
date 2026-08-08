@@ -53,7 +53,7 @@ class UniversalIntakeFlowTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val intent = Intent(context, TimetableReviewActivity::class.java).putExtra(
             TimetableReviewActivity.EXTRA_OCR_TEXT,
-            "Community health camp on 18 August 2026 at 10:30 AM, Town Hall Road, Gooty. Contact help@example.com."
+            "Community health event on 18 August 2026 at 10:30 AM, Town Hall Road, Gooty. Contact help@example.com."
         )
 
         ActivityScenario.launch<TimetableReviewActivity>(intent).use {
@@ -66,7 +66,7 @@ class UniversalIntakeFlowTest {
 
             reachSuggestedActions(device, "Image OCR")
             assertVisibleAfterScroll(device, "Create reminder", "Image OCR date must surface Reminder")
-            assertVisibleAfterScroll(device, "Add calendar event", "Image OCR date and time must surface Calendar")
+            assertVisibleAfterScroll(device, "Add calendar event", "Event-like image OCR content must surface Calendar")
             assertVisibleAfterScroll(device, "Save contact", "Image OCR email must surface Contact")
             capture(device, "/data/local/tmp/drop-image-intake-actions.png")
         }
