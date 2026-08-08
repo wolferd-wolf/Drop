@@ -59,7 +59,7 @@ class HistoryDeletionFlowTest {
         visible(device, UNIQUE_CONTENT)
         capture(device, "/data/local/tmp/drop-history-reference-restored.png")
 
-        clickText(device, "View details")
+        clickText(device, "View details", scroll = true)
         visible(device, "Saved item details")
         visible(device, UNIQUE_TITLE)
         visible(device, "Saved reference")
