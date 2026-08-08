@@ -305,10 +305,9 @@ class HistoryDeletionFlowTest {
     }
 
     private fun swipeContentUp(device: UiDevice) {
-        // The History card extends to roughly 95% of the Pixel 6 viewport.
-        // Previous 90-95% gestures therefore still began on an interactive
-        // card. Use the real left content gutter, outside the card surface.
-        val x = (device.displayWidth * 2 / 100).coerceAtLeast(1)
+        // Keep the swipe in the real content gutter, but outside Android's
+        // left-edge back-gesture zone. The History card starts near 5% width.
+        val x = (device.displayWidth * 4 / 100).coerceAtLeast(1)
         val startY = device.displayHeight * 4 / 5
         val endY = device.displayHeight / 3
         device.executeShellCommand("input swipe $x $startY $x $endY 300")
