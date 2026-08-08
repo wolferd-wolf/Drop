@@ -1,0 +1,56 @@
+name: History Scroll Verifier Repair
+
+on:
+  push:
+    branches:
+      - automation/calendar-normal-flow-verification
+    paths:
+      - .github/workflows/history-scroll-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Make restored History scroll deterministic
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('app/src/androidTest/java/com/wolferdwolf/drop/HistoryDeletionFlowTest.kt')
+          text = path.read_text()
+          old = '''        clickText(device, "View details", scroll = true)
+        visible(device, "Saved item details")'''
+          new = '''        // The restored card begins at the bottom of the Pixel 6 viewport while
+        // the action row is below the fold. Drive a deliberate long touch gesture
+        // from inside the History content to the top third of the viewport. This
+        // exercises the real Compose scroll container instead of starting on the
+        // filter chips, which can consume UiAutomator's generic scroll gesture.
+        repeat(3) {
+            if (visibleNode(device, "View details") == null) {
+                val x = device.displayWidth / 2
+                val startY = (device.displayHeight - 220).coerceAtLeast(device.displayHeight * 2 / 3)
+                val endY = device.displayHeight / 3
+                device.executeShellCommand("input swipe $x $startY $x $endY 650")
+                device.waitForIdle()
+                Thread.sleep(250)
+            }
+        }
+        clickText(device, "View details")
+        visible(device, "Saved item details")'''
+          if old not in text:
+              raise SystemExit('History View details patch target missing')
+          path.write_text(text.replace(old, new, 1))
+      - name: Commit verifier repair
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/androidTest/java/com/wolferdwolf/drop/HistoryDeletionFlowTest.kt
+          git diff --cached --quiet && exit 0
+          git commit -m "Make restored History action scroll deterministic"
+          git push origin HEAD:automation/calendar-normal-flow-verification
