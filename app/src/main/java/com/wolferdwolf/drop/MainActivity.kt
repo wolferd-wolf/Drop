@@ -251,24 +251,18 @@ class MainActivity : ComponentActivity() {
                     .putExtra(MapConfirmationActivity.EXTRA_SOURCE_TEXT, text)
                     .putExtra(MapConfirmationActivity.EXTRA_CURATED_QUERY, first(results, ExtractionType.ADDRESS).orEmpty())
             )
-            SuggestedActionType.OPEN_LINK -> first(results, ExtractionType.URL)
-                ?.let {
-                    startActivity(
-                        Intent(this, OpenLinkConfirmationActivity::class.java)
-                            .putExtra(OpenLinkConfirmationActivity.EXTRA_URL, it)
-                    )
-                } ?: fail("No link was found.")
+            SuggestedActionType.OPEN_LINK -> startActivity(
+                Intent(this, OpenLinkConfirmationActivity::class.java)
+                    .putExtra(OpenLinkConfirmationActivity.EXTRA_URL, first(results, ExtractionType.URL).orEmpty())
+            )
             SuggestedActionType.EMAIL -> startActivity(
                 Intent(this, EmailConfirmationActivity::class.java)
                     .putExtra(EmailConfirmationActivity.EXTRA_SOURCE_TEXT, text)
             )
-            SuggestedActionType.CALL -> first(results, ExtractionType.PHONE)
-                ?.let {
-                    startActivity(
-                        Intent(this, CallConfirmationActivity::class.java)
-                            .putExtra(CallConfirmationActivity.EXTRA_PHONE, it)
-                    )
-                } ?: fail("No phone number was found.")
+            SuggestedActionType.CALL -> startActivity(
+                Intent(this, CallConfirmationActivity::class.java)
+                    .putExtra(CallConfirmationActivity.EXTRA_PHONE, first(results, ExtractionType.PHONE).orEmpty())
+            )
         }
     }
 

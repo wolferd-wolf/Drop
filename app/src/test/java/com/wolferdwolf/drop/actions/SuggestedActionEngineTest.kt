@@ -129,8 +129,8 @@ class SuggestedActionEngineTest {
         assertTrue(SuggestedActionType.CONTACT in types)
         assertTrue(SuggestedActionType.MAPS in types)
         assertTrue(SuggestedActionType.EMAIL in types)
-        assertFalse(SuggestedActionType.OPEN_LINK in types)
-        assertFalse(SuggestedActionType.CALL in types)
+        assertTrue(SuggestedActionType.OPEN_LINK in types)
+        assertTrue(SuggestedActionType.CALL in types)
     }
 
     @Test
