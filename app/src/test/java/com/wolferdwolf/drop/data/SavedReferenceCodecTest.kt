@@ -11,10 +11,21 @@ class SavedReferenceCodecTest {
             id = 42L,
             title = "Call R&D | Monday",
             originalText = "Phone +91 98765 43210\nEmail a+b@example.com",
-            createdAtEpochMillis = 123456L
+            createdAtEpochMillis = 123456L,
+            notes = "Follow up after review",
+            sourceType = SavedSourceType.PDF
         )
 
         assertEquals(original, SavedReferenceCodec.decode(SavedReferenceCodec.encode(original)))
+    }
+
+    @Test
+    fun legacyRecord_remainsReadableWithEmptyNotes() {
+        val legacy = "42|1234|Wolf+plan|Original+text"
+        assertEquals(
+            SavedReference(42L, "Wolf plan", "Original text", 1234L, "", SavedSourceType.UNKNOWN),
+            SavedReferenceCodec.decode(legacy)
+        )
     }
 
     @Test

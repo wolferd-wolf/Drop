@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,12 +44,17 @@ import com.wolferdwolf.drop.call.CallConfirmationActivity
 import com.wolferdwolf.drop.contact.ContactConfirmationActivity
 import com.wolferdwolf.drop.data.SavedReference
 import com.wolferdwolf.drop.data.SavedReferenceStore
+import com.wolferdwolf.drop.data.SavedSourceType
 import com.wolferdwolf.drop.email.EmailConfirmationActivity
 import com.wolferdwolf.drop.extraction.EditableExtractionResults
 import com.wolferdwolf.drop.extraction.EditableExtractionState
 import com.wolferdwolf.drop.extraction.ExtractionResult
 import com.wolferdwolf.drop.extraction.ExtractionType
 import com.wolferdwolf.drop.extraction.RuleBasedExtractor
+import com.wolferdwolf.drop.history.HistoryDateFilter
+import com.wolferdwolf.drop.history.HistoryItemFilter
+import com.wolferdwolf.drop.history.HistorySearch
+import com.wolferdwolf.drop.history.HistorySourceFilter
 import com.wolferdwolf.drop.link.OpenLinkConfirmationActivity
 import com.wolferdwolf.drop.maps.MapConfirmationActivity
 import com.wolferdwolf.drop.ocr.ImageOcrProcessor
@@ -63,10 +69,12 @@ import com.wolferdwolf.drop.ui.theme.DropTheme
 
 class MainActivity : ComponentActivity() {
     private var sourceText by mutableStateOf<String?>(null)
+    private var sourceType by mutableStateOf(SavedSourceType.UNKNOWN)
     private var editedResults by mutableStateOf<List<ExtractionResult>?>(null)
     private var screen by mutableStateOf(Screen.HOME)
     private var references by mutableStateOf<List<SavedReference>>(emptyList())
     private var reminders by mutableStateOf<List<ReminderRecord>>(emptyList())
+    private var selectedReference by mutableStateOf<SavedReference?>(null)
     private var actionError by mutableStateOf<String?>(null)
     private var importStatus by mutableStateOf<String?>(null)
     private lateinit var referenceStore: SavedReferenceStore
@@ -88,13 +96,23 @@ class MainActivity : ComponentActivity() {
         reminderStore = ReminderHistoryStore(applicationContext)
         reminderScheduler = ReminderScheduler(applicationContext)
         refreshHistory()
+        selectedReference = savedInstanceState?.getLong(STATE_SELECTED_REFERENCE_ID, -1L)
+            ?.takeIf { it >= 0L }
+            ?.let { id -> references.firstOrNull { it.id == id } }
         sourceText = savedInstanceState?.getString(STATE_TEXT) ?: SharedTextParser.parse(intent)
+        sourceType = SavedSourceType.fromStored(
+            savedInstanceState?.getString(STATE_SOURCE_TYPE) ?: intent.getStringExtra(EXTRA_SOURCE_TYPE)
+        )
+        if (sourceType == SavedSourceType.UNKNOWN && sourceText != null) {
+            sourceType = inferSharedTextSource(sourceText.orEmpty())
+        }
         editedResults = EditableExtractionState.decode(
             savedInstanceState?.getBoolean(STATE_HAS_EDITED_RESULTS, false) == true,
             savedInstanceState?.getStringArrayList(STATE_EDITED_RESULTS)
         )
         screen = savedInstanceState?.getString(STATE_SCREEN)?.let { runCatching { Screen.valueOf(it) }.getOrNull() }
             ?: if (sourceText == null) Screen.HOME else Screen.PREVIEW
+        if (screen == Screen.REFERENCE_DETAIL && selectedReference == null) screen = Screen.HISTORY
 
         setContent {
             DropTheme {
@@ -115,12 +133,30 @@ class MainActivity : ComponentActivity() {
                         references,
                         reminders,
                         { screen = Screen.HOME },
+                        { reference -> selectedReference = reference; screen = Screen.REFERENCE_DETAIL },
                         { referenceStore.delete(it.id); refreshHistory() },
                         { reminder -> reminderScheduler.cancel(reminder).onSuccess { reminderStore.delete(reminder.id); refreshHistory() } }
                     )
-                    Screen.TEXT_ENTRY -> EntryScreen("Paste text", false, { screen = Screen.HOME }, ::beginFlow)
-                    Screen.LINK_ENTRY -> EntryScreen("Add link", true, { screen = Screen.HOME }, ::beginFlow)
-                    Screen.PREVIEW -> if (text == null) reset() else PreviewScreen(text, ::reset) {
+                    Screen.REFERENCE_DETAIL -> selectedReference?.let { reference ->
+                        ReferenceDetailScreen(
+                            reference,
+                            { screen = Screen.HISTORY },
+                            { title, notes ->
+                                val updated = referenceStore.update(reference, title, notes)
+                                selectedReference = updated
+                                refreshHistory()
+                            },
+                            {
+                                referenceStore.delete(reference.id)
+                                selectedReference = null
+                                refreshHistory()
+                                screen = Screen.HISTORY
+                            }
+                        )
+                    } ?: run { screen = Screen.HISTORY }
+                    Screen.TEXT_ENTRY -> EntryScreen("Paste text", false, { screen = Screen.HOME }) { beginFlow(it, SavedSourceType.TEXT) }
+                    Screen.LINK_ENTRY -> EntryScreen("Add link", true, { screen = Screen.HOME }) { beginFlow(it, SavedSourceType.LINK) }
+                    Screen.PREVIEW -> if (text == null) reset() else PreviewScreen(text, sourceType.label, ::reset) {
                         sourceText = it
                         editedResults = null
                         screen = Screen.EXTRACTION
@@ -151,7 +187,7 @@ class MainActivity : ComponentActivity() {
                         SavedReferenceStore.defaultTitle(text),
                         { screen = Screen.ACTIONS }
                     ) { title ->
-                        runCatching { referenceStore.save(title, text) }
+                        runCatching { referenceStore.save(title, text, sourceType = sourceType) }
                             .onSuccess { refreshHistory(); reset() }
                             .exceptionOrNull()?.message
                     }
@@ -159,7 +195,7 @@ class MainActivity : ComponentActivity() {
                         text,
                         { screen = Screen.ACTIONS }
                     ) { value ->
-                        runCatching { referenceStore.save("Checklist", value) }
+                        runCatching { referenceStore.save("Checklist", value, sourceType = sourceType) }
                             .onSuccess { refreshHistory(); reset() }
                             .exceptionOrNull()?.message
                     }
@@ -176,12 +212,14 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        SharedTextParser.parse(intent)?.let(::beginFlow)
+        SharedTextParser.parse(intent)?.let { beginFlow(it, resolveSourceType(intent, it)) }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString(STATE_TEXT, sourceText)
+        outState.putString(STATE_SOURCE_TYPE, sourceType.name)
         outState.putString(STATE_SCREEN, screen.name)
+        outState.putLong(STATE_SELECTED_REFERENCE_ID, selectedReference?.id ?: -1L)
         outState.putBoolean(STATE_HAS_EDITED_RESULTS, editedResults != null)
         outState.putStringArrayList(STATE_EDITED_RESULTS, EditableExtractionState.encode(editedResults))
         super.onSaveInstanceState(outState)
@@ -194,7 +232,7 @@ class MainActivity : ComponentActivity() {
             uri,
             onSuccess = { text ->
                 importStatus = null
-                beginFlow(text)
+                beginFlow(text, SavedSourceType.IMAGE)
             },
             onFailure = { importStatus = it }
         )
@@ -221,47 +259,48 @@ class MainActivity : ComponentActivity() {
             SuggestedActionType.MAPS -> startActivity(
                 Intent(this, MapConfirmationActivity::class.java)
                     .putExtra(MapConfirmationActivity.EXTRA_SOURCE_TEXT, text)
+                    .putExtra(MapConfirmationActivity.EXTRA_CURATED_QUERY, first(results, ExtractionType.ADDRESS).orEmpty())
             )
-            SuggestedActionType.OPEN_LINK -> first(results, ExtractionType.URL)
-                ?.let {
-                    startActivity(
-                        Intent(this, OpenLinkConfirmationActivity::class.java)
-                            .putExtra(OpenLinkConfirmationActivity.EXTRA_URL, it)
-                    )
-                } ?: fail("No link was found.")
+            SuggestedActionType.OPEN_LINK -> startActivity(
+                Intent(this, OpenLinkConfirmationActivity::class.java)
+                    .putExtra(OpenLinkConfirmationActivity.EXTRA_URL, first(results, ExtractionType.URL).orEmpty())
+            )
             SuggestedActionType.EMAIL -> startActivity(
                 Intent(this, EmailConfirmationActivity::class.java)
                     .putExtra(EmailConfirmationActivity.EXTRA_SOURCE_TEXT, text)
             )
-            SuggestedActionType.CALL -> first(results, ExtractionType.PHONE)
-                ?.let {
-                    startActivity(
-                        Intent(this, CallConfirmationActivity::class.java)
-                            .putExtra(CallConfirmationActivity.EXTRA_PHONE, it)
-                    )
-                } ?: fail("No phone number was found.")
-        }
-    }
-
-    private fun launch(intent: Intent) {
-        try {
-            if (intent.resolveActivity(packageManager) == null) fail("No compatible app is installed for this action.") else startActivity(intent)
-        } catch (_: ActivityNotFoundException) {
-            fail("No compatible app is installed for this action.")
-        } catch (_: SecurityException) {
-            fail("Android blocked this action. Check permissions and try again.")
+            SuggestedActionType.CALL -> startActivity(
+                Intent(this, CallConfirmationActivity::class.java)
+                    .putExtra(CallConfirmationActivity.EXTRA_PHONE, first(results, ExtractionType.PHONE).orEmpty())
+            )
         }
     }
 
     private fun first(results: List<ExtractionResult>, type: ExtractionType) = results.firstOrNull { it.type == type }?.value
     private fun fail(message: String) { actionError = message }
 
-    private fun beginFlow(value: String) {
+    private fun beginFlow(value: String, type: SavedSourceType = SavedSourceType.UNKNOWN) {
         val clean = value.trim().take(SharedTextParser.MAX_SHARED_TEXT_LENGTH)
         if (clean.isNotBlank()) {
             sourceText = clean
+            sourceType = if (type == SavedSourceType.UNKNOWN) inferSharedTextSource(clean) else type
             editedResults = null
             screen = Screen.PREVIEW
+        }
+    }
+
+    private fun resolveSourceType(intent: Intent?, text: String): SavedSourceType {
+        val explicit = SavedSourceType.fromStored(intent?.getStringExtra(EXTRA_SOURCE_TYPE))
+        return if (explicit != SavedSourceType.UNKNOWN) explicit else inferSharedTextSource(text)
+    }
+
+    private fun inferSharedTextSource(text: String): SavedSourceType {
+        val trimmed = text.trim()
+        val urls = RuleBasedExtractor.extract(trimmed).filter { it.type == ExtractionType.URL }
+        return if (urls.size == 1 && trimmed.replace(urls.first().value, "").isBlank()) {
+            SavedSourceType.LINK
+        } else {
+            SavedSourceType.TEXT
         }
     }
 
@@ -272,17 +311,22 @@ class MainActivity : ComponentActivity() {
 
     private fun reset() {
         sourceText = null
+        sourceType = SavedSourceType.UNKNOWN
         editedResults = null
+        selectedReference = null
         actionError = null
         importStatus = null
         screen = Screen.HOME
     }
 
-    private enum class Screen { HOME, HISTORY, TEXT_ENTRY, LINK_ENTRY, PREVIEW, EXTRACTION, ACTIONS, ALL_ACTIONS, SAVE, CHECKLIST }
+    private enum class Screen { HOME, HISTORY, REFERENCE_DETAIL, TEXT_ENTRY, LINK_ENTRY, PREVIEW, EXTRACTION, ACTIONS, ALL_ACTIONS, SAVE, CHECKLIST }
 
-    private companion object {
+    companion object {
+        const val EXTRA_SOURCE_TYPE = "drop_source_type"
         const val STATE_TEXT = "source_text"
+        const val STATE_SOURCE_TYPE = "source_type"
         const val STATE_SCREEN = "screen"
+        const val STATE_SELECTED_REFERENCE_ID = "selected_reference_id"
         const val STATE_HAS_EDITED_RESULTS = "has_edited_results"
         const val STATE_EDITED_RESULTS = "edited_results"
     }
@@ -326,15 +370,140 @@ private fun HistoryScreen(
     references: List<SavedReference>,
     reminders: List<ReminderRecord>,
     onBack: () -> Unit,
+    onViewReference: (SavedReference) -> Unit,
     onDeleteReference: (SavedReference) -> Unit,
     onCancelReminder: (ReminderRecord) -> Unit
 ) {
+    var pendingDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var itemFilter by rememberSaveable { mutableStateOf(HistoryItemFilter.ALL) }
+    var dateFilter by rememberSaveable { mutableStateOf(HistoryDateFilter.ALL) }
+    var sourceFilter by rememberSaveable { mutableStateOf(HistorySourceFilter.ALL) }
+    val filteredReferences = if (HistorySearch.includesReferences(itemFilter)) {
+        references.filter {
+            HistorySearch.matches(searchQuery, it.title, it.originalText, it.notes) &&
+                HistorySearch.matchesDate(dateFilter, it.createdAtEpochMillis) &&
+                HistorySearch.matchesSource(sourceFilter, it.sourceType)
+        }
+    } else emptyList()
+    val filteredReminders = if (HistorySearch.includesReminders(itemFilter)) {
+        reminders.filter {
+            HistorySearch.matches(searchQuery, it.title, it.notes) &&
+                HistorySearch.matchesDate(dateFilter, it.createdAtMillis)
+        }
+    } else emptyList()
+    val hasSavedItems = references.isNotEmpty() || reminders.isNotEmpty()
+    val hasMatches = filteredReferences.isNotEmpty() || filteredReminders.isNotEmpty()
+    val filtering = searchQuery.isNotBlank() || itemFilter != HistoryItemFilter.ALL || dateFilter != HistoryDateFilter.ALL || sourceFilter != HistorySourceFilter.ALL
+
+    references.firstOrNull { it.id == pendingDeleteId }?.let { reference ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteId = null },
+            title = { Text("Delete saved reference?") },
+            text = { Text("“${reference.title}” will be removed from History on this device. This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteReference(reference)
+                    pendingDeleteId = null
+                }) { Text("Delete") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { pendingDeleteId = null }) { Text("Keep reference") }
+            }
+        )
+    }
+
     Scaffold(topBar = { TopAppBar(title = { Text("History") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item { Text("Saved actions", style = MaterialTheme.typography.headlineSmall) }
-            if (references.isEmpty() && reminders.isEmpty()) item { Text("Nothing has been saved yet.") }
-            if (reminders.isNotEmpty()) item { Text("Scheduled reminders", style = MaterialTheme.typography.titleLarge) }
-            items(reminders, key = ReminderRecord::id) { reminder ->
+            item {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Search History") },
+                    supportingText = { Text("Search saved titles, content, reminder titles, and notes.") },
+                    singleLine = true
+                )
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Filter by action type", style = MaterialTheme.typography.labelLarge)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (itemFilter == HistoryItemFilter.ALL) {
+                            FilledTonalButton(onClick = { itemFilter = HistoryItemFilter.ALL }, modifier = Modifier.weight(1f)) { Text("All") }
+                        } else {
+                            OutlinedButton(onClick = { itemFilter = HistoryItemFilter.ALL }, modifier = Modifier.weight(1f)) { Text("All") }
+                        }
+                        if (itemFilter == HistoryItemFilter.REFERENCES) {
+                            FilledTonalButton(onClick = { itemFilter = HistoryItemFilter.REFERENCES }, modifier = Modifier.weight(1f)) { Text("Saved items") }
+                        } else {
+                            OutlinedButton(onClick = { itemFilter = HistoryItemFilter.REFERENCES }, modifier = Modifier.weight(1f)) { Text("Saved items") }
+                        }
+                        if (itemFilter == HistoryItemFilter.REMINDERS) {
+                            FilledTonalButton(onClick = { itemFilter = HistoryItemFilter.REMINDERS }, modifier = Modifier.weight(1f)) { Text("Reminders") }
+                        } else {
+                            OutlinedButton(onClick = { itemFilter = HistoryItemFilter.REMINDERS }, modifier = Modifier.weight(1f)) { Text("Reminders") }
+                        }
+                    }
+                }
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Filter saved items by source", style = MaterialTheme.typography.labelLarge)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SourceFilterButton("All sources", sourceFilter == HistorySourceFilter.ALL, Modifier.weight(1f)) { sourceFilter = HistorySourceFilter.ALL }
+                        SourceFilterButton("Text", sourceFilter == HistorySourceFilter.TEXT, Modifier.weight(1f)) { sourceFilter = HistorySourceFilter.TEXT }
+                        SourceFilterButton("Link", sourceFilter == HistorySourceFilter.LINK, Modifier.weight(1f)) { sourceFilter = HistorySourceFilter.LINK }
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SourceFilterButton("Image", sourceFilter == HistorySourceFilter.IMAGE, Modifier.weight(1f)) { sourceFilter = HistorySourceFilter.IMAGE }
+                        SourceFilterButton("PDF", sourceFilter == HistorySourceFilter.PDF, Modifier.weight(1f)) { sourceFilter = HistorySourceFilter.PDF }
+                    }
+                    Text("Older saved items without source metadata stay visible only under All sources.")
+                }
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Filter by date", style = MaterialTheme.typography.labelLarge)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (dateFilter == HistoryDateFilter.ALL) {
+                            FilledTonalButton(onClick = { dateFilter = HistoryDateFilter.ALL }, modifier = Modifier.weight(1f)) { Text("All dates") }
+                        } else {
+                            OutlinedButton(onClick = { dateFilter = HistoryDateFilter.ALL }, modifier = Modifier.weight(1f)) { Text("All dates") }
+                        }
+                        if (dateFilter == HistoryDateFilter.TODAY) {
+                            FilledTonalButton(onClick = { dateFilter = HistoryDateFilter.TODAY }, modifier = Modifier.weight(1f)) { Text("Today") }
+                        } else {
+                            OutlinedButton(onClick = { dateFilter = HistoryDateFilter.TODAY }, modifier = Modifier.weight(1f)) { Text("Today") }
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (dateFilter == HistoryDateFilter.LAST_7_DAYS) {
+                            FilledTonalButton(onClick = { dateFilter = HistoryDateFilter.LAST_7_DAYS }, modifier = Modifier.weight(1f)) { Text("Last 7 days") }
+                        } else {
+                            OutlinedButton(onClick = { dateFilter = HistoryDateFilter.LAST_7_DAYS }, modifier = Modifier.weight(1f)) { Text("Last 7 days") }
+                        }
+                        if (dateFilter == HistoryDateFilter.LAST_30_DAYS) {
+                            FilledTonalButton(onClick = { dateFilter = HistoryDateFilter.LAST_30_DAYS }, modifier = Modifier.weight(1f)) { Text("Last 30 days") }
+                        } else {
+                            OutlinedButton(onClick = { dateFilter = HistoryDateFilter.LAST_30_DAYS }, modifier = Modifier.weight(1f)) { Text("Last 30 days") }
+                        }
+                    }
+                }
+            }
+            if (!hasSavedItems) item { Text("Nothing has been saved yet.") }
+            else if (!hasMatches && filtering) item {
+                Text(
+                    if (searchQuery.isNotBlank()) {
+                        "No saved actions match “${searchQuery.trim()}” in these filters. Try a different search, action type, or date."
+                    } else {
+                        "No saved actions are available in the selected filters."
+                    }
+                )
+            }
+            if (filteredReminders.isNotEmpty()) item { Text("Scheduled reminders", style = MaterialTheme.typography.titleLarge) }
+            items(filteredReminders, key = ReminderRecord::id) { reminder ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(reminder.title, style = MaterialTheme.typography.titleMedium)
@@ -344,17 +513,109 @@ private fun HistoryScreen(
                     }
                 }
             }
-            if (references.isNotEmpty()) item { Text("References and checklists", style = MaterialTheme.typography.titleLarge) }
-            items(references, key = SavedReference::id) { reference ->
+            if (filteredReferences.isNotEmpty()) item { Text("References and checklists", style = MaterialTheme.typography.titleLarge) }
+            items(filteredReferences, key = SavedReference::id) { reference ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(reference.title, style = MaterialTheme.typography.titleMedium)
+                        Text("Source: ${reference.sourceType.label}", style = MaterialTheme.typography.labelLarge)
                         Text(reference.originalText, maxLines = 3)
-                        TextButton(onClick = { onDeleteReference(reference) }) { Text("Delete") }
+                        FilledTonalButton(onClick = { onViewReference(reference) }, modifier = Modifier.fillMaxWidth()) { Text("View details") }
+                        TextButton(onClick = { pendingDeleteId = reference.id }) { Text("Delete") }
                     }
                 }
             }
             item { OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Back to Home") } }
+        }
+    }
+}
+
+@Composable
+private fun SourceFilterButton(
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    if (selected) {
+        FilledTonalButton(onClick = onClick, modifier = modifier) { Text(label) }
+    } else {
+        OutlinedButton(onClick = onClick, modifier = modifier) { Text(label) }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReferenceDetailScreen(
+    reference: SavedReference,
+    onBack: () -> Unit,
+    onUpdate: (String, String) -> Unit,
+    onDelete: () -> Unit
+) {
+    var showDeleteConfirmation by rememberSaveable { mutableStateOf(false) }
+    var title by rememberSaveable(reference.id) { mutableStateOf(reference.title) }
+    var notes by rememberSaveable(reference.id) { mutableStateOf(reference.notes) }
+    var saveStatus by rememberSaveable(reference.id) { mutableStateOf<String?>(null) }
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("Delete saved reference?") },
+            text = { Text("“${reference.title}” will be removed from History on this device. This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirmation = false
+                    onDelete()
+                }) { Text("Delete") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showDeleteConfirmation = false }) { Text("Keep reference") }
+            }
+        )
+    }
+
+    Scaffold(topBar = { TopAppBar(title = { Text("Saved item details") }) }) { padding ->
+        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            item { Text("Edit saved reference", style = MaterialTheme.typography.headlineSmall) }
+            item {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it.take(SavedReferenceStore.MAX_TITLE_LENGTH); saveStatus = null },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Title") },
+                    singleLine = true
+                )
+            }
+            item {
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it; saveStatus = null },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Notes") },
+                    supportingText = { Text("Notes are stored locally and included in History search.") },
+                    minLines = 3
+                )
+            }
+            item {
+                Button(
+                    onClick = { onUpdate(title, notes); saveStatus = "Changes saved." },
+                    enabled = title.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Save changes") }
+            }
+            saveStatus?.let { status -> item { Text(status, color = MaterialTheme.colorScheme.primary) } }
+            item { Text("Source: ${reference.sourceType.label}", style = MaterialTheme.typography.labelLarge) }
+            item { Text("Saved reference", style = MaterialTheme.typography.labelLarge) }
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Original content", style = MaterialTheme.typography.titleMedium)
+                        Text(reference.originalText)
+                    }
+                }
+            }
+            item { Text("Stored locally on this device.") }
+            item { OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Back to History") } }
+            item { TextButton(onClick = { showDeleteConfirmation = true }, modifier = Modifier.fillMaxWidth()) { Text("Delete reference") } }
         }
     }
 }
@@ -379,11 +640,12 @@ private fun EntryScreen(title: String, singleLine: Boolean, onBack: () -> Unit, 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PreviewScreen(value: String, onDiscard: () -> Unit, onContinue: (String) -> Unit) {
+private fun PreviewScreen(value: String, sourceLabel: String, onDiscard: () -> Unit, onContinue: (String) -> Unit) {
     var editable by rememberSaveable(value) { mutableStateOf(value) }
     Scaffold(topBar = { TopAppBar(title = { Text("Import preview") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item { Text("Review before processing", style = MaterialTheme.typography.headlineSmall) }
+            item { Text("Source: $sourceLabel", style = MaterialTheme.typography.labelLarge) }
             item { OutlinedTextField(editable, { editable = it.take(SharedTextParser.MAX_SHARED_TEXT_LENGTH) }, Modifier.fillMaxWidth(), label = { Text("Imported content") }, minLines = 10) }
             item { Button(onClick = { onContinue(editable.trim()) }, enabled = editable.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Extract details") } }
             item { OutlinedButton(onClick = onDiscard, modifier = Modifier.fillMaxWidth()) { Text("Discard") } }

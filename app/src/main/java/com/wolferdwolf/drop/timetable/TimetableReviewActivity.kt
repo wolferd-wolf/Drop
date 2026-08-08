@@ -76,6 +76,7 @@ class TimetableReviewActivity : ComponentActivity() {
                 .setAction(Intent.ACTION_SEND)
                 .setType("text/plain")
                 .putExtra(Intent.EXTRA_TEXT, text)
+                .putExtra(MainActivity.EXTRA_SOURCE_TYPE, com.wolferdwolf.drop.data.SavedSourceType.IMAGE.name)
         )
         finish()
     }

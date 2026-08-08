@@ -103,7 +103,7 @@ class EmailConfirmationActivity : ComponentActivity() {
         private const val MAX_EMAIL_LENGTH = 254
         private const val MAX_SUBJECT_LENGTH = 200
         private const val MAX_MESSAGE_LENGTH = 5_000
-        private val EMAIL_PATTERN = Regex("^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$", RegexOption.IGNORE_CASE)
+        private val EMAIL_PATTERN = Regex("^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$", RegexOption.IGNORE_CASE)
 
         internal fun validateRecipient(recipient: String): String? = when {
             recipient.isBlank() -> "Enter an email address."

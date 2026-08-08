@@ -1,6 +1,5 @@
 package com.wolferdwolf.drop.actions
 
-import com.wolferdwolf.drop.extraction.AddressCandidateDetector
 import com.wolferdwolf.drop.extraction.DocumentCategory
 import com.wolferdwolf.drop.extraction.DocumentCategoryDetector
 import com.wolferdwolf.drop.extraction.ExtractionResult
@@ -31,7 +30,7 @@ object SuggestedActionEngine {
     fun suggest(originalText: String, results: List<ExtractionResult>): List<SuggestedAction> {
         val types = results.mapTo(mutableSetOf()) { it.type }
         val lower = originalText.lowercase()
-        val address = AddressCandidateDetector.detect(originalText)
+        val address = results.firstOrNull { it.type == ExtractionType.ADDRESS }
         val category = DocumentCategoryDetector.detect(originalText, results)
         val hasDeadlineLanguage = containsDeadlineLanguage(lower)
         val hasEventLanguage = containsEventLanguage(lower)
@@ -46,24 +45,24 @@ object SuggestedActionEngine {
                 DocumentCategory.EVENT -> "Keep this event information and its detected details in Drop."
                 DocumentCategory.GENERAL_REFERENCE -> "Keep the original content and extracted details in Drop."
             },
-            100
+            if (category == DocumentCategory.RECEIPT) 100 else 72
         )
 
-        if (ExtractionType.DATE in types || ExtractionType.TIME in types || hasDeadlineLanguage) {
+        if (ExtractionType.DATE in types) {
             relevant += action(
                 SuggestedActionType.REMINDER,
                 "Create reminder",
                 if (hasDeadlineLanguage) {
-                    "A deadline-like phrase was detected."
+                    "A deadline-like phrase and date were detected."
                 } else {
-                    "A date or time was detected."
+                    "A date was detected."
                 },
                 95
             )
         }
 
-        val isLikelyEvent = category == DocumentCategory.EVENT || ExtractionType.DATE in types && (
-            hasEventLanguage || (ExtractionType.TIME in types && !hasDeadlineLanguage)
+        val isLikelyEvent = ExtractionType.DATE in types && (
+            category == DocumentCategory.EVENT || hasEventLanguage
         )
         if (isLikelyEvent) {
             relevant += action(
@@ -139,25 +138,16 @@ object SuggestedActionEngine {
     }
 
     fun manualActions(results: List<ExtractionResult>): List<SuggestedAction> {
-        val types = results.mapTo(mutableSetOf()) { it.type }
         return buildList {
             add(action(SuggestedActionType.SAVE_REFERENCE, "Save reference", "Save the imported content in Drop.", 0))
             add(action(SuggestedActionType.REMINDER, "Create reminder", "Choose the reminder title, date, and time.", 0))
             add(action(SuggestedActionType.CALENDAR, "Add calendar event", "Review and edit the event details before opening Calendar.", 0))
             add(action(SuggestedActionType.CHECKLIST, "Create checklist", "Turn the content into an editable checklist.", 0))
+            add(action(SuggestedActionType.CONTACT, "Save contact", "Enter or edit contact details before opening Contacts.", 0))
             add(action(SuggestedActionType.MAPS, "Search in Maps", "Review and edit a location before opening Maps.", 0))
-            if (ExtractionType.PHONE in types || ExtractionType.EMAIL in types) {
-                add(action(SuggestedActionType.CONTACT, "Save contact", "Review and edit the detected contact details.", 0))
-            }
-            if (ExtractionType.URL in types) {
-                add(action(SuggestedActionType.OPEN_LINK, "Open link", "Open the detected web link.", 0))
-            }
-            if (ExtractionType.EMAIL in types) {
-                add(action(SuggestedActionType.EMAIL, "Send email", "Compose an email to the detected address.", 0))
-            }
-            if (ExtractionType.PHONE in types) {
-                add(action(SuggestedActionType.CALL, "Call number", "Open the dialer with the detected number.", 0))
-            }
+            add(action(SuggestedActionType.OPEN_LINK, "Open link", "Enter or edit a website link before opening your browser.", 0))
+            add(action(SuggestedActionType.EMAIL, "Send email", "Enter or edit the recipient before opening your email app.", 0))
+            add(action(SuggestedActionType.CALL, "Call number", "Enter or edit a phone number before opening the dialer.", 0))
         }
     }
 
