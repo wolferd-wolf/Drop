@@ -9,7 +9,7 @@ import org.junit.Test
 
 class SuggestedActionEngineTest {
     @Test
-    fun jobDeadlineSuppressesFalseCalendarAndKeepsApplicationLinkVisible() {
+    fun jobDeadlineRanksDetectedActionsAheadOfGenericSaveFallback() {
         val text = "Job vacancy. Apply before 12 August 2026 at 5:30 PM. Email jobs@example.com or visit https://example.com/jobs"
         val results = listOf(
             result(ExtractionType.DATE, "12 August 2026"),
@@ -25,10 +25,10 @@ class SuggestedActionEngineTest {
         assertEquals(SuggestedActionType.REMINDER, types[0])
         assertEquals(SuggestedActionType.OPEN_LINK, types[1])
         assertEquals(SuggestedActionType.CONTACT, types[2])
-        assertEquals(SuggestedActionType.SAVE_REFERENCE, types[3])
+        assertEquals(SuggestedActionType.EMAIL, types[3])
+        assertFalse(SuggestedActionType.SAVE_REFERENCE in types)
         assertFalse(SuggestedActionType.CALENDAR in types)
         assertTrue(actions.first { it.type == SuggestedActionType.REMINDER }.reason.contains("deadline", true))
-        assertTrue(actions.first { it.type == SuggestedActionType.SAVE_REFERENCE }.reason.contains("job post", true))
         assertTrue(actions.first { it.type == SuggestedActionType.OPEN_LINK }.reason.contains("application", true))
         assertEquals(actions.size, types.distinct().size)
     }
