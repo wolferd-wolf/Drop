@@ -51,11 +51,14 @@ class HomeScreenshotTest {
             activateAndWait(device, "Continue", "Import preview")
             activateAndWait(device, "Extract details", "Extracted information")
             activateAndWait(device, "See suggested actions", "Suggested actions", scroll = true)
-            assertVisible(device, "Save reference", "Safe default action must be visible")
-            assertVisible(device, "Create reminder", "Relevant reminder action must be visible")
+            assertVisibleAfterScroll(device, "Create reminder", "Detected date must surface Reminder")
+            assertVisibleAfterScroll(device, "Add calendar event", "Detected event details must surface Calendar")
+            assertVisibleAfterScroll(device, "Save contact", "Detected contact details must surface Contact")
+            assertVisibleAfterScroll(device, "Open link", "Detected link must surface Open link")
             capture(device, "/data/local/tmp/drop-suggested-actions.png")
 
             activateAndWait(device, "Choose another action", "All available actions", scroll = true)
+            assertVisibleAfterScroll(device, "Save reference", "Manual chooser must retain Save reference")
             assertVisibleAfterScroll(device, "Open link", "A bare domain must unlock the link action")
             capture(device, "/data/local/tmp/drop-all-actions.png")
             assertVisibleAfterScroll(device, "Create checklist", "Manual checklist action must be available")
@@ -165,7 +168,10 @@ class HomeScreenshotTest {
             activateAndWait(device, "Continue to Drop actions", "Import preview")
             activateAndWait(device, "Extract details", "Extracted information")
             activateAndWait(device, "See suggested actions", "Suggested actions", scroll = true)
-            assertVisible(device, "Save reference", "PDF flow must retain Save reference")
+            assertVisibleAfterScroll(device, "Create reminder", "PDF date must surface Reminder")
+            assertVisibleAfterScroll(device, "Add calendar event", "PDF event details must surface Calendar")
+            assertVisibleAfterScroll(device, "Save contact", "PDF contact details must surface Contact")
+            assertVisibleAfterScroll(device, "Choose another action", "PDF flow must retain the manual action path")
         }
     }
 
