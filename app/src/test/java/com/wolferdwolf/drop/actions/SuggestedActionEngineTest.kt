@@ -22,10 +22,10 @@ class SuggestedActionEngineTest {
         val types = actions.map { it.type }
 
         assertEquals(4, actions.size)
-        assertEquals(SuggestedActionType.SAVE_REFERENCE, types[0])
-        assertEquals(SuggestedActionType.REMINDER, types[1])
-        assertEquals(SuggestedActionType.OPEN_LINK, types[2])
-        assertEquals(SuggestedActionType.CONTACT, types[3])
+        assertEquals(SuggestedActionType.REMINDER, types[0])
+        assertEquals(SuggestedActionType.OPEN_LINK, types[1])
+        assertEquals(SuggestedActionType.CONTACT, types[2])
+        assertEquals(SuggestedActionType.SAVE_REFERENCE, types[3])
         assertFalse(SuggestedActionType.CALENDAR in types)
         assertTrue(actions.first { it.type == SuggestedActionType.REMINDER }.reason.contains("deadline", true))
         assertTrue(actions.first { it.type == SuggestedActionType.SAVE_REFERENCE }.reason.contains("job post", true))
