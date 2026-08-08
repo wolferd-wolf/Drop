@@ -105,7 +105,9 @@ screenshots=(
   drop-non-event-calendar-suppressed
   drop-paragraph-checklist-suppressed
   drop-contact-confirmation
+  drop-contact-curated-values
   drop-email-confirmation
+  drop-email-curated-values
   drop-apostrophe-email-action
   drop-open-link-confirmation
   drop-call-confirmation
