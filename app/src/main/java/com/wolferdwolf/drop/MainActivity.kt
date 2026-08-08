@@ -255,6 +255,9 @@ class MainActivity : ComponentActivity() {
             SuggestedActionType.CONTACT -> startActivity(
                 Intent(this, ContactConfirmationActivity::class.java)
                     .putExtra(ContactConfirmationActivity.EXTRA_SOURCE_TEXT, text)
+                    .putExtra(ContactConfirmationActivity.EXTRA_HAS_CURATED_RESULTS, true)
+                    .putExtra(ContactConfirmationActivity.EXTRA_CURATED_PHONE, first(results, ExtractionType.PHONE).orEmpty())
+                    .putExtra(ContactConfirmationActivity.EXTRA_CURATED_EMAIL, first(results, ExtractionType.EMAIL).orEmpty())
             )
             SuggestedActionType.MAPS -> startActivity(
                 Intent(this, MapConfirmationActivity::class.java)
@@ -268,6 +271,8 @@ class MainActivity : ComponentActivity() {
             SuggestedActionType.EMAIL -> startActivity(
                 Intent(this, EmailConfirmationActivity::class.java)
                     .putExtra(EmailConfirmationActivity.EXTRA_SOURCE_TEXT, text)
+                    .putExtra(EmailConfirmationActivity.EXTRA_HAS_CURATED_RESULTS, true)
+                    .putExtra(EmailConfirmationActivity.EXTRA_CURATED_EMAIL, first(results, ExtractionType.EMAIL).orEmpty())
             )
             SuggestedActionType.CALL -> startActivity(
                 Intent(this, CallConfirmationActivity::class.java)
