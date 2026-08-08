@@ -23,7 +23,7 @@ class ReminderSuccessGuardFlowTest {
         val intent = Intent(instrumentation.targetContext, ReminderActivity::class.java)
             .putExtra(
                 ReminderActivity.EXTRA_SOURCE_TEXT,
-                "Supplier follow-up\nAugust 10, 2026 at 09:30"
+                "Supplier follow-up\nDecember 31, 2099 at 09:30"
             )
 
         ActivityScenario.launch<ReminderActivity>(intent).use {
