@@ -16,6 +16,17 @@ class InternationalCurrencyExtractionTest {
     }
 
     @Test
+    fun internationalIsoCurrencies_supportCompactMagnitudeAmounts() {
+        val text = "Equipment AUD 1.5k, logistics 2 million SGD, permit AED 3k and stock 4.25k CAD."
+
+        val prices = RuleBasedExtractor.extract(text)
+            .filter { it.type == ExtractionType.PRICE }
+            .map { it.value }
+
+        assertEquals(listOf("AUD 1.5k", "2 million SGD", "AED 3k", "4.25k CAD"), prices)
+    }
+
+    @Test
     fun isoCurrencyRule_doesNotPromoteBareNumbers() {
         val prices = RuleBasedExtractor.extract("Room 129.50 and gate 220")
             .filter { it.type == ExtractionType.PRICE }
