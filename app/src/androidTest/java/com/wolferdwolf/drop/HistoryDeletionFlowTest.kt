@@ -7,8 +7,6 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
-import androidx.test.uiautomator.UiScrollable
-import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -234,18 +232,17 @@ class HistoryDeletionFlowTest {
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
         visibleNode(device, text)?.let { return it }
 
-        val scrollable = UiScrollable(UiSelector().scrollable(true)).apply {
-            setAsVerticalList()
-            setMaxSearchSwipes(12)
-        }
-        if (scrollable.exists()) {
-            runCatching { scrollable.scrollIntoView(UiSelector().text(text)) }
-            device.waitForIdle()
-            visibleNode(device, text)?.let { return it }
+        val scrollable = device.findObjects(By.scrollable(true)).firstOrNull { !it.visibleBounds.isEmpty }
+        if (scrollable != null) {
+            repeat(12) {
+                runCatching { scrollable.scroll(Direction.DOWN, 0.82f) }
+                device.waitForIdle()
+                visibleNode(device, text)?.let { return it }
+            }
         }
 
-        repeat(10) {
-            device.executeShellCommand("input swipe ${device.displayWidth / 2} ${device.displayHeight * 3 / 4} ${device.displayWidth / 2} ${device.displayHeight / 4} 180")
+        repeat(12) {
+            device.executeShellCommand("input swipe 48 ${device.displayHeight * 4 / 5} 48 ${device.displayHeight / 4} 420")
             device.waitForIdle()
             visibleNode(device, text)?.let { return it }
         }
@@ -273,7 +270,7 @@ class HistoryDeletionFlowTest {
         if (scrollable != null) {
             runCatching { scrollable.scroll(Direction.DOWN, 0.65f) }
         } else {
-            device.executeShellCommand("input swipe ${device.displayWidth / 2} ${device.displayHeight * 3 / 4} ${device.displayWidth / 2} ${device.displayHeight / 4} 180")
+            device.executeShellCommand("input swipe 48 ${device.displayHeight * 4 / 5} 48 ${device.displayHeight / 4} 420")
             device.waitForIdle()
         }
     }
@@ -289,6 +286,6 @@ class HistoryDeletionFlowTest {
         const val UNIQUE_TITLE = "Quarterly strategy reference"
         const val UNIQUE_CONTENT = "Quarterly strategy notes for the operations review."
         const val TIMEOUT = 20_000L
-        const val SHORT_TIMEOUT = 2_000L
+        const val SHORT_TIMEOUT = 600L
     }
 }
