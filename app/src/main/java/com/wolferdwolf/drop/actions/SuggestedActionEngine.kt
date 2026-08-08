@@ -162,9 +162,23 @@ object SuggestedActionEngine {
 
     private fun looksLikeChecklist(text: String): Boolean {
         val meaningfulLines = text.lineSequence().map(String::trim).filter(String::isNotBlank).toList()
+        if (meaningfulLines.size < 3) return false
+
         val marked = meaningfulLines.count {
             it.startsWith("-") || it.startsWith("•") || it.matches(Regex("^\\d+[.)].+"))
         }
-        return meaningfulLines.size >= 3 && (marked >= 2 || meaningfulLines.size >= 5)
+        if (marked >= 2) return true
+
+        // Unmarked shopping/packing/task lists are common, but five ordinary paragraphs
+        // must not become a checklist merely because they are split across lines. Treat
+        // an unmarked block as list-like only when most lines are short, compact entries
+        // rather than sentence-shaped prose.
+        if (meaningfulLines.size > 12) return false
+        val compactEntries = meaningfulLines.count { line ->
+            val wordCount = line.split(Regex("\\s+")).count(String::isNotBlank)
+            line.length <= 72 && wordCount in 1..8 && !line.endsWith('.') && !line.endsWith('!') && !line.endsWith('?')
+        }
+        val requiredCompactEntries = maxOf(3, (meaningfulLines.size * 4 + 4) / 5)
+        return compactEntries >= requiredCompactEntries
     }
 }
