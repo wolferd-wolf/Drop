@@ -33,8 +33,8 @@ class HistoryReferenceEditFlowTest {
 
             visible(device, "Turn anything into the next useful action")
             clickTextMatching(device, "History")
-            visible(device, ORIGINAL_TITLE)
-            val cardTitle = visible(device, ORIGINAL_TITLE)
+            visibleAfterScroll(device, ORIGINAL_TITLE)
+            val cardTitle = visibleAfterScroll(device, ORIGINAL_TITLE)
             val card = ancestorWithDescendantText(cardTitle, "View details")
                 ?: throw AssertionError("Saved reference card must expose View details")
             tap(device, card.findObject(By.text("View details")) ?: throw AssertionError("View details missing"))
@@ -53,18 +53,12 @@ class HistoryReferenceEditFlowTest {
             capture(device, "/data/local/tmp/drop-history-reference-edited.png")
 
             clickText(device, "Back to History", scroll = true)
-            visible(device, EDITED_TITLE)
+            visibleAfterScroll(device, EDITED_TITLE)
             val search = objectFor(device, By.clazz("android.widget.EditText"), "History search field is missing")
             search.text = "followupwolf"
             dismissKeyboard(device)
-            visible(device, EDITED_TITLE)
-            search.text = ""
-            dismissKeyboard(device)
-
-            val editedTitle = visible(device, EDITED_TITLE)
-            val editedCard = ancestorWithDescendantText(editedTitle, "Delete")
-                ?: throw AssertionError("Edited saved reference card must expose Delete")
-            tap(device, editedCard.findObject(By.text("Delete")) ?: throw AssertionError("Delete missing"))
+            visibleAfterScroll(device, EDITED_TITLE)
+            clickText(device, "Delete", scroll = true)
             val dialogTitle = visible(device, "Delete saved reference?")
             val dialog = ancestorWithDescendantText(dialogTitle, "Keep reference")
                 ?: throw AssertionError("Delete dialog missing")
