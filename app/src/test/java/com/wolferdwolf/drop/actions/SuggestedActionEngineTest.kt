@@ -175,6 +175,23 @@ class SuggestedActionEngineTest {
         assertFalse(actions.any { it.reason.startsWith("Manual choice:") })
     }
 
+    @Test
+    fun unmarkedCompactListStillSuggestsChecklist() {
+        val text = "Milk\nEggs\nBread\nDish soap"
+        val types = SuggestedActionEngine.suggest(text, emptyList()).map { it.type }
+
+        assertTrue(SuggestedActionType.CHECKLIST in types)
+    }
+
+    @Test
+    fun fiveLineParagraphDocumentDoesNotSuggestChecklist() {
+        val text = "Quarterly supplier update.\nThe revised quotation includes transport and installation charges.\nThe finance team will review the commercial terms before approval.\nDelivery planning continues after the purchase order is released.\nKeep this note as a reference for the next procurement review."
+        val types = SuggestedActionEngine.suggest(text, emptyList()).map { it.type }
+
+        assertEquals(listOf(SuggestedActionType.SAVE_REFERENCE), types)
+        assertFalse(SuggestedActionType.CHECKLIST in types)
+    }
+
     private fun result(type: ExtractionType, value: String) = ExtractionResult(
         type = type,
         value = value,
