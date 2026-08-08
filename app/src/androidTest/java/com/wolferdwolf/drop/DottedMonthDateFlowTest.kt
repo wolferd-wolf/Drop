@@ -21,7 +21,7 @@ class DottedMonthDateFlowTest {
             activateAndWait(device, "Paste text", "Add content for Drop to understand and turn into an action.")
             val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), TIMEOUT)
             assertNotNull("Paste intake must provide an editable field", input)
-            input.text = "Quarterly review Sept. 12, 2026 at 10:00 AM."
+            input.text = "Quarterly review meeting Sept. 12, 2026 at 10:00 AM."
             device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
             device.waitForIdle()
 
@@ -31,8 +31,8 @@ class DottedMonthDateFlowTest {
             capture(device, "/data/local/tmp/drop-dotted-month-date-extraction.png")
 
             activateAndWait(device, "See suggested actions", "Suggested actions", scroll = true)
-            assertVisibleAfterScroll(device, "Create reminder", "Detected date and time must unlock Reminder")
-            assertVisibleAfterScroll(device, "Add calendar event", "Detected date and time must unlock Calendar")
+            assertVisibleAfterScroll(device, "Create reminder", "Detected event date must unlock Reminder")
+            assertVisibleAfterScroll(device, "Add calendar event", "Event-like content must unlock Calendar")
             capture(device, "/data/local/tmp/drop-dotted-month-date-actions.png")
         }
     }
