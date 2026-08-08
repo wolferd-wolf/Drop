@@ -68,24 +68,36 @@ private fun ReminderScreen(
     var date by rememberSaveable { mutableStateOf(prefill.date) }
     var time by rememberSaveable { mutableStateOf(prefill.time) }
     var message by rememberSaveable { mutableStateOf<String?>(null) }
+    var scheduled by rememberSaveable { mutableStateOf(false) }
     var pendingReminder by remember { mutableStateOf<ReminderValidator.ValidReminder?>(null) }
+
+    fun handleScheduleResult(result: Result<Unit>) {
+        result.fold(
+            onSuccess = {
+                scheduled = true
+                message = "Reminder scheduled. It is saved in History."
+            },
+            onFailure = {
+                scheduled = false
+                message = it.message ?: "Reminder could not be scheduled"
+            }
+        )
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val reminder = pendingReminder
         pendingReminder = null
-        message = if (!granted) {
-            "Notification permission is required to deliver this reminder"
+        if (!granted) {
+            message = "Notification permission is required to deliver this reminder"
         } else if (reminder == null) {
-            "Reminder could not be prepared"
+            message = "Reminder could not be prepared"
         } else {
-            schedule(reminder).fold(
-                onSuccess = { "Reminder scheduled" },
-                onFailure = { it.message ?: "Reminder could not be scheduled" }
-            )
+            handleScheduleResult(schedule(reminder))
         }
     }
 
     fun submit() {
+        if (scheduled) return
         when (val result = ReminderValidator.validate(title, notes, date, time)) {
             is ReminderValidator.Result.Error -> message = result.message
             is ReminderValidator.Result.Success -> {
@@ -93,10 +105,7 @@ private fun ReminderScreen(
                     pendingReminder = result.reminder
                     permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 } else {
-                    message = schedule(result.reminder).fold(
-                        onSuccess = { "Reminder scheduled" },
-                        onFailure = { it.message ?: "Reminder could not be scheduled" }
-                    )
+                    handleScheduleResult(schedule(result.reminder))
                 }
             }
         }
@@ -108,14 +117,47 @@ private fun ReminderScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text("Confirm reminder details", style = MaterialTheme.typography.headlineSmall)
-            OutlinedTextField(title, { title = it.take(120) }, Modifier.fillMaxWidth(), label = { Text("Title") })
-            OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth().weight(1f), label = { Text("Notes") })
-            OutlinedTextField(date, { date = it }, Modifier.fillMaxWidth(), label = { Text("Date (YYYY-MM-DD)") })
-            OutlinedTextField(time, { time = it }, Modifier.fillMaxWidth(), label = { Text("Time (HH:MM)") })
-            message?.let { Text(it, color = if (it == "Reminder scheduled") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error) }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onClose, modifier = Modifier.weight(1f)) { Text("Cancel") }
-                Button(onClick = ::submit, modifier = Modifier.weight(1f)) { Text("Schedule") }
+            OutlinedTextField(
+                title,
+                { title = it.take(120); message = null },
+                Modifier.fillMaxWidth(),
+                label = { Text("Title") },
+                enabled = !scheduled
+            )
+            OutlinedTextField(
+                notes,
+                { notes = it; message = null },
+                Modifier.fillMaxWidth().weight(1f),
+                label = { Text("Notes") },
+                enabled = !scheduled
+            )
+            OutlinedTextField(
+                date,
+                { date = it; message = null },
+                Modifier.fillMaxWidth(),
+                label = { Text("Date (YYYY-MM-DD)") },
+                enabled = !scheduled
+            )
+            OutlinedTextField(
+                time,
+                { time = it; message = null },
+                Modifier.fillMaxWidth(),
+                label = { Text("Time (HH:MM)") },
+                enabled = !scheduled
+            )
+            message?.let {
+                Text(
+                    it,
+                    color = if (scheduled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                )
+            }
+            if (scheduled) {
+                Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("Done") }
+            } else {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = onClose, modifier = Modifier.weight(1f)) { Text("Cancel") }
+                    Button(onClick = ::submit, modifier = Modifier.weight(1f)) { Text("Schedule") }
+                }
             }
         }
     }
