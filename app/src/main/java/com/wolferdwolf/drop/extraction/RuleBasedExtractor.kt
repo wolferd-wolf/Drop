@@ -53,13 +53,12 @@ object RuleBasedExtractor {
         }.toMutableList()
 
         AddressCandidateDetector.detect(text)?.let { address ->
-            val start = text.indexOf(address.value, ignoreCase = true)
-            if (start >= 0) {
+            findAddressSourceRange(text, address.value)?.let { sourceRange ->
                 candidates += ExtractionResult(
                     type = ExtractionType.ADDRESS,
                     value = address.value,
-                    sourceStart = start,
-                    sourceEndExclusive = start + address.value.length,
+                    sourceStart = sourceRange.first,
+                    sourceEndExclusive = sourceRange.last + 1,
                     confidence = address.confidence
                 )
             }
@@ -74,6 +73,21 @@ object RuleBasedExtractor {
                 if (!duplicate && !overlappingLowerConfidence) accepted += candidate
                 accepted
             }
+    }
+
+    private fun findAddressSourceRange(text: String, normalizedAddress: String): IntRange? {
+        val directStart = text.indexOf(normalizedAddress, ignoreCase = true)
+        if (directStart >= 0) return directStart until (directStart + normalizedAddress.length)
+
+        val parts = normalizedAddress
+            .split(Regex("\\s*,\\s*"))
+            .map(String::trim)
+            .filter(String::isNotBlank)
+        if (parts.size < 2) return null
+
+        val flexiblePattern = parts.joinToString("(?:\\s*,\\s*|\\s+)") { Regex.escape(it) }
+        val match = Regex(flexiblePattern, RegexOption.IGNORE_CASE).find(text) ?: return null
+        return match.range
     }
 
     private fun isAllowed(type: ExtractionType, value: String): Boolean = when (type) {
