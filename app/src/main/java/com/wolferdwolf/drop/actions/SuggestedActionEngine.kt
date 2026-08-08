@@ -145,16 +145,12 @@ object SuggestedActionEngine {
             add(action(SuggestedActionType.REMINDER, "Create reminder", "Choose the reminder title, date, and time.", 0))
             add(action(SuggestedActionType.CALENDAR, "Add calendar event", "Review and edit the event details before opening Calendar.", 0))
             add(action(SuggestedActionType.CHECKLIST, "Create checklist", "Turn the content into an editable checklist.", 0))
+            add(action(SuggestedActionType.CONTACT, "Save contact", "Enter or edit contact details before opening Contacts.", 0))
             add(action(SuggestedActionType.MAPS, "Search in Maps", "Review and edit a location before opening Maps.", 0))
-            if (ExtractionType.PHONE in types || ExtractionType.EMAIL in types) {
-                add(action(SuggestedActionType.CONTACT, "Save contact", "Review and edit the detected contact details.", 0))
-            }
             if (ExtractionType.URL in types) {
                 add(action(SuggestedActionType.OPEN_LINK, "Open link", "Open the detected web link.", 0))
             }
-            if (ExtractionType.EMAIL in types) {
-                add(action(SuggestedActionType.EMAIL, "Send email", "Compose an email to the detected address.", 0))
-            }
+            add(action(SuggestedActionType.EMAIL, "Send email", "Enter or edit the recipient before opening your email app.", 0))
             if (ExtractionType.PHONE in types) {
                 add(action(SuggestedActionType.CALL, "Call number", "Open the dialer with the detected number.", 0))
             }
