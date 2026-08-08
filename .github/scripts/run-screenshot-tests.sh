@@ -31,18 +31,41 @@ if [ "$test_status" -eq 0 ]; then
   history_test='com.wolferdwolf.drop.HistoryDeletionFlowTest#verifyHistoryPersistencePhase'
   runner='com.wolferdwolf.drop.test/androidx.test.runner.AndroidJUnitRunner'
 
-  adb shell am instrument -w -r -e class "$history_test" -e historyPhase save "$runner"
+  run_history_phase() {
+    local phase="$1"
+    local output
+    output="$(adb shell am instrument -w -r -e class "$history_test" -e historyPhase "$phase" "$runner" 2>&1)"
+    local status=$?
+    printf '%s\n' "$output"
+
+    if [ "$status" -ne 0 ]; then
+      return "$status"
+    fi
+
+    # adb am instrument can itself return 0 even when AndroidJUnitRunner reports
+    # an assertion failure. Require the runner's explicit success marker so a
+    # failed persistence phase cannot silently continue into later phases.
+    if ! printf '%s\n' "$output" | grep -Fq 'OK (1 test)'; then
+      return 1
+    fi
+    if printf '%s\n' "$output" | grep -Fq 'FAILURES!!!'; then
+      return 1
+    fi
+    return 0
+  }
+
+  run_history_phase save
   test_status=$?
 
   if [ "$test_status" -eq 0 ]; then
     adb shell am force-stop com.wolferdwolf.drop
-    adb shell am instrument -w -r -e class "$history_test" -e historyPhase restore-delete "$runner"
+    run_history_phase restore-delete
     test_status=$?
   fi
 
   if [ "$test_status" -eq 0 ]; then
     adb shell am force-stop com.wolferdwolf.drop
-    adb shell am instrument -w -r -e class "$history_test" -e historyPhase verify-deletion "$runner"
+    run_history_phase verify-deletion
     test_status=$?
   fi
 fi
