@@ -76,14 +76,7 @@ class HistoryReferenceEditFlowTest {
             if (device.wait(Until.findObject(By.text(destinationText)), TIMEOUT) != null) return
             if (attempt == 0) {
                 device.waitForIdle()
-                device.swipe(
-                    device.displayWidth / 2,
-                    device.displayHeight * 2 / 3,
-                    device.displayWidth / 2,
-                    device.displayHeight / 2,
-                    10
-                )
-                device.waitForIdle()
+                swipeUp(device)
             }
         }
         throw AssertionError("Expected visible text after activating $sourceText: $destinationText")
@@ -98,16 +91,7 @@ class HistoryReferenceEditFlowTest {
             if (candidates.isNotEmpty()) {
                 return candidates.minBy { it.visibleBounds.width() * it.visibleBounds.height() }
             }
-            if (attempt < 8) {
-                device.swipe(
-                    device.displayWidth / 2,
-                    device.displayHeight * 3 / 4,
-                    device.displayWidth / 2,
-                    device.displayHeight / 4,
-                    20
-                )
-                device.waitForIdle()
-            }
+            if (attempt < 8) swipeUp(device)
         }
         throw AssertionError("Expected actionable control after scrolling: $text")
     }
@@ -141,13 +125,52 @@ class HistoryReferenceEditFlowTest {
             .let { device.findObject(By.text(text)) }
 
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
-        device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)?.let { return it }
+        visibleNode(device, text)?.let { return it }
+
+        // History can preserve scroll position across detail/edit navigation. Search both directions
+        // so a filtered result is verified regardless of whether the previous screen left us near
+        // the top or bottom of the list.
         repeat(8) {
-            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
-            device.waitForIdle()
-            device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)?.let { return it }
+            swipeUp(device)
+            visibleNode(device, text)?.let { return it }
+        }
+        repeat(16) {
+            swipeDown(device)
+            visibleNode(device, text)?.let { return it }
+        }
+        repeat(16) {
+            swipeUp(device)
+            visibleNode(device, text)?.let { return it }
         }
         throw AssertionError("Expected visible text after scrolling: $text")
+    }
+
+    private fun visibleNode(device: UiDevice, text: String): UiObject2? =
+        device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)?.takeIf { node ->
+            val bounds = node.visibleBounds
+            !bounds.isEmpty && bounds.bottom > 0 && bounds.top < device.displayHeight
+        }
+
+    private fun swipeUp(device: UiDevice) {
+        device.swipe(
+            device.displayWidth / 2,
+            device.displayHeight * 3 / 4,
+            device.displayWidth / 2,
+            device.displayHeight / 4,
+            20
+        )
+        device.waitForIdle()
+    }
+
+    private fun swipeDown(device: UiDevice) {
+        device.swipe(
+            device.displayWidth / 2,
+            device.displayHeight / 4,
+            device.displayWidth / 2,
+            device.displayHeight * 3 / 4,
+            20
+        )
+        device.waitForIdle()
     }
 
     private fun objectFor(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
