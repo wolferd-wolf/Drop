@@ -53,6 +53,7 @@ screenshots=(
   drop-history
   drop-suggested-actions
   drop-all-actions
+  drop-manual-contact-email-actions
   drop-maps-suggestion
   drop-maps-confirmation
   drop-calendar-confirmation
