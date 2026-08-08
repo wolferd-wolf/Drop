@@ -40,7 +40,7 @@ class ManualContactEmailFlowTest {
             assertVisibleAfterScroll(device, "Send email", "Manual chooser must offer editable Email")
             capture(device, "/data/local/tmp/drop-manual-contact-email-actions.png")
 
-            tapResolvedTarget(device, assertVisibleAfterScroll(device, "Send email", "Expected Send email manual action"))
+            tapResolvedTarget(device, assertClickableAfterScroll(device, "Send email", "Expected clickable Send email manual action"))
             assertNotNull(
                 "Manual Email must reach its editable confirmation screen",
                 device.wait(Until.findObject(By.text("Confirm email")), TIMEOUT)
@@ -76,10 +76,24 @@ class ManualContactEmailFlowTest {
         return device.findObject(By.text(text)) ?: throw AssertionError(message)
     }
 
-    private fun tapResolvedTarget(device: UiDevice, node: UiObject2) {
+    private fun assertClickableAfterScroll(device: UiDevice, text: String, message: String): UiObject2 {
+        repeat(12) {
+            device.findObjects(By.text(text)).firstOrNull { node -> clickableAncestor(node) != null }?.let { return it }
+            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
+            device.waitForIdle()
+        }
+        return device.findObjects(By.text(text)).firstOrNull { node -> clickableAncestor(node) != null }
+            ?: throw AssertionError(message)
+    }
+
+    private fun clickableAncestor(node: UiObject2): UiObject2? {
         var target: UiObject2? = node
         while (target != null && !target.isClickable) target = target.parent
-        val resolved = target ?: node
+        return target
+    }
+
+    private fun tapResolvedTarget(device: UiDevice, node: UiObject2) {
+        val resolved = clickableAncestor(node) ?: node
         val bounds = resolved.visibleBounds
         assertTrue("Target has no tappable area", !bounds.isEmpty)
         assertTrue("Coordinate tap failed", device.click(bounds.centerX(), bounds.centerY()))
