@@ -102,6 +102,7 @@ screenshots=(
   drop-calendar-missing-date-suppressed
   drop-time-only-reminder-suppressed
   drop-non-event-calendar-suppressed
+  drop-paragraph-checklist-suppressed
   drop-contact-confirmation
   drop-email-confirmation
   drop-apostrophe-email-action
