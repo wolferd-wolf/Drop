@@ -253,12 +253,12 @@ class HistoryDeletionFlowTest {
     }
 
     private fun deliberateScroll(device: UiDevice) {
-        val x = device.displayWidth * 9 / 10
-        val startY = device.displayHeight * 7 / 8
-        val endY = device.displayHeight / 3
-        device.executeShellCommand("input touchscreen swipe $x $startY $x $endY 650")
+        val x = device.displayWidth / 2
+        val startY = device.displayHeight * 4 / 5
+        val endY = device.displayHeight / 5
+        device.executeShellCommand("input touchscreen swipe $x $startY $x $endY 500")
         device.waitForIdle()
-        Thread.sleep(250)
+        Thread.sleep(300)
     }
 
     private fun objectFor(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
