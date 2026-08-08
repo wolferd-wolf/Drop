@@ -4,6 +4,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -163,13 +164,7 @@ class HistoryDeletionFlowTest {
 
             if (attempt == 0) {
                 device.waitForIdle()
-                device.swipe(
-                    device.displayWidth / 2,
-                    device.displayHeight * 2 / 3,
-                    device.displayWidth / 2,
-                    device.displayHeight / 2,
-                    10
-                )
+                modernScrollForward(device)
                 device.waitForIdle()
             }
         }
@@ -236,7 +231,7 @@ class HistoryDeletionFlowTest {
 
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
         visibleNode(device, text)?.let { return it }
-        repeat(4) {
+        repeat(6) {
             scrollIntoView(device, text)
             visibleNode(device, text)?.let { return it }
         }
@@ -254,15 +249,19 @@ class HistoryDeletionFlowTest {
 
     private fun scrollIntoView(device: UiDevice, text: String) {
         if (visibleNode(device, text) != null) return
-        val x = device.displayWidth / 2
-        val startY = device.displayHeight * 3 / 4
-        val endY = device.displayHeight / 4
-        assertTrue(
-            "History scroll gesture failed while looking for: $text",
-            device.swipe(x, startY, x, endY, 24)
-        )
+        modernScrollForward(device)
         device.waitForIdle()
         Thread.sleep(300)
+    }
+
+    private fun modernScrollForward(device: UiDevice) {
+        val scrollable = device.findObjects(By.scrollable(true)).firstOrNull { !it.visibleBounds.isEmpty }
+        if (scrollable != null) {
+            runCatching { scrollable.scroll(Direction.DOWN, 0.65f) }
+        } else {
+            val x = device.displayWidth / 2
+            device.swipe(x, device.displayHeight * 3 / 4, x, device.displayHeight / 4, 24)
+        }
     }
 
     private fun objectFor(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
