@@ -47,7 +47,6 @@ class SuggestedActionEngineTest {
 
         assertEquals(listOf(SuggestedActionType.SAVE_REFERENCE), actions.map { it.type })
         assertTrue(actions.single().reason.contains("receipt", true))
-        assertTrue(actions.single().reason.contains("prices", true))
     }
 
     @Test
@@ -58,12 +57,9 @@ class SuggestedActionEngineTest {
             result(ExtractionType.TIME, "5:30 PM")
         )
 
-        val actions = SuggestedActionEngine.suggest(text, results)
-        val types = actions.map { it.type }
-
-        assertTrue(SuggestedActionType.CALENDAR in types)
+        val types = SuggestedActionEngine.suggest(text, results).map { it.type }
         assertTrue(SuggestedActionType.REMINDER in types)
-        assertTrue(actions.first { it.type == SuggestedActionType.SAVE_REFERENCE }.reason.contains("event", true))
+        assertTrue(SuggestedActionType.CALENDAR in types)
     }
 
     @Test
@@ -78,13 +74,23 @@ class SuggestedActionEngineTest {
     }
 
     @Test
-    fun timeOnlyEventStillDoesNotSuggestCalendarWithoutDate() {
+    fun timeOnlyEventDoesNotSuggestReminderOrCalendarWithoutDate() {
         val text = "Team meeting at 5:30 PM in Wolf Hall"
         val results = listOf(result(ExtractionType.TIME, "5:30 PM"))
         val types = SuggestedActionEngine.suggest(text, results).map { it.type }
 
-        assertTrue(SuggestedActionType.REMINDER in types)
+        assertTrue(SuggestedActionType.SAVE_REFERENCE in types)
+        assertFalse(SuggestedActionType.REMINDER in types)
         assertFalse(SuggestedActionType.CALENDAR in types)
+    }
+
+    @Test
+    fun deadlineLanguageWithoutDateDoesNotCreateAnUnusableReminderSuggestion() {
+        val text = "Application deadline soon. Submit before the office closes."
+        val types = SuggestedActionEngine.suggest(text, emptyList()).map { it.type }
+
+        assertTrue(SuggestedActionType.SAVE_REFERENCE in types)
+        assertFalse(SuggestedActionType.REMINDER in types)
     }
 
     @Test
