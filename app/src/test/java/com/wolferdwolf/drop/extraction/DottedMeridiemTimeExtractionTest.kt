@@ -1,6 +1,7 @@
 package com.wolferdwolf.drop.extraction
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -15,6 +16,26 @@ class DottedMeridiemTimeExtractionTest {
         assertTrue(times.contains("9 a.m"))
         assertTrue(times.contains("10:30 p.m"))
         assertTrue(times.contains("8.45 A.M"))
+    }
+
+    @Test
+    fun extractsDottedTwentyFourHourTime() {
+        val text = "Boarding closes tomorrow at 17.30 at Gate 4."
+        val times = RuleBasedExtractor.extract(text)
+            .filter { it.type == ExtractionType.TIME }
+            .map { it.value }
+
+        assertTrue(times.contains("17.30"))
+    }
+
+    @Test
+    fun dottedTwentyFourHourRuleDoesNotSplitDottedDates() {
+        val results = RuleBasedExtractor.extract("Invoice date 08.08.2026 and review at 17.30")
+        val times = results.filter { it.type == ExtractionType.TIME }.map { it.value }
+
+        assertTrue(times.contains("17.30"))
+        assertFalse(times.contains("08.08"))
+        assertFalse(times.contains("08.20"))
     }
 
     @Test
