@@ -4,6 +4,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.UiScrollable
@@ -233,24 +234,42 @@ class HistoryDeletionFlowTest {
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
         visibleNode(device, text)?.let { return it }
 
-        // History can restore at different list offsets after process recreation and
-        // detail navigation. Search both directions using the same direct swipes that
-        // already prove reliable in the reference edit flow instead of depending on
-        // UiScrollable choosing the correct Compose container.
-        repeat(10) {
-            swipeUp(device)
-            visibleNode(device, text)?.let { return it }
+        // The restored reference is already partially visible, so bind scrolling to
+        // the scrollable accessibility ancestor that actually contains that card.
+        // This avoids guessing at screen coordinates or asking UiScrollable to pick
+        // among multiple Compose semantics containers created by the filter controls.
+        val anchor = visibleNode(device, UNIQUE_TITLE) ?: visibleNode(device, UNIQUE_CONTENT)
+        val historyList = anchor?.let(::scrollableAncestor)
+            ?: device.findObjects(By.scrollable(true)).firstOrNull { !it.visibleBounds.isEmpty }
+        if (historyList != null) {
+            repeat(8) {
+                runCatching { historyList.scroll(Direction.DOWN, 0.8f) }
+                device.waitForIdle()
+                visibleNode(device, text)?.let { return it }
+            }
+            repeat(8) {
+                runCatching { historyList.scroll(Direction.UP, 0.8f) }
+                device.waitForIdle()
+                visibleNode(device, text)?.let { return it }
+            }
+            repeat(8) {
+                runCatching { historyList.scroll(Direction.DOWN, 0.8f) }
+                device.waitForIdle()
+                visibleNode(device, text)?.let { return it }
+            }
         }
-        repeat(18) {
-            swipeDown(device)
-            visibleNode(device, text)?.let { return it }
-        }
-        repeat(18) {
-            swipeUp(device)
-            visibleNode(device, text)?.let { return it }
-        }
+
         capture(device, "/data/local/tmp/drop-history-scroll-failure.png")
         throw AssertionError("Expected visible text after scrolling: $text")
+    }
+
+    private fun scrollableAncestor(node: UiObject2): UiObject2? {
+        var current: UiObject2? = node
+        while (current != null) {
+            if (current.isScrollable) return current
+            current = current.parent
+        }
+        return null
     }
 
     private fun visibleNode(device: UiDevice, text: String): UiObject2? {
@@ -309,17 +328,6 @@ class HistoryDeletionFlowTest {
             device.displayHeight * 3 / 4,
             device.displayWidth / 2,
             device.displayHeight / 4,
-            20
-        )
-        device.waitForIdle()
-    }
-
-    private fun swipeDown(device: UiDevice) {
-        device.swipe(
-            device.displayWidth / 2,
-            device.displayHeight / 4,
-            device.displayWidth / 2,
-            device.displayHeight * 3 / 4,
             20
         )
         device.waitForIdle()
