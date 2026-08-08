@@ -4,7 +4,6 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
-import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.UiScrollable
@@ -234,42 +233,47 @@ class HistoryDeletionFlowTest {
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
         visibleNode(device, text)?.let { return it }
 
-        // The restored reference is already partially visible, so bind scrolling to
-        // the scrollable accessibility ancestor that actually contains that card.
-        // This avoids guessing at screen coordinates or asking UiScrollable to pick
-        // among multiple Compose semantics containers created by the filter controls.
-        val anchor = visibleNode(device, UNIQUE_TITLE) ?: visibleNode(device, UNIQUE_CONTENT)
-        val historyList = anchor?.let(::scrollableAncestor)
-            ?: device.findObjects(By.scrollable(true)).firstOrNull { !it.visibleBounds.isEmpty }
-        if (historyList != null) {
-            repeat(8) {
-                runCatching { historyList.scroll(Direction.DOWN, 0.8f) }
-                device.waitForIdle()
+        // On the restored History screen the saved card begins at the bottom edge while
+        // filter controls occupy the centre of the display. A generic centre-screen
+        // swipe can therefore start on a filter button and never reach the History list.
+        // Start the gesture on the restored card itself so Compose delivers it to the
+        // vertical History container and the card's actions become visible deterministically.
+        repeat(8) {
+            val anchor = visibleNode(device, UNIQUE_TITLE) ?: visibleNode(device, UNIQUE_CONTENT)
+            if (anchor != null) {
+                val card = ancestorWithDescendantText(anchor, UNIQUE_CONTENT) ?: anchor
+                swipeUpFromNode(device, card)
+            } else {
+                swipeUp(device)
+            }
+            visibleNode(device, text)?.let { return it }
+        }
+
+        // Retain the accessibility fallback for screens reached after detail navigation,
+        // where the list may have restored to a different offset.
+        repeat(8) {
+            if (accessibilityScrollIntoView(device, text)) {
                 visibleNode(device, text)?.let { return it }
             }
-            repeat(8) {
-                runCatching { historyList.scroll(Direction.UP, 0.8f) }
-                device.waitForIdle()
-                visibleNode(device, text)?.let { return it }
-            }
-            repeat(8) {
-                runCatching { historyList.scroll(Direction.DOWN, 0.8f) }
-                device.waitForIdle()
-                visibleNode(device, text)?.let { return it }
-            }
+            swipeUp(device)
+            visibleNode(device, text)?.let { return it }
         }
 
         capture(device, "/data/local/tmp/drop-history-scroll-failure.png")
         throw AssertionError("Expected visible text after scrolling: $text")
     }
 
-    private fun scrollableAncestor(node: UiObject2): UiObject2? {
-        var current: UiObject2? = node
-        while (current != null) {
-            if (current.isScrollable) return current
-            current = current.parent
+    private fun swipeUpFromNode(device: UiDevice, node: UiObject2) {
+        val bounds = node.visibleBounds
+        if (bounds.isEmpty) {
+            swipeUp(device)
+            return
         }
-        return null
+        val x = bounds.centerX().coerceIn(48, device.displayWidth - 48)
+        val startY = (bounds.bottom - 24).coerceIn(device.displayHeight / 2, device.displayHeight - 80)
+        val endY = (device.displayHeight / 3).coerceAtMost(startY - 120)
+        device.swipe(x, startY, x, endY, 24)
+        device.waitForIdle()
     }
 
     private fun visibleNode(device: UiDevice, text: String): UiObject2? {
