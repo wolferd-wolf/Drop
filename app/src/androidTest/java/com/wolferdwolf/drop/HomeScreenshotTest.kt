@@ -209,8 +209,7 @@ class HomeScreenshotTest {
                 return candidates.minBy { it.visibleBounds.width() * it.visibleBounds.height() }
             }
             if (attempt < MAX_SCROLL_ATTEMPTS) {
-                device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
-                device.waitForIdle()
+                swipeUp(device)
             }
         }
         throw AssertionError("Expected actionable control after scrolling: $text")
@@ -250,13 +249,50 @@ class HomeScreenshotTest {
             .let { device.findObject(By.text(text)) }
 
     private fun assertVisibleAfterScroll(device: UiDevice, text: String, message: String): UiObject2 {
-        device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT_MILLIS)?.let { return it }
+        visibleText(device, text)?.let { return it }
+
         repeat(MAX_SCROLL_ATTEMPTS) {
-            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
-            device.waitForIdle()
-            device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT_MILLIS)?.let { return it }
+            swipeUp(device)
+            visibleText(device, text)?.let { return it }
         }
-        return device.findObject(By.text(text)) ?: throw AssertionError(message)
+
+        repeat(MAX_SCROLL_ATTEMPTS * 2) {
+            swipeDown(device)
+            visibleText(device, text)?.let { return it }
+        }
+
+        repeat(MAX_SCROLL_ATTEMPTS * 2) {
+            swipeUp(device)
+            visibleText(device, text)?.let { return it }
+        }
+
+        throw AssertionError(message)
+    }
+
+    private fun visibleText(device: UiDevice, text: String): UiObject2? =
+        device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT_MILLIS)
+            ?.takeIf { !it.visibleBounds.isEmpty }
+
+    private fun swipeUp(device: UiDevice) {
+        device.swipe(
+            device.displayWidth / 2,
+            device.displayHeight * 3 / 4,
+            device.displayWidth / 2,
+            device.displayHeight / 4,
+            20
+        )
+        device.waitForIdle()
+    }
+
+    private fun swipeDown(device: UiDevice) {
+        device.swipe(
+            device.displayWidth / 2,
+            device.displayHeight / 4,
+            device.displayWidth / 2,
+            device.displayHeight * 3 / 4,
+            20
+        )
+        device.waitForIdle()
     }
 
     private fun assertObject(device: UiDevice, selector: BySelector, message: String): UiObject2 =
