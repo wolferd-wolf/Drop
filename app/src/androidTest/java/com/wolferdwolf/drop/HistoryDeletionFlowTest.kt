@@ -6,6 +6,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
+import androidx.test.uiautomator.UiScrollable
+import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -80,12 +82,13 @@ class HistoryDeletionFlowTest {
 
         clickText(device, "Back to History")
         visible(device, "Saved actions")
-        val restoredTitle = visible(device, UNIQUE_TITLE)
-        val card = ancestorWithDescendantText(restoredTitle, "Delete")
-            ?: throw AssertionError("Saved reference card must expose Delete")
-        val delete = card.findObject(By.text("Delete"))
+        visible(device, UNIQUE_TITLE)
+        val delete = visibleAfterScroll(device, "Delete")
+        val card = ancestorWithDescendantText(delete, UNIQUE_TITLE)
+            ?: throw AssertionError("Saved reference Delete must belong to the expected card")
+        val cardDelete = card.findObject(By.text("Delete"))
             ?: throw AssertionError("Delete control is missing from saved reference card")
-        tapResolvedTarget(device, delete)
+        tapResolvedTarget(device, cardDelete)
         device.waitForIdle()
 
         val historyDialogTitle = visible(device, "Delete saved reference?")
@@ -94,12 +97,12 @@ class HistoryDeletionFlowTest {
         clickDialogButton(device, historyDialogTitle, "Keep reference")
         visible(device, UNIQUE_TITLE)
 
-        val titleAfterCancel = visible(device, UNIQUE_TITLE)
-        val cardAfterCancel = ancestorWithDescendantText(titleAfterCancel, "Delete")
+        val deleteAfterCancel = visibleAfterScroll(device, "Delete")
+        val cardAfterCancel = ancestorWithDescendantText(deleteAfterCancel, UNIQUE_TITLE)
             ?: throw AssertionError("Saved reference must remain after cancelling deletion")
-        val deleteAfterCancel = cardAfterCancel.findObject(By.text("Delete"))
+        val finalDelete = cardAfterCancel.findObject(By.text("Delete"))
             ?: throw AssertionError("Delete control must remain after cancelling deletion")
-        tapResolvedTarget(device, deleteAfterCancel)
+        tapResolvedTarget(device, finalDelete)
         val finalDialogTitle = visible(device, "Delete saved reference?")
         clickDialogButton(device, finalDialogTitle, "Delete")
         device.waitForIdle()
@@ -241,6 +244,14 @@ class HistoryDeletionFlowTest {
 
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
         device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)?.let { return it }
+
+        val scrollable = UiScrollable(UiSelector().scrollable(true)).apply { setAsVerticalList() }
+        if (scrollable.exists()) {
+            runCatching { scrollable.scrollIntoView(UiSelector().text(text)) }
+            device.waitForIdle()
+            device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)?.let { return it }
+        }
+
         repeat(8) {
             device.swipe(
                 device.displayWidth / 2,
