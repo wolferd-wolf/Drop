@@ -1,0 +1,260 @@
+name: Curated Contact Email Patch
+
+on:
+  push:
+    branches:
+      - automation/calendar-normal-flow-verification
+    paths:
+      - .github/workflows/curated-contact-email-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch curated Contact and Email flow
+        shell: python
+        run: |
+          from pathlib import Path
+
+          main = Path('app/src/main/java/com/wolferdwolf/drop/MainActivity.kt')
+          text = main.read_text()
+          old = '''            SuggestedActionType.CONTACT -> startActivity(
+                Intent(this, ContactConfirmationActivity::class.java)
+                    .putExtra(ContactConfirmationActivity.EXTRA_SOURCE_TEXT, text)
+            )'''
+          new = '''            SuggestedActionType.CONTACT -> startActivity(
+                Intent(this, ContactConfirmationActivity::class.java)
+                    .putExtra(ContactConfirmationActivity.EXTRA_SOURCE_TEXT, text)
+                    .putExtra(ContactConfirmationActivity.EXTRA_HAS_CURATED_RESULTS, true)
+                    .putExtra(ContactConfirmationActivity.EXTRA_CURATED_PHONE, first(results, ExtractionType.PHONE).orEmpty())
+                    .putExtra(ContactConfirmationActivity.EXTRA_CURATED_EMAIL, first(results, ExtractionType.EMAIL).orEmpty())
+            )'''
+          if old not in text:
+              raise SystemExit('Contact route patch target missing')
+          text = text.replace(old, new, 1)
+          old = '''            SuggestedActionType.EMAIL -> startActivity(
+                Intent(this, EmailConfirmationActivity::class.java)
+                    .putExtra(EmailConfirmationActivity.EXTRA_SOURCE_TEXT, text)
+            )'''
+          new = '''            SuggestedActionType.EMAIL -> startActivity(
+                Intent(this, EmailConfirmationActivity::class.java)
+                    .putExtra(EmailConfirmationActivity.EXTRA_SOURCE_TEXT, text)
+                    .putExtra(EmailConfirmationActivity.EXTRA_HAS_CURATED_RESULTS, true)
+                    .putExtra(EmailConfirmationActivity.EXTRA_CURATED_EMAIL, first(results, ExtractionType.EMAIL).orEmpty())
+            )'''
+          if old not in text:
+              raise SystemExit('Email route patch target missing')
+          main.write_text(text.replace(old, new, 1))
+
+          contact = Path('app/src/main/java/com/wolferdwolf/drop/contact/ContactConfirmationActivity.kt')
+          text = contact.read_text()
+          old = '''        val extracted = RuleBasedExtractor.extract(source)
+        val initialPhone = extracted.firstOrNull { it.type == ExtractionType.PHONE }?.value.orEmpty()
+        val initialEmail = extracted.firstOrNull { it.type == ExtractionType.EMAIL }?.value.orEmpty()
+        val initialName = labelledValue(source, NAME_LABELS)'''
+          new = '''        val hasCuratedResults = intent.getBooleanExtra(EXTRA_HAS_CURATED_RESULTS, false)
+        val extracted = if (hasCuratedResults) emptyList() else RuleBasedExtractor.extract(source)
+        val initialPhone = if (hasCuratedResults) {
+            intent.getStringExtra(EXTRA_CURATED_PHONE).orEmpty()
+        } else {
+            extracted.firstOrNull { it.type == ExtractionType.PHONE }?.value.orEmpty()
+        }
+        val initialEmail = if (hasCuratedResults) {
+            intent.getStringExtra(EXTRA_CURATED_EMAIL).orEmpty()
+        } else {
+            extracted.firstOrNull { it.type == ExtractionType.EMAIL }?.value.orEmpty()
+        }
+        val initialName = labelledValue(source, NAME_LABELS)'''
+          if old not in text:
+              raise SystemExit('Contact prefill patch target missing')
+          text = text.replace(old, new, 1)
+          old = '''        const val EXTRA_SOURCE_TEXT = "source_text"
+        private const val MAX_NAME_LENGTH = 120'''
+          new = '''        const val EXTRA_SOURCE_TEXT = "source_text"
+        const val EXTRA_HAS_CURATED_RESULTS = "has_curated_results"
+        const val EXTRA_CURATED_PHONE = "curated_phone"
+        const val EXTRA_CURATED_EMAIL = "curated_email"
+        private const val MAX_NAME_LENGTH = 120'''
+          if old not in text:
+              raise SystemExit('Contact extras patch target missing')
+          contact.write_text(text.replace(old, new, 1))
+
+          email = Path('app/src/main/java/com/wolferdwolf/drop/email/EmailConfirmationActivity.kt')
+          text = email.read_text()
+          old = '''        val extractedEmail = RuleBasedExtractor.extract(source)
+            .firstOrNull { it.type == ExtractionType.EMAIL }
+            ?.value
+            .orEmpty()
+        val initialSubject = subjectFrom(source)'''
+          new = '''        val hasCuratedResults = intent.getBooleanExtra(EXTRA_HAS_CURATED_RESULTS, false)
+        val extractedEmail = if (hasCuratedResults) {
+            intent.getStringExtra(EXTRA_CURATED_EMAIL).orEmpty()
+        } else {
+            RuleBasedExtractor.extract(source)
+                .firstOrNull { it.type == ExtractionType.EMAIL }
+                ?.value
+                .orEmpty()
+        }
+        val initialSubject = subjectFrom(source)'''
+          if old not in text:
+              raise SystemExit('Email prefill patch target missing')
+          text = text.replace(old, new, 1)
+          old = '''        const val EXTRA_SOURCE_TEXT = "source_text"
+        private const val MAX_EMAIL_LENGTH = 254'''
+          new = '''        const val EXTRA_SOURCE_TEXT = "source_text"
+        const val EXTRA_HAS_CURATED_RESULTS = "has_curated_results"
+        const val EXTRA_CURATED_EMAIL = "curated_email"
+        private const val MAX_EMAIL_LENGTH = 254'''
+          if old not in text:
+              raise SystemExit('Email extras patch target missing')
+          email.write_text(text.replace(old, new, 1))
+
+          test = Path('app/src/androidTest/java/com/wolferdwolf/drop/CuratedContactEmailFlowTest.kt')
+          test.write_text(r'''package com.wolferdwolf.drop
+
+import androidx.test.core.app.ActivityScenario
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject2
+import androidx.test.uiautomator.Until
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class CuratedContactEmailFlowTest {
+    @Test
+    fun editedPhoneAndEmailReachContactAndEmailConfirmations() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            clickText(device, "Paste text")
+            objectFor(device, By.clazz("android.widget.EditText"), "Paste input missing").text =
+                "Name: Priya Rao\nPhone: +91 98765 43210\nEmail: old@example.com"
+            dismissKeyboard(device)
+            clickText(device, "Continue")
+            clickText(device, "Extract details")
+            visible(device, "Extracted information")
+
+            edit(device, "+91 98765 43210", "+91 91234 56789")
+            edit(device, "old@example.com", "edited@example.com")
+            clickText(device, "See suggested actions", true)
+            visible(device, "Suggested actions")
+
+            clickTextAndWait(device, "Save contact", "Confirm contact details")
+            objectFor(device, By.clazz("android.widget.EditText").text("+91 91234 56789"), "Edited phone did not reach Contact confirmation")
+            objectFor(device, By.clazz("android.widget.EditText").text("edited@example.com"), "Edited email did not reach Contact confirmation")
+            assertTrue("Stale phone reappeared in Contact confirmation", device.findObject(By.text("+91 98765 43210")) == null)
+            assertTrue("Stale email reappeared in Contact confirmation", device.findObject(By.text("old@example.com")) == null)
+            capture(device, "/data/local/tmp/drop-contact-curated-values.png")
+            clickText(device, "Cancel", true)
+            visible(device, "Suggested actions")
+
+            clickTextAndWait(device, "Send email", "Confirm email")
+            objectFor(device, By.clazz("android.widget.EditText").text("edited@example.com"), "Edited email did not reach Email confirmation")
+            assertTrue("Stale email reappeared in Email confirmation", device.findObject(By.text("old@example.com")) == null)
+            capture(device, "/data/local/tmp/drop-email-curated-values.png")
+        }
+    }
+
+    private fun edit(device: UiDevice, oldValue: String, newValue: String) {
+        val field = objectFor(device, By.clazz("android.widget.EditText").text(oldValue), "Missing extracted value: $oldValue")
+        field.click(); field.text = newValue; dismissKeyboard(device)
+        objectFor(device, By.clazz("android.widget.EditText").text(newValue), "Edited value was not committed: $newValue")
+    }
+
+    private fun clickText(device: UiDevice, text: String, scroll: Boolean = false) {
+        val node = if (scroll) visibleAfterScroll(device, text) else visible(device, text)
+        tap(device, node); device.waitForIdle()
+    }
+
+    private fun clickTextAndWait(device: UiDevice, source: String, destination: String) {
+        repeat(2) {
+            tap(device, actionTargetAfterScroll(device, source))
+            if (device.wait(Until.findObject(By.text(destination)), TIMEOUT) != null) return
+            device.waitForIdle()
+        }
+        throw AssertionError("Expected $destination after $source")
+    }
+
+    private fun actionTargetAfterScroll(device: UiDevice, text: String): UiObject2 {
+        repeat(9) { attempt ->
+            val candidates = device.findObjects(By.text(text)).mapNotNull(::clickableAncestor).filter { !it.visibleBounds.isEmpty }
+            if (candidates.isNotEmpty()) return candidates.minBy { it.visibleBounds.width() * it.visibleBounds.height() }
+            if (attempt < 8) {
+                device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
+                device.waitForIdle()
+            }
+        }
+        throw AssertionError("Expected actionable control: $text")
+    }
+
+    private fun tap(device: UiDevice, node: UiObject2) {
+        val target = clickableAncestor(node) ?: node
+        val b = target.visibleBounds
+        assertTrue("Target has no tappable area", !b.isEmpty)
+        assertTrue("Tap failed", device.click(b.centerX(), b.centerY()))
+    }
+
+    private fun clickableAncestor(node: UiObject2): UiObject2? {
+        var current: UiObject2? = node
+        while (current != null) { if (current.isClickable) return current; current = current.parent }
+        return null
+    }
+
+    private fun dismissKeyboard(device: UiDevice) {
+        device.executeShellCommand("input keyevent KEYCODE_ESCAPE"); device.waitForIdle()
+    }
+
+    private fun visible(device: UiDevice, text: String): UiObject2 =
+        assertNotNull("Expected visible text: $text", device.wait(Until.findObject(By.text(text)), TIMEOUT)).let { device.findObject(By.text(text)) }
+
+    private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
+        device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)?.let { return it }
+        repeat(8) {
+            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
+            device.waitForIdle()
+            device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)?.let { return it }
+        }
+        throw AssertionError("Expected visible text after scrolling: $text")
+    }
+
+    private fun objectFor(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
+        assertNotNull(message, device.wait(Until.findObject(selector), TIMEOUT)).let { device.findObject(selector) }
+
+    private fun capture(device: UiDevice, path: String) {
+        device.waitForIdle(); device.executeShellCommand("rm -f $path"); device.executeShellCommand("screencap -p $path")
+        assertTrue(device.executeShellCommand("ls -l $path").contains(path.substringAfterLast('/')))
+    }
+
+    private companion object { const val TIMEOUT = 20_000L; const val SHORT_TIMEOUT = 2_000L }
+}
+''')
+
+          runner = Path('.github/scripts/run-screenshot-tests.sh')
+          text = runner.read_text()
+          needle = '  drop-contact-confirmation\n'
+          replacement = '  drop-contact-confirmation\n  drop-contact-curated-values\n  drop-email-curated-values\n'
+          if needle not in text:
+              raise SystemExit('Screenshot list patch target missing')
+          runner.write_text(text.replace(needle, replacement, 1))
+      - name: Commit patch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/main/java/com/wolferdwolf/drop/MainActivity.kt \
+                  app/src/main/java/com/wolferdwolf/drop/contact/ContactConfirmationActivity.kt \
+                  app/src/main/java/com/wolferdwolf/drop/email/EmailConfirmationActivity.kt \
+                  app/src/androidTest/java/com/wolferdwolf/drop/CuratedContactEmailFlowTest.kt \
+                  .github/scripts/run-screenshot-tests.sh
+          git diff --cached --quiet && exit 0
+          git commit -m "Preserve curated values in Contact and Email actions"
+          git push origin HEAD:automation/calendar-normal-flow-verification
