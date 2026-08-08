@@ -4,10 +4,9 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
-import androidx.test.uiautomator.UiScrollable
-import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -188,14 +187,7 @@ class HistoryDeletionFlowTest {
                 return candidates.minBy { it.visibleBounds.width() * it.visibleBounds.height() }
             }
             if (attempt < 8) {
-                device.swipe(
-                    device.displayWidth / 2,
-                    device.displayHeight * 3 / 4,
-                    device.displayWidth / 2,
-                    device.displayHeight / 4,
-                    20
-                )
-                device.waitForIdle()
+                scrollLargestSurface(device)
             }
         }
         throw AssertionError("Expected actionable control after scrolling: $text")
@@ -243,16 +235,28 @@ class HistoryDeletionFlowTest {
             .let { device.findObject(By.text(text)) }
 
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
-        device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)?.let { return it }
-
-        val scrollable = UiScrollable(UiSelector().scrollable(true)).apply { setAsVerticalList() }
-        if (scrollable.exists()) {
-            runCatching { scrollable.scrollIntoView(UiSelector().text(text)) }
-            device.waitForIdle()
-            device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)?.let { return it }
+        visibleNode(device, text)?.let { return it }
+        repeat(10) {
+            scrollLargestSurface(device)
+            visibleNode(device, text)?.let { return it }
         }
+        throw AssertionError("Expected visible text after scrolling: $text")
+    }
 
-        repeat(8) {
+    private fun visibleNode(device: UiDevice, text: String): UiObject2? {
+        device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)
+        return device.findObjects(By.text(text)).firstOrNull { node ->
+            val bounds = node.visibleBounds
+            !bounds.isEmpty && bounds.bottom > 0 && bounds.top < device.displayHeight
+        }
+    }
+
+    private fun scrollLargestSurface(device: UiDevice) {
+        val scrollable = device.findObjects(By.scrollable(true))
+            .filter { !it.visibleBounds.isEmpty }
+            .maxByOrNull { it.visibleBounds.width() * it.visibleBounds.height() }
+        val scrolled = scrollable?.let { runCatching { it.scroll(Direction.DOWN, 0.8f) }.getOrDefault(false) } == true
+        if (!scrolled) {
             device.swipe(
                 device.displayWidth / 2,
                 device.displayHeight * 3 / 4,
@@ -260,10 +264,8 @@ class HistoryDeletionFlowTest {
                 device.displayHeight / 4,
                 20
             )
-            device.waitForIdle()
-            device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)?.let { return it }
         }
-        return device.findObject(By.text(text)) ?: throw AssertionError("Expected visible text after scrolling: $text")
+        device.waitForIdle()
     }
 
     private fun objectFor(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
