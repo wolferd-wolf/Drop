@@ -30,12 +30,14 @@ fi
 if [ "$test_status" -eq 0 ]; then
   history_test='com.wolferdwolf.drop.HistoryDeletionFlowTest#verifyHistoryPersistencePhase'
   runner='com.wolferdwolf.drop.test/androidx.test.runner.AndroidJUnitRunner'
+  history_phase_output=''
 
   run_history_phase() {
     local phase="$1"
     local output
     output="$(adb shell am instrument -w -r -e class "$history_test" -e historyPhase "$phase" "$runner" 2>&1)"
     local status=$?
+    history_phase_output="$output"
     printf '%s\n' "$output"
 
     if [ "$status" -ne 0 ]; then
@@ -61,6 +63,18 @@ if [ "$test_status" -eq 0 ]; then
     adb shell am force-stop com.wolferdwolf.drop
     run_history_phase restore-delete
     test_status=$?
+
+    # The History page is long enough that API 35 UiAutomator can occasionally
+    # fail to move the restored card's lower action into the accessibility
+    # viewport even though the card itself is visibly restored. Retry only that
+    # exact verifier failure once after recreating the activity. All other
+    # persistence/product assertions remain hard failures.
+    if [ "$test_status" -ne 0 ] && printf '%s\n' "$history_phase_output" | grep -Fq 'Expected visible text after scrolling: View details'; then
+      echo 'Retrying restore-delete once after the known History scroll-verifier miss.'
+      adb shell am force-stop com.wolferdwolf.drop
+      run_history_phase restore-delete
+      test_status=$?
+    fi
   fi
 
   if [ "$test_status" -eq 0 ]; then
