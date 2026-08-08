@@ -232,17 +232,17 @@ class HistoryDeletionFlowTest {
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
         visibleNode(device, text)?.let { return it }
 
-        val scrollable = device.findObjects(By.scrollable(true)).firstOrNull { !it.visibleBounds.isEmpty }
+        val scrollable = verticalScrollable(device)
         if (scrollable != null) {
             repeat(12) {
-                runCatching { scrollable.scroll(Direction.DOWN, 0.82f) }
+                runCatching { scrollable.scroll(Direction.UP, 0.82f) }
                 device.waitForIdle()
                 visibleNode(device, text)?.let { return it }
             }
         }
 
         repeat(12) {
-            device.executeShellCommand("input swipe 48 ${device.displayHeight * 4 / 5} 48 ${device.displayHeight / 4} 420")
+            swipeContentUp(device, scrollable)
             device.waitForIdle()
             visibleNode(device, text)?.let { return it }
         }
@@ -266,13 +266,28 @@ class HistoryDeletionFlowTest {
     }
 
     private fun modernScrollForward(device: UiDevice) {
-        val scrollable = device.findObjects(By.scrollable(true)).firstOrNull { !it.visibleBounds.isEmpty }
+        val scrollable = verticalScrollable(device)
         if (scrollable != null) {
-            runCatching { scrollable.scroll(Direction.DOWN, 0.65f) }
+            runCatching { scrollable.scroll(Direction.UP, 0.65f) }
         } else {
-            device.executeShellCommand("input swipe 48 ${device.displayHeight * 4 / 5} 48 ${device.displayHeight / 4} 420")
+            swipeContentUp(device, null)
             device.waitForIdle()
         }
+    }
+
+    private fun verticalScrollable(device: UiDevice): UiObject2? =
+        device.findObjects(By.scrollable(true))
+            .filter { !it.visibleBounds.isEmpty }
+            .maxByOrNull { it.visibleBounds.height() }
+
+    private fun swipeContentUp(device: UiDevice, scrollable: UiObject2?) {
+        val bounds = scrollable?.visibleBounds
+        val x = bounds?.centerX() ?: device.displayWidth / 2
+        val top = bounds?.top?.coerceAtLeast(0) ?: 0
+        val bottom = bounds?.bottom?.coerceAtMost(device.displayHeight) ?: device.displayHeight
+        val startY = top + ((bottom - top) * 4 / 5)
+        val endY = top + ((bottom - top) / 4)
+        device.executeShellCommand("input swipe $x $startY $x $endY 420")
     }
 
     private fun objectFor(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
