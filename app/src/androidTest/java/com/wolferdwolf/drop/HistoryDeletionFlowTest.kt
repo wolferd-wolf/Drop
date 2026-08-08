@@ -233,18 +233,20 @@ class HistoryDeletionFlowTest {
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
         visibleNode(device, text)?.let { return it }
 
-        if (accessibilityScrollIntoView(device, text)) {
+        // History can restore at different list offsets after process recreation and
+        // detail navigation. Search both directions using the same direct swipes that
+        // already prove reliable in the reference edit flow instead of depending on
+        // UiScrollable choosing the correct Compose container.
+        repeat(10) {
+            swipeUp(device)
             visibleNode(device, text)?.let { return it }
         }
-
-        repeat(12) {
-            accessibilityScrollForward()
-            device.waitForIdle()
+        repeat(18) {
+            swipeDown(device)
             visibleNode(device, text)?.let { return it }
-
-            swipeVisibleContentUp(device)
-            device.waitForIdle()
-            Thread.sleep(300)
+        }
+        repeat(18) {
+            swipeUp(device)
             visibleNode(device, text)?.let { return it }
         }
         capture(device, "/data/local/tmp/drop-history-scroll-failure.png")
@@ -261,7 +263,7 @@ class HistoryDeletionFlowTest {
 
     private fun scrollIntoView(device: UiDevice, text: String) {
         if (visibleNode(device, text) != null) return
-        if (!accessibilityScrollIntoView(device, text)) modernScrollForward(device)
+        if (!accessibilityScrollIntoView(device, text)) swipeUp(device)
         device.waitForIdle()
         Thread.sleep(300)
     }
@@ -297,22 +299,30 @@ class HistoryDeletionFlowTest {
 
     private fun modernScrollForward(device: UiDevice) {
         accessibilityScrollForward()
-        swipeVisibleContentUp(device)
+        swipeUp(device)
         device.waitForIdle()
     }
 
-    private fun swipeVisibleContentUp(device: UiDevice) {
-        // Start inside the actual restored reference card. The previous verifier
-        // clamped this Y coordinate to 75% of the screen, which landed on the
-        // date-filter buttons and prevented Compose's History list from owning
-        // the gesture even though the saved-card text was visible below them.
-        val anchor = visibleNode(device, UNIQUE_CONTENT) ?: visibleNode(device, UNIQUE_TITLE)
-        val bounds = anchor?.visibleBounds
-            ?: throw AssertionError("Expected visible saved-reference content before History swipe")
-        val x = bounds.centerX().coerceIn(device.displayWidth / 4, device.displayWidth * 3 / 4)
-        val startY = bounds.centerY().coerceIn(device.displayHeight / 2, device.displayHeight - 160)
-        val endY = (device.displayHeight / 3).coerceAtMost(startY - 200)
-        device.executeShellCommand("input swipe $x $startY $x $endY 450")
+    private fun swipeUp(device: UiDevice) {
+        device.swipe(
+            device.displayWidth / 2,
+            device.displayHeight * 3 / 4,
+            device.displayWidth / 2,
+            device.displayHeight / 4,
+            20
+        )
+        device.waitForIdle()
+    }
+
+    private fun swipeDown(device: UiDevice) {
+        device.swipe(
+            device.displayWidth / 2,
+            device.displayHeight / 4,
+            device.displayWidth / 2,
+            device.displayHeight * 3 / 4,
+            20
+        )
+        device.waitForIdle()
     }
 
     private fun objectFor(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
