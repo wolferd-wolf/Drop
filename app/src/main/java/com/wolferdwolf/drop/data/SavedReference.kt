@@ -5,5 +5,6 @@ data class SavedReference(
     val title: String,
     val originalText: String,
     val createdAtEpochMillis: Long,
-    val notes: String = ""
+    val notes: String = "",
+    val sourceType: SavedSourceType = SavedSourceType.UNKNOWN
 )

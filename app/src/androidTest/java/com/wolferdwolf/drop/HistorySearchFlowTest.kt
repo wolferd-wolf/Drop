@@ -7,6 +7,7 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.wolferdwolf.drop.data.SavedReferenceStore
+import com.wolferdwolf.drop.data.SavedSourceType
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -21,10 +22,11 @@ class HistorySearchFlowTest {
         val first = store.save(
             "Café quarterly wolf strategy",
             "Operations review notes for the northern region. Call +91 98765-43210.",
-            now = 9_001L
+            now = 9_001L,
+            sourceType = SavedSourceType.TEXT
         )
-        val second = store.save("Supplier invoice", "Replacement bearings and machine oil.", now = 9_002L)
-        val recent = store.save("Today field note", "Fresh maintenance note saved today.", now = System.currentTimeMillis())
+        val second = store.save("Supplier invoice", "Replacement bearings and machine oil.", now = 9_002L, sourceType = SavedSourceType.PDF)
+        val recent = store.save("Today field note", "Fresh maintenance note saved today.", now = System.currentTimeMillis(), sourceType = SavedSourceType.IMAGE)
 
         try {
             ActivityScenario.launch(MainActivity::class.java).use {
@@ -35,6 +37,12 @@ class HistorySearchFlowTest {
                 visible(device, "All")
                 visible(device, "Saved items")
                 visible(device, "Reminders")
+                visible(device, "Filter saved items by source")
+                visible(device, "All sources")
+                visible(device, "Text")
+                visible(device, "Link")
+                visible(device, "Image")
+                visible(device, "PDF")
 
                 val search = assertNotNull(
                     "History search field is missing",
@@ -47,6 +55,16 @@ class HistorySearchFlowTest {
                 assertTrue("History search must match accented saved text without requiring accent input", device.wait(Until.hasObject(By.text("Café quarterly wolf strategy")), TIMEOUT))
                 assertTrue("Unrelated reference must be filtered out", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-search-result.png")
+
+                search.text = ""
+                dismissKeyboard(device)
+                clickExactText(device, "PDF")
+                visible(device, "Supplier invoice")
+                visible(device, "Source: PDF")
+                assertTrue("PDF source filter must hide text references", device.wait(Until.gone(By.text("Café quarterly wolf strategy")), TIMEOUT))
+                assertTrue("PDF source filter must hide image references", device.wait(Until.gone(By.text("Today field note")), TIMEOUT))
+                capture(device, "/data/local/tmp/drop-history-filter-pdf-source.png")
+                clickExactText(device, "All sources")
 
                 search.text = ""
                 dismissKeyboard(device)

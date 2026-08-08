@@ -1,5 +1,6 @@
 package com.wolferdwolf.drop.history
 
+import com.wolferdwolf.drop.data.SavedSourceType
 import java.text.Normalizer
 import java.util.Calendar
 
@@ -14,6 +15,14 @@ enum class HistoryDateFilter {
     TODAY,
     LAST_7_DAYS,
     LAST_30_DAYS
+}
+
+enum class HistorySourceFilter {
+    ALL,
+    TEXT,
+    LINK,
+    IMAGE,
+    PDF
 }
 
 object HistorySearch {
@@ -32,6 +41,14 @@ object HistorySearch {
 
     fun includesReminders(filter: HistoryItemFilter): Boolean =
         filter == HistoryItemFilter.ALL || filter == HistoryItemFilter.REMINDERS
+
+    fun matchesSource(filter: HistorySourceFilter, sourceType: SavedSourceType): Boolean = when (filter) {
+        HistorySourceFilter.ALL -> true
+        HistorySourceFilter.TEXT -> sourceType == SavedSourceType.TEXT
+        HistorySourceFilter.LINK -> sourceType == SavedSourceType.LINK
+        HistorySourceFilter.IMAGE -> sourceType == SavedSourceType.IMAGE
+        HistorySourceFilter.PDF -> sourceType == SavedSourceType.PDF
+    }
 
     fun matchesDate(
         filter: HistoryDateFilter,

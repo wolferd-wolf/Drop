@@ -44,6 +44,7 @@ import com.wolferdwolf.drop.call.CallConfirmationActivity
 import com.wolferdwolf.drop.contact.ContactConfirmationActivity
 import com.wolferdwolf.drop.data.SavedReference
 import com.wolferdwolf.drop.data.SavedReferenceStore
+import com.wolferdwolf.drop.data.SavedSourceType
 import com.wolferdwolf.drop.email.EmailConfirmationActivity
 import com.wolferdwolf.drop.extraction.EditableExtractionResults
 import com.wolferdwolf.drop.extraction.EditableExtractionState
@@ -53,6 +54,7 @@ import com.wolferdwolf.drop.extraction.RuleBasedExtractor
 import com.wolferdwolf.drop.history.HistoryDateFilter
 import com.wolferdwolf.drop.history.HistoryItemFilter
 import com.wolferdwolf.drop.history.HistorySearch
+import com.wolferdwolf.drop.history.HistorySourceFilter
 import com.wolferdwolf.drop.link.OpenLinkConfirmationActivity
 import com.wolferdwolf.drop.maps.MapConfirmationActivity
 import com.wolferdwolf.drop.ocr.ImageOcrProcessor
@@ -67,6 +69,7 @@ import com.wolferdwolf.drop.ui.theme.DropTheme
 
 class MainActivity : ComponentActivity() {
     private var sourceText by mutableStateOf<String?>(null)
+    private var sourceType by mutableStateOf(SavedSourceType.UNKNOWN)
     private var editedResults by mutableStateOf<List<ExtractionResult>?>(null)
     private var screen by mutableStateOf(Screen.HOME)
     private var references by mutableStateOf<List<SavedReference>>(emptyList())
@@ -97,6 +100,12 @@ class MainActivity : ComponentActivity() {
             ?.takeIf { it >= 0L }
             ?.let { id -> references.firstOrNull { it.id == id } }
         sourceText = savedInstanceState?.getString(STATE_TEXT) ?: SharedTextParser.parse(intent)
+        sourceType = SavedSourceType.fromStored(
+            savedInstanceState?.getString(STATE_SOURCE_TYPE) ?: intent.getStringExtra(EXTRA_SOURCE_TYPE)
+        )
+        if (sourceType == SavedSourceType.UNKNOWN && sourceText != null) {
+            sourceType = inferSharedTextSource(sourceText.orEmpty())
+        }
         editedResults = EditableExtractionState.decode(
             savedInstanceState?.getBoolean(STATE_HAS_EDITED_RESULTS, false) == true,
             savedInstanceState?.getStringArrayList(STATE_EDITED_RESULTS)
@@ -145,9 +154,9 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     } ?: run { screen = Screen.HISTORY }
-                    Screen.TEXT_ENTRY -> EntryScreen("Paste text", false, { screen = Screen.HOME }, ::beginFlow)
-                    Screen.LINK_ENTRY -> EntryScreen("Add link", true, { screen = Screen.HOME }, ::beginFlow)
-                    Screen.PREVIEW -> if (text == null) reset() else PreviewScreen(text, ::reset) {
+                    Screen.TEXT_ENTRY -> EntryScreen("Paste text", false, { screen = Screen.HOME }) { beginFlow(it, SavedSourceType.TEXT) }
+                    Screen.LINK_ENTRY -> EntryScreen("Add link", true, { screen = Screen.HOME }) { beginFlow(it, SavedSourceType.LINK) }
+                    Screen.PREVIEW -> if (text == null) reset() else PreviewScreen(text, sourceType.label, ::reset) {
                         sourceText = it
                         editedResults = null
                         screen = Screen.EXTRACTION
@@ -178,7 +187,7 @@ class MainActivity : ComponentActivity() {
                         SavedReferenceStore.defaultTitle(text),
                         { screen = Screen.ACTIONS }
                     ) { title ->
-                        runCatching { referenceStore.save(title, text) }
+                        runCatching { referenceStore.save(title, text, sourceType = sourceType) }
                             .onSuccess { refreshHistory(); reset() }
                             .exceptionOrNull()?.message
                     }
@@ -186,7 +195,7 @@ class MainActivity : ComponentActivity() {
                         text,
                         { screen = Screen.ACTIONS }
                     ) { value ->
-                        runCatching { referenceStore.save("Checklist", value) }
+                        runCatching { referenceStore.save("Checklist", value, sourceType = sourceType) }
                             .onSuccess { refreshHistory(); reset() }
                             .exceptionOrNull()?.message
                     }
@@ -203,11 +212,12 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        SharedTextParser.parse(intent)?.let(::beginFlow)
+        SharedTextParser.parse(intent)?.let { beginFlow(it, resolveSourceType(intent, it)) }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString(STATE_TEXT, sourceText)
+        outState.putString(STATE_SOURCE_TYPE, sourceType.name)
         outState.putString(STATE_SCREEN, screen.name)
         outState.putLong(STATE_SELECTED_REFERENCE_ID, selectedReference?.id ?: -1L)
         outState.putBoolean(STATE_HAS_EDITED_RESULTS, editedResults != null)
@@ -222,7 +232,7 @@ class MainActivity : ComponentActivity() {
             uri,
             onSuccess = { text ->
                 importStatus = null
-                beginFlow(text)
+                beginFlow(text, SavedSourceType.IMAGE)
             },
             onFailure = { importStatus = it }
         )
@@ -269,12 +279,28 @@ class MainActivity : ComponentActivity() {
     private fun first(results: List<ExtractionResult>, type: ExtractionType) = results.firstOrNull { it.type == type }?.value
     private fun fail(message: String) { actionError = message }
 
-    private fun beginFlow(value: String) {
+    private fun beginFlow(value: String, type: SavedSourceType = SavedSourceType.UNKNOWN) {
         val clean = value.trim().take(SharedTextParser.MAX_SHARED_TEXT_LENGTH)
         if (clean.isNotBlank()) {
             sourceText = clean
+            sourceType = if (type == SavedSourceType.UNKNOWN) inferSharedTextSource(clean) else type
             editedResults = null
             screen = Screen.PREVIEW
+        }
+    }
+
+    private fun resolveSourceType(intent: Intent?, text: String): SavedSourceType {
+        val explicit = SavedSourceType.fromStored(intent?.getStringExtra(EXTRA_SOURCE_TYPE))
+        return if (explicit != SavedSourceType.UNKNOWN) explicit else inferSharedTextSource(text)
+    }
+
+    private fun inferSharedTextSource(text: String): SavedSourceType {
+        val trimmed = text.trim()
+        val urls = RuleBasedExtractor.extract(trimmed).filter { it.type == ExtractionType.URL }
+        return if (urls.size == 1 && trimmed.replace(urls.first().value, "").isBlank()) {
+            SavedSourceType.LINK
+        } else {
+            SavedSourceType.TEXT
         }
     }
 
@@ -285,6 +311,7 @@ class MainActivity : ComponentActivity() {
 
     private fun reset() {
         sourceText = null
+        sourceType = SavedSourceType.UNKNOWN
         editedResults = null
         selectedReference = null
         actionError = null
@@ -294,8 +321,10 @@ class MainActivity : ComponentActivity() {
 
     private enum class Screen { HOME, HISTORY, REFERENCE_DETAIL, TEXT_ENTRY, LINK_ENTRY, PREVIEW, EXTRACTION, ACTIONS, ALL_ACTIONS, SAVE, CHECKLIST }
 
-    private companion object {
+    companion object {
+        const val EXTRA_SOURCE_TYPE = "drop_source_type"
         const val STATE_TEXT = "source_text"
+        const val STATE_SOURCE_TYPE = "source_type"
         const val STATE_SCREEN = "screen"
         const val STATE_SELECTED_REFERENCE_ID = "selected_reference_id"
         const val STATE_HAS_EDITED_RESULTS = "has_edited_results"
@@ -349,10 +378,12 @@ private fun HistoryScreen(
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var itemFilter by rememberSaveable { mutableStateOf(HistoryItemFilter.ALL) }
     var dateFilter by rememberSaveable { mutableStateOf(HistoryDateFilter.ALL) }
+    var sourceFilter by rememberSaveable { mutableStateOf(HistorySourceFilter.ALL) }
     val filteredReferences = if (HistorySearch.includesReferences(itemFilter)) {
         references.filter {
             HistorySearch.matches(searchQuery, it.title, it.originalText, it.notes) &&
-                HistorySearch.matchesDate(dateFilter, it.createdAtEpochMillis)
+                HistorySearch.matchesDate(dateFilter, it.createdAtEpochMillis) &&
+                HistorySearch.matchesSource(sourceFilter, it.sourceType)
         }
     } else emptyList()
     val filteredReminders = if (HistorySearch.includesReminders(itemFilter)) {
@@ -363,7 +394,7 @@ private fun HistoryScreen(
     } else emptyList()
     val hasSavedItems = references.isNotEmpty() || reminders.isNotEmpty()
     val hasMatches = filteredReferences.isNotEmpty() || filteredReminders.isNotEmpty()
-    val filtering = searchQuery.isNotBlank() || itemFilter != HistoryItemFilter.ALL || dateFilter != HistoryDateFilter.ALL
+    val filtering = searchQuery.isNotBlank() || itemFilter != HistoryItemFilter.ALL || dateFilter != HistoryDateFilter.ALL || sourceFilter != HistorySourceFilter.ALL
 
     references.firstOrNull { it.id == pendingDeleteId }?.let { reference ->
         AlertDialog(
@@ -415,6 +446,21 @@ private fun HistoryScreen(
                             OutlinedButton(onClick = { itemFilter = HistoryItemFilter.REMINDERS }, modifier = Modifier.weight(1f)) { Text("Reminders") }
                         }
                     }
+                }
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Filter saved items by source", style = MaterialTheme.typography.labelLarge)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SourceFilterButton("All sources", sourceFilter == HistorySourceFilter.ALL, Modifier.weight(1f)) { sourceFilter = HistorySourceFilter.ALL }
+                        SourceFilterButton("Text", sourceFilter == HistorySourceFilter.TEXT, Modifier.weight(1f)) { sourceFilter = HistorySourceFilter.TEXT }
+                        SourceFilterButton("Link", sourceFilter == HistorySourceFilter.LINK, Modifier.weight(1f)) { sourceFilter = HistorySourceFilter.LINK }
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SourceFilterButton("Image", sourceFilter == HistorySourceFilter.IMAGE, Modifier.weight(1f)) { sourceFilter = HistorySourceFilter.IMAGE }
+                        SourceFilterButton("PDF", sourceFilter == HistorySourceFilter.PDF, Modifier.weight(1f)) { sourceFilter = HistorySourceFilter.PDF }
+                    }
+                    Text("Older saved items without source metadata stay visible only under All sources.")
                 }
             }
             item {
@@ -472,6 +518,7 @@ private fun HistoryScreen(
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(reference.title, style = MaterialTheme.typography.titleMedium)
+                        Text("Source: ${reference.sourceType.label}", style = MaterialTheme.typography.labelLarge)
                         Text(reference.originalText, maxLines = 3)
                         FilledTonalButton(onClick = { onViewReference(reference) }, modifier = Modifier.fillMaxWidth()) { Text("View details") }
                         TextButton(onClick = { pendingDeleteId = reference.id }) { Text("Delete") }
@@ -480,6 +527,20 @@ private fun HistoryScreen(
             }
             item { OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Back to Home") } }
         }
+    }
+}
+
+@Composable
+private fun SourceFilterButton(
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    if (selected) {
+        FilledTonalButton(onClick = onClick, modifier = modifier) { Text(label) }
+    } else {
+        OutlinedButton(onClick = onClick, modifier = modifier) { Text(label) }
     }
 }
 
@@ -542,6 +603,7 @@ private fun ReferenceDetailScreen(
                 ) { Text("Save changes") }
             }
             saveStatus?.let { status -> item { Text(status, color = MaterialTheme.colorScheme.primary) } }
+            item { Text("Source: ${reference.sourceType.label}", style = MaterialTheme.typography.labelLarge) }
             item { Text("Saved reference", style = MaterialTheme.typography.labelLarge) }
             item {
                 Card(Modifier.fillMaxWidth()) {
@@ -578,11 +640,12 @@ private fun EntryScreen(title: String, singleLine: Boolean, onBack: () -> Unit, 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PreviewScreen(value: String, onDiscard: () -> Unit, onContinue: (String) -> Unit) {
+private fun PreviewScreen(value: String, sourceLabel: String, onDiscard: () -> Unit, onContinue: (String) -> Unit) {
     var editable by rememberSaveable(value) { mutableStateOf(value) }
     Scaffold(topBar = { TopAppBar(title = { Text("Import preview") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item { Text("Review before processing", style = MaterialTheme.typography.headlineSmall) }
+            item { Text("Source: $sourceLabel", style = MaterialTheme.typography.labelLarge) }
             item { OutlinedTextField(editable, { editable = it.take(SharedTextParser.MAX_SHARED_TEXT_LENGTH) }, Modifier.fillMaxWidth(), label = { Text("Imported content") }, minLines = 10) }
             item { Button(onClick = { onContinue(editable.trim()) }, enabled = editable.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Extract details") } }
             item { OutlinedButton(onClick = onDiscard, modifier = Modifier.fillMaxWidth()) { Text("Discard") } }

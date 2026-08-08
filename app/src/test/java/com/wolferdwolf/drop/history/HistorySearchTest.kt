@@ -1,5 +1,6 @@
 package com.wolferdwolf.drop.history
 
+import com.wolferdwolf.drop.data.SavedSourceType
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -78,6 +79,15 @@ class HistorySearchTest {
 
         assertFalse(HistorySearch.includesReferences(HistoryItemFilter.REMINDERS))
         assertTrue(HistorySearch.includesReminders(HistoryItemFilter.REMINDERS))
+    }
+
+    @Test
+    fun sourceFilterMatchesOnlyPersistedSourceType() {
+        assertTrue(HistorySearch.matchesSource(HistorySourceFilter.ALL, SavedSourceType.UNKNOWN))
+        assertTrue(HistorySearch.matchesSource(HistorySourceFilter.IMAGE, SavedSourceType.IMAGE))
+        assertTrue(HistorySearch.matchesSource(HistorySourceFilter.PDF, SavedSourceType.PDF))
+        assertFalse(HistorySearch.matchesSource(HistorySourceFilter.IMAGE, SavedSourceType.TEXT))
+        assertFalse(HistorySearch.matchesSource(HistorySourceFilter.TEXT, SavedSourceType.UNKNOWN))
     }
 
     @Test

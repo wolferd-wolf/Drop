@@ -11,12 +11,18 @@ class SavedReferenceStore(context: Context) {
         .mapNotNull(SavedReferenceCodec::decode)
         .sortedByDescending(SavedReference::createdAtEpochMillis)
 
-    fun save(title: String, originalText: String, now: Long = System.currentTimeMillis()): SavedReference {
+    fun save(
+        title: String,
+        originalText: String,
+        now: Long = System.currentTimeMillis(),
+        sourceType: SavedSourceType = SavedSourceType.UNKNOWN
+    ): SavedReference {
         val reference = SavedReference(
             id = now,
             title = title.trim().ifBlank { defaultTitle(originalText) },
             originalText = originalText.trim(),
-            createdAtEpochMillis = now
+            createdAtEpochMillis = now,
+            sourceType = sourceType
         )
         persistReplacing(reference)
         return reference
