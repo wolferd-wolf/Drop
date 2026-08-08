@@ -233,16 +233,7 @@ class HistoryDeletionFlowTest {
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
         visibleNode(device, text)?.let { return it }
 
-        val accessibilityScrolled = runCatching {
-            val scrollable = UiScrollable(UiSelector().scrollable(true)).apply {
-                setAsVerticalList()
-                setMaxSearchSwipes(20)
-            }
-            scrollable.exists() && scrollable.scrollIntoView(UiSelector().text(text))
-        }.getOrDefault(false)
-        if (accessibilityScrolled) {
-            device.waitForIdle()
-            Thread.sleep(250)
+        if (accessibilityScrollIntoView(device, text)) {
             visibleNode(device, text)?.let { return it }
         }
 
@@ -266,16 +257,27 @@ class HistoryDeletionFlowTest {
 
     private fun scrollIntoView(device: UiDevice, text: String) {
         if (visibleNode(device, text) != null) return
-        val accessibilityScrolled = runCatching {
-            val scrollable = UiScrollable(UiSelector().scrollable(true)).apply {
-                setAsVerticalList()
-                setMaxSearchSwipes(12)
-            }
-            scrollable.exists() && scrollable.scrollIntoView(UiSelector().text(text))
-        }.getOrDefault(false)
-        if (!accessibilityScrolled) modernScrollForward(device)
+        if (!accessibilityScrollIntoView(device, text)) modernScrollForward(device)
         device.waitForIdle()
         Thread.sleep(300)
+    }
+
+    private fun accessibilityScrollIntoView(device: UiDevice, text: String): Boolean {
+        repeat(MAX_SCROLLABLE_CONTAINERS) { index ->
+            val selector = UiSelector().scrollable(true).instance(index)
+            val scrollable = UiScrollable(selector).apply {
+                setAsVerticalList()
+                setMaxSearchSwipes(20)
+            }
+            val exists = runCatching { scrollable.exists() }.getOrDefault(false)
+            if (!exists) return@repeat
+
+            runCatching { scrollable.scrollIntoView(UiSelector().text(text)) }
+            device.waitForIdle()
+            Thread.sleep(200)
+            if (visibleNode(device, text) != null) return true
+        }
+        return false
     }
 
     private fun modernScrollForward(device: UiDevice) {
@@ -302,5 +304,6 @@ class HistoryDeletionFlowTest {
         const val UNIQUE_CONTENT = "Quarterly strategy notes for the operations review."
         const val TIMEOUT = 20_000L
         const val SHORT_TIMEOUT = 600L
+        const val MAX_SCROLLABLE_CONTAINERS = 8
     }
 }
