@@ -46,7 +46,7 @@ object SuggestedActionEngine {
                 DocumentCategory.EVENT -> "Keep this event information and its detected details in Drop."
                 DocumentCategory.GENERAL_REFERENCE -> "Keep the original content and extracted details in Drop."
             },
-            100
+            if (category == DocumentCategory.RECEIPT) 100 else 72
         )
 
         if (ExtractionType.DATE in types) {
