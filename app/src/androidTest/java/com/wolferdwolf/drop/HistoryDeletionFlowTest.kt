@@ -6,6 +6,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
+import androidx.test.uiautomator.UiScrollable
+import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -186,7 +188,7 @@ class HistoryDeletionFlowTest {
                 return candidates.minBy { it.visibleBounds.width() * it.visibleBounds.height() }
             }
             if (attempt < 8) {
-                deliberateScroll(device)
+                scrollIntoView(device, text)
             }
         }
         capture(device, "/data/local/tmp/drop-history-scroll-failure.png")
@@ -236,8 +238,8 @@ class HistoryDeletionFlowTest {
 
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
         visibleNode(device, text)?.let { return it }
-        repeat(8) {
-            deliberateScroll(device)
+        repeat(3) {
+            scrollIntoView(device, text)
             visibleNode(device, text)?.let { return it }
         }
         capture(device, "/data/local/tmp/drop-history-scroll-failure.png")
@@ -252,11 +254,14 @@ class HistoryDeletionFlowTest {
         }
     }
 
-    private fun deliberateScroll(device: UiDevice) {
-        val x = device.displayWidth / 2
-        val startY = device.displayHeight * 4 / 5
-        val endY = device.displayHeight / 5
-        device.executeShellCommand("input touchscreen swipe $x $startY $x $endY 500")
+    private fun scrollIntoView(device: UiDevice, text: String) {
+        val selector = UiSelector().scrollable(true)
+        if (UiScrollable(selector).exists()) {
+            runCatching {
+                UiScrollable(selector).apply { setAsVerticalList() }
+                    .scrollIntoView(UiSelector().text(text))
+            }
+        }
         device.waitForIdle()
         Thread.sleep(300)
     }
