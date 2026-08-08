@@ -1,6 +1,5 @@
 package com.wolferdwolf.drop.actions
 
-import com.wolferdwolf.drop.extraction.AddressCandidateDetector
 import com.wolferdwolf.drop.extraction.DocumentCategory
 import com.wolferdwolf.drop.extraction.DocumentCategoryDetector
 import com.wolferdwolf.drop.extraction.ExtractionResult
@@ -31,7 +30,7 @@ object SuggestedActionEngine {
     fun suggest(originalText: String, results: List<ExtractionResult>): List<SuggestedAction> {
         val types = results.mapTo(mutableSetOf()) { it.type }
         val lower = originalText.lowercase()
-        val address = AddressCandidateDetector.detect(originalText)
+        val address = results.firstOrNull { it.type == ExtractionType.ADDRESS }
         val category = DocumentCategoryDetector.detect(originalText, results)
         val hasDeadlineLanguage = containsDeadlineLanguage(lower)
         val hasEventLanguage = containsEventLanguage(lower)
