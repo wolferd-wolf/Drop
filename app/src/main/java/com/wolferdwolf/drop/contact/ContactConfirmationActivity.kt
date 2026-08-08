@@ -38,9 +38,18 @@ class ContactConfirmationActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val source = intent.getStringExtra(EXTRA_SOURCE_TEXT).orEmpty()
-        val extracted = RuleBasedExtractor.extract(source)
-        val initialPhone = extracted.firstOrNull { it.type == ExtractionType.PHONE }?.value.orEmpty()
-        val initialEmail = extracted.firstOrNull { it.type == ExtractionType.EMAIL }?.value.orEmpty()
+        val hasCuratedResults = intent.getBooleanExtra(EXTRA_HAS_CURATED_RESULTS, false)
+        val extracted = if (hasCuratedResults) emptyList() else RuleBasedExtractor.extract(source)
+        val initialPhone = if (hasCuratedResults) {
+            intent.getStringExtra(EXTRA_CURATED_PHONE).orEmpty()
+        } else {
+            extracted.firstOrNull { it.type == ExtractionType.PHONE }?.value.orEmpty()
+        }
+        val initialEmail = if (hasCuratedResults) {
+            intent.getStringExtra(EXTRA_CURATED_EMAIL).orEmpty()
+        } else {
+            extracted.firstOrNull { it.type == ExtractionType.EMAIL }?.value.orEmpty()
+        }
         val initialName = labelledValue(source, NAME_LABELS)
         val initialCompany = labelledValue(source, COMPANY_LABELS)
 
@@ -125,6 +134,9 @@ class ContactConfirmationActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_SOURCE_TEXT = "source_text"
+        const val EXTRA_HAS_CURATED_RESULTS = "has_curated_results"
+        const val EXTRA_CURATED_PHONE = "curated_phone"
+        const val EXTRA_CURATED_EMAIL = "curated_email"
         private const val MAX_NAME_LENGTH = 120
         private const val MAX_PHONE_LENGTH = 40
         private const val MAX_EMAIL_LENGTH = 254
