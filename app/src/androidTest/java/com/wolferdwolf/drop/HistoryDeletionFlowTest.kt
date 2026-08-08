@@ -302,20 +302,19 @@ class HistoryDeletionFlowTest {
     }
 
     private fun swipeVisibleContentUp(device: UiDevice) {
-        // The restored reference title/body is already visible when its actions
-        // are below the fold. Start the gesture on that non-clickable content so
-        // Compose's actual History LazyColumn receives it instead of Android's
-        // edge-navigation region or a nested action button.
+        // Swipe through the visible saved-reference card, not the gesture gutter.
+        // UiDevice.swipe can report success even when Compose does not receive the
+        // gesture; Android's input command has proven more reliable for the
+        // process-restart phase while still exercising the real scroll surface.
         val anchor = visibleNode(device, UNIQUE_CONTENT) ?: visibleNode(device, UNIQUE_TITLE)
         val bounds = anchor?.visibleBounds
-        val x = bounds?.centerX() ?: device.displayWidth / 2
-        val startY = (bounds?.centerY() ?: device.displayHeight * 4 / 5)
-            .coerceIn(device.displayHeight / 2, device.displayHeight * 4 / 5)
-        val endY = device.displayHeight / 3
-        assertTrue(
-            "History content swipe failed",
-            device.swipe(x, startY, x, endY, 24)
-        )
+        val x = (bounds?.centerX() ?: device.displayWidth / 2)
+            .coerceIn(device.displayWidth / 4, device.displayWidth * 3 / 4)
+        val startY = ((bounds?.centerY() ?: device.displayHeight * 3 / 4)
+            .coerceAtMost(device.displayHeight * 3 / 4))
+            .coerceAtLeast(device.displayHeight / 2)
+        val endY = device.displayHeight / 4
+        device.executeShellCommand("input swipe $x $startY $x $endY 450")
     }
 
     private fun objectFor(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
