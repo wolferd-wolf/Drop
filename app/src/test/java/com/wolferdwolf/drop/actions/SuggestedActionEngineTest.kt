@@ -106,7 +106,7 @@ class SuggestedActionEngineTest {
     }
 
     @Test
-    fun manualChooserAlwaysOffersSafeEditableActions() {
+    fun manualChooserAlwaysOffersActionsWhoseFormsCanCollectMissingData() {
         val actions = SuggestedActionEngine.manualActions(emptyList())
         val types = actions.map { it.type }
 
@@ -114,15 +114,15 @@ class SuggestedActionEngineTest {
         assertTrue(SuggestedActionType.REMINDER in types)
         assertTrue(SuggestedActionType.CALENDAR in types)
         assertTrue(SuggestedActionType.CHECKLIST in types)
+        assertTrue(SuggestedActionType.CONTACT in types)
         assertTrue(SuggestedActionType.MAPS in types)
-        assertFalse(SuggestedActionType.CONTACT in types)
+        assertTrue(SuggestedActionType.EMAIL in types)
         assertFalse(SuggestedActionType.OPEN_LINK in types)
-        assertFalse(SuggestedActionType.EMAIL in types)
         assertFalse(SuggestedActionType.CALL in types)
     }
 
     @Test
-    fun manualChooserUnlocksOnlyActionsWithRequiredDetectedData() {
+    fun manualChooserUnlocksDetectedLinkAndCallWithoutDuplicates() {
         val results = listOf(
             result(ExtractionType.PHONE, "+91 98765 43210"),
             result(ExtractionType.EMAIL, "team@example.com"),
