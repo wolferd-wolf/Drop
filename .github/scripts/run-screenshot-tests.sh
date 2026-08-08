@@ -54,6 +54,8 @@ screenshots=(
   drop-suggested-actions
   drop-all-actions
   drop-manual-contact-email-actions
+  drop-manual-link-call-actions
+  drop-manual-link-empty-confirmation
   drop-maps-suggestion
   drop-maps-confirmation
   drop-calendar-confirmation
