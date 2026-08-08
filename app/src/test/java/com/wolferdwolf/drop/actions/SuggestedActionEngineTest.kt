@@ -63,6 +63,21 @@ class SuggestedActionEngineTest {
     }
 
     @Test
+    fun nonEventDateAndTimeDoesNotCreateCalendarFalsePositive() {
+        val text = "Electricity bill due 12 August 2026 at 5:30 PM. Pay ₹1,250."
+        val results = listOf(
+            result(ExtractionType.DATE, "12 August 2026"),
+            result(ExtractionType.TIME, "5:30 PM"),
+            result(ExtractionType.PRICE, "₹1,250")
+        )
+        val types = SuggestedActionEngine.suggest(text, results).map { it.type }
+
+        assertTrue(SuggestedActionType.REMINDER in types)
+        assertTrue(SuggestedActionType.SAVE_REFERENCE in types)
+        assertFalse(SuggestedActionType.CALENDAR in types)
+    }
+
+    @Test
     fun eventCategoryWithoutDateDoesNotSuggestCalendar() {
         val text = "Team meeting in Wolf Hall. Agenda: launch review."
         val actions = SuggestedActionEngine.suggest(text, emptyList())
