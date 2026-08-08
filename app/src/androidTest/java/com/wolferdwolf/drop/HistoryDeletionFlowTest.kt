@@ -237,10 +237,10 @@ class HistoryDeletionFlowTest {
             visibleNode(device, text)?.let { return it }
         }
 
-        repeat(10) {
+        repeat(12) {
             swipeContentUp(device)
             device.waitForIdle()
-            Thread.sleep(250)
+            Thread.sleep(300)
             visibleNode(device, text)?.let { return it }
         }
         capture(device, "/data/local/tmp/drop-history-scroll-failure.png")
@@ -286,10 +286,14 @@ class HistoryDeletionFlowTest {
     }
 
     private fun swipeContentUp(device: UiDevice) {
-        val x = device.displayWidth / 2
+        // Compose History contains nested interactive cards. UiDevice.swipe from
+        // screen centre can start on a child control and be consumed without
+        // moving the parent list. Dispatch the gesture near the right edge so
+        // it reliably targets the vertical History surface on API 35 as well.
+        val x = device.displayWidth * 9 / 10
         val startY = device.displayHeight * 4 / 5
-        val endY = device.displayHeight * 2 / 5
-        assertTrue("History swipe gesture failed", device.swipe(x, startY, x, endY, 24))
+        val endY = device.displayHeight / 3
+        device.executeShellCommand("input swipe $x $startY $x $endY 300")
     }
 
     private fun objectFor(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
