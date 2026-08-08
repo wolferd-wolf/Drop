@@ -7,6 +7,8 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
+import androidx.test.uiautomator.UiScrollable
+import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -232,16 +234,19 @@ class HistoryDeletionFlowTest {
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
         visibleNode(device, text)?.let { return it }
 
-        repeat(8) {
-            swipeUp(device)
+        val scrollable = UiScrollable(UiSelector().scrollable(true)).apply {
+            setAsVerticalList()
+            setMaxSearchSwipes(12)
+        }
+        if (scrollable.exists()) {
+            runCatching { scrollable.scrollIntoView(UiSelector().text(text)) }
+            device.waitForIdle()
             visibleNode(device, text)?.let { return it }
         }
-        repeat(16) {
-            swipeDown(device)
-            visibleNode(device, text)?.let { return it }
-        }
-        repeat(16) {
-            swipeUp(device)
+
+        repeat(10) {
+            device.executeShellCommand("input swipe ${device.displayWidth / 2} ${device.displayHeight * 3 / 4} ${device.displayWidth / 2} ${device.displayHeight / 4} 180")
+            device.waitForIdle()
             visibleNode(device, text)?.let { return it }
         }
         capture(device, "/data/local/tmp/drop-history-scroll-failure.png")
@@ -256,18 +261,6 @@ class HistoryDeletionFlowTest {
         }
     }
 
-    private fun swipeUp(device: UiDevice) {
-        val x = device.displayWidth / 2
-        device.swipe(x, device.displayHeight * 3 / 4, x, device.displayHeight / 4, 20)
-        device.waitForIdle()
-    }
-
-    private fun swipeDown(device: UiDevice) {
-        val x = device.displayWidth / 2
-        device.swipe(x, device.displayHeight / 4, x, device.displayHeight * 3 / 4, 20)
-        device.waitForIdle()
-    }
-
     private fun scrollIntoView(device: UiDevice, text: String) {
         if (visibleNode(device, text) != null) return
         modernScrollForward(device)
@@ -278,9 +271,10 @@ class HistoryDeletionFlowTest {
     private fun modernScrollForward(device: UiDevice) {
         val scrollable = device.findObjects(By.scrollable(true)).firstOrNull { !it.visibleBounds.isEmpty }
         if (scrollable != null) {
-            runCatching { scrollable.scroll(Direction.UP, 0.65f) }
+            runCatching { scrollable.scroll(Direction.DOWN, 0.65f) }
         } else {
-            swipeUp(device)
+            device.executeShellCommand("input swipe ${device.displayWidth / 2} ${device.displayHeight * 3 / 4} ${device.displayWidth / 2} ${device.displayHeight / 4} 180")
+            device.waitForIdle()
         }
     }
 
