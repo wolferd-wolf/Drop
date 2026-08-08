@@ -60,6 +60,7 @@ screenshots=(
   drop-calendar-normal-flow
   drop-reminder-extraction-prefill
   drop-calendar-missing-date-suppressed
+  drop-time-only-reminder-suppressed
   drop-contact-confirmation
   drop-email-confirmation
   drop-apostrophe-email-action
