@@ -21,13 +21,13 @@ class InternationalCurrencyFlowTest {
             activateAndWait(device, "Paste text", "Add content for Drop to understand and turn into an action.")
             val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), TIMEOUT)
             assertNotNull("Paste intake must provide an editable field", input)
-            input.text = "Wolf habitat equipment quote: AUD 129.50."
+            input.text = "Wolf habitat equipment quote: AUD 1.5k."
             device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
             device.waitForIdle()
 
             activateAndWait(device, "Continue", "Import preview")
             activateAndWait(device, "Extract details", "Extracted information")
-            assertVisibleAfterScroll(device, "AUD 129.50", "International ISO currency price must be visible and editable")
+            assertVisibleAfterScroll(device, "AUD 1.5k", "International shorthand ISO currency price must be visible and editable")
             capture(device, "/data/local/tmp/drop-international-currency-extraction.png")
 
             activateAndWait(device, "See suggested actions", "Suggested actions", scroll = true)
