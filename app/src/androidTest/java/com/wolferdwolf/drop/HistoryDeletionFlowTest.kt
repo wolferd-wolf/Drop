@@ -6,6 +6,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
+import androidx.test.uiautomator.UiScrollable
+import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -231,6 +233,19 @@ class HistoryDeletionFlowTest {
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
         visibleNode(device, text)?.let { return it }
 
+        val accessibilityScrolled = runCatching {
+            val scrollable = UiScrollable(UiSelector().scrollable(true)).apply {
+                setAsVerticalList()
+                setMaxSearchSwipes(20)
+            }
+            scrollable.exists() && scrollable.scrollIntoView(UiSelector().text(text))
+        }.getOrDefault(false)
+        if (accessibilityScrolled) {
+            device.waitForIdle()
+            Thread.sleep(250)
+            visibleNode(device, text)?.let { return it }
+        }
+
         repeat(10) {
             swipeContentUp(device)
             device.waitForIdle()
@@ -251,7 +266,14 @@ class HistoryDeletionFlowTest {
 
     private fun scrollIntoView(device: UiDevice, text: String) {
         if (visibleNode(device, text) != null) return
-        modernScrollForward(device)
+        val accessibilityScrolled = runCatching {
+            val scrollable = UiScrollable(UiSelector().scrollable(true)).apply {
+                setAsVerticalList()
+                setMaxSearchSwipes(12)
+            }
+            scrollable.exists() && scrollable.scrollIntoView(UiSelector().text(text))
+        }.getOrDefault(false)
+        if (!accessibilityScrolled) modernScrollForward(device)
         device.waitForIdle()
         Thread.sleep(300)
     }
