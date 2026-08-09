@@ -8,11 +8,13 @@ data class ChecklistItem(
 object ChecklistEditor {
     private const val MAX_ITEM_LENGTH = 240
     private val leadingMarker = Regex("""^(?:[-•*]|\d+[.)])\s+""")
+    private val taskMarker = Regex("""^\[(?<state>[ xX])\]\s*""")
+    private val unicodeTaskMarker = Regex("""^(?<state>[☐☒☑])\s*""")
 
     fun fromSource(source: String): List<ChecklistItem> = source.lineSequence()
         .map(String::trim)
         .filter(String::isNotBlank)
-        .map { line -> ChecklistItem(clean(line)) }
+        .map(::parseSourceLine)
         .filter { it.text.isNotBlank() }
         .toList()
 
@@ -58,6 +60,21 @@ object ChecklistEditor {
             ChecklistItem(line.substringAfter('|', line).take(MAX_ITEM_LENGTH), checked)
         }
         .toList()
+
+    private fun parseSourceLine(value: String): ChecklistItem {
+        val withoutListMarker = value.replace(leadingMarker, "").trim()
+        taskMarker.find(withoutListMarker)?.let { match ->
+            val state = match.groups["state"]?.value.orEmpty()
+            val text = withoutListMarker.removeRange(match.range).trim().take(MAX_ITEM_LENGTH)
+            return ChecklistItem(text, checked = state.equals("x", ignoreCase = true))
+        }
+        unicodeTaskMarker.find(withoutListMarker)?.let { match ->
+            val state = match.groups["state"]?.value.orEmpty()
+            val text = withoutListMarker.removeRange(match.range).trim().take(MAX_ITEM_LENGTH)
+            return ChecklistItem(text, checked = state == "☒" || state == "☑")
+        }
+        return ChecklistItem(withoutListMarker.take(MAX_ITEM_LENGTH))
+    }
 
     private fun clean(value: String): String = value.trim().replace(leadingMarker, "").trim().take(MAX_ITEM_LENGTH)
 }
