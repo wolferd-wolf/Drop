@@ -52,7 +52,22 @@ class ChecklistItemEditorFlowTest {
             assertTrue("Checklist must still contain editable items after deletion", device.hasObject(By.clazz("android.widget.EditText")))
 
             capture(device, "/data/local/tmp/drop-checklist-item-editor.png")
-            visibleAfterScroll(device, "Save checklist")
+            tap(visibleAfterScroll(device, "Save checklist"), device)
+
+            visible(device, "Drop")
+            val historyButton = device.wait(Until.findObject(By.textStartsWith("History")), TIMEOUT)
+            assertNotNull("Saving a checklist must return to Home with History available", historyButton)
+            tap(historyButton!!, device)
+            visibleAfterScroll(device, "References and checklists")
+            visibleAfterScroll(device, "Checklist")
+            visibleAfterScroll(device, "☒ Buy oat milk")
+            visibleAfterScroll(device, "☒ Call supplier")
+            visibleAfterScroll(device, "☐ Pack charger")
+            assertTrue(
+                "Deleted checklist item must not be present after saving",
+                !device.hasObject(By.textContains("Charge power bank"))
+            )
+            capture(device, "/data/local/tmp/drop-checklist-saved-history.png")
         }
     }
 
