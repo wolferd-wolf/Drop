@@ -1,0 +1,39 @@
+name: Reminder Curated Integration
+
+on:
+  push:
+    branches:
+      - automation/calendar-normal-flow-verification
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: automation/calendar-normal-flow-verification
+      - name: Route curated extraction values to Reminder
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/src/main/java/com/wolferdwolf/drop/MainActivity.kt')
+          text = path.read_text()
+          old = '            SuggestedActionType.REMINDER -> startActivity(Intent(this, ReminderActivity::class.java).putExtra(ReminderActivity.EXTRA_SOURCE_TEXT, text))'
+          new = '''            SuggestedActionType.REMINDER -> startActivity(\n                Intent(this, ReminderActivity::class.java)\n                    .putExtra(ReminderActivity.EXTRA_SOURCE_TEXT, text)\n                    .putExtra(ReminderActivity.EXTRA_HAS_CURATED_RESULTS, true)\n                    .putExtra(ReminderActivity.EXTRA_CURATED_DATE, first(results, ExtractionType.DATE).orEmpty())\n                    .putExtra(ReminderActivity.EXTRA_CURATED_TIME, first(results, ExtractionType.TIME).orEmpty())\n            )'''
+          if old not in text:
+              raise SystemExit('Expected Reminder route was not found; refusing to patch an unknown state')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          rm .github/workflows/reminder-curated-integration.yml
+      - name: Commit integrated product change
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/wolferdwolf/drop/MainActivity.kt .github/workflows/reminder-curated-integration.yml
+          git commit -m 'Route curated extraction values into Reminder confirmation'
+          git push origin HEAD:automation/calendar-normal-flow-verification
