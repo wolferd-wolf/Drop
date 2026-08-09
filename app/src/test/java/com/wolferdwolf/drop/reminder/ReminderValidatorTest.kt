@@ -6,7 +6,6 @@ import org.junit.Test
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDateTime
-import java.time.LocalTime
 import java.time.ZoneId
 
 class ReminderValidatorTest {
@@ -51,7 +50,7 @@ class ReminderValidatorTest {
         val newYorkClock = Clock.fixed(Instant.parse("2026-03-01T12:00:00Z"), ZoneId.of("America/New_York"))
         val result = ReminderValidator.validate("Tax filing", "", "2026-03-10", "", newYorkClock)
         val reminder = (result as ReminderValidator.Result.Success).reminder
-        val expected = LocalDateTime.of(2026, 3, 10, LocalTime.of(9, 0))
+        val expected = LocalDateTime.of(2026, 3, 10, 9, 0)
             .atZone(newYorkClock.zone)
             .toInstant()
             .toEpochMilli()
