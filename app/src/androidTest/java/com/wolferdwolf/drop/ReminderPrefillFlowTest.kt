@@ -37,22 +37,31 @@ class ReminderPrefillFlowTest {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             beginReminderFlow(device)
 
-            val dateField = objectFor(
+            replaceTextAndWait(
                 device,
-                By.clazz("android.widget.EditText").text("Sep. 12, 2026"),
-                "Detected date must be editable before Suggested Actions"
+                from = "Sep. 12, 2026",
+                to = "Sep. 13, 2026",
+                message = "Edited date must be committed before leaving Extracted information"
             )
-            dateField.text = "Sep. 13, 2026"
-            device.waitForIdle()
-
-            val timeField = objectFor(
+            replaceTextAndWait(
                 device,
-                By.clazz("android.widget.EditText").text("10:15 AM"),
-                "Detected time must be editable before Suggested Actions"
+                from = "10:15 AM",
+                to = "6:45 PM",
+                message = "Edited time must be committed before leaving Extracted information"
             )
-            timeField.text = "6:45 PM"
             device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
             device.waitForIdle()
+
+            objectFor(
+                device,
+                By.clazz("android.widget.EditText").text("Sep. 13, 2026"),
+                "Edited date must remain visible before Suggested Actions"
+            )
+            objectFor(
+                device,
+                By.clazz("android.widget.EditText").text("6:45 PM"),
+                "Edited time must remain visible before Suggested Actions"
+            )
 
             clickText(device, "See suggested actions", scroll = true)
             visible(device, "Suggested actions")
@@ -80,6 +89,23 @@ class ReminderPrefillFlowTest {
         clickText(device, "Extract details")
         visible(device, "Extracted information")
         objectFor(device, By.text("Sep. 12, 2026"), "Abbreviated date must remain visible in extracted information")
+    }
+
+    private fun replaceTextAndWait(device: UiDevice, from: String, to: String, message: String) {
+        repeat(2) { attempt ->
+            val field = objectFor(
+                device,
+                By.clazz("android.widget.EditText").text(from),
+                "Expected editable extraction value: $from"
+            )
+            field.text = to
+            device.waitForIdle()
+            if (device.wait(Until.findObject(By.clazz("android.widget.EditText").text(to)), SHORT_TIMEOUT) != null) {
+                return
+            }
+            if (attempt == 0) device.waitForIdle()
+        }
+        throw AssertionError(message)
     }
 
     private fun clickText(device: UiDevice, text: String, scroll: Boolean = false) {
