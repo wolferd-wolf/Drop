@@ -14,6 +14,19 @@ class ChecklistEditorTest {
     }
 
     @Test
+    fun importedTaskMarkersPreserveCompletionWithoutPollutingItemText() {
+        val items = ChecklistEditor.fromSource(
+            "- [x] Paid electricity bill\n[ ] Buy milk\n☒ Packed charger\n☑ Sent invoice\n☐ Call supplier"
+        )
+
+        assertEquals(
+            listOf("Paid electricity bill", "Buy milk", "Packed charger", "Sent invoice", "Call supplier"),
+            items.map { it.text }
+        )
+        assertEquals(listOf(true, false, true, true, false), items.map { it.checked })
+    }
+
+    @Test
     fun itemOperationsPreserveOrderAndCompletion() {
         var items = ChecklistEditor.fromSource("Milk\nEggs\nBread")
         items = ChecklistEditor.edit(items, 0, "Oat milk")
