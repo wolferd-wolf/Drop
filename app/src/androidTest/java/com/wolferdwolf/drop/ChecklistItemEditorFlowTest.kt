@@ -20,7 +20,7 @@ class ChecklistItemEditorFlowTest {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             tap(visible(device, "Paste text"), device)
             val intake = objectFor(device, By.clazz("android.widget.EditText"), "Paste input is missing")
-            intake.text = "- Buy milk\n- Call supplier\n- Pack charger"
+            intake.text = "- Buy milk\n- [x] Call supplier\n- Pack charger"
             device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
             tap(visible(device, "Continue"), device)
             tap(visible(device, "Extract details"), device)
@@ -28,6 +28,8 @@ class ChecklistItemEditorFlowTest {
             tap(actionTargetAfterScroll(device, "Create checklist"), device)
 
             visible(device, "Edit checklist items before saving")
+            visibleAfterScroll(device, "Done")
+            assertTrue("Imported checked marker must not remain in checklist item text", !device.hasObject(By.textContains("[x]")))
             objectFor(device, By.clazz("android.widget.EditText").text("Buy milk"), "First checklist item must be editable").text = "Buy oat milk"
             device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
             tap(visible(device, "Mark done"), device)
