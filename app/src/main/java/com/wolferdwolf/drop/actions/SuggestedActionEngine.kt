@@ -93,7 +93,7 @@ object SuggestedActionEngine {
                     hasPhone -> "A phone number was detected; save it as a contact if you want to keep it."
                     else -> "An email address was detected; save it as a contact if you want to keep it."
                 },
-                if (hasPhone && hasEmail) 86 else 76
+                if (hasPhone && hasEmail) 86 else 87
             )
         }
 
