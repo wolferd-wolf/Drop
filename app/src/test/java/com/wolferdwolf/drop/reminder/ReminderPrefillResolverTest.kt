@@ -34,6 +34,18 @@ class ReminderPrefillResolverTest {
     }
 
     @Test
+    fun normalizesAbbreviatedMonthWithPeriod() {
+        val result = ReminderPrefillResolver.from(
+            "Supplier review on Sep. 12, 2026 at 10:15 AM",
+            today,
+            now
+        )
+
+        assertEquals("2026-09-12", result.date)
+        assertEquals("10:15", result.time)
+    }
+
+    @Test
     fun resolvesRelativeDateInsteadOfDiscardingIt() {
         val result = ReminderPrefillResolver.from(
             "Call supplier tomorrow at noon",
