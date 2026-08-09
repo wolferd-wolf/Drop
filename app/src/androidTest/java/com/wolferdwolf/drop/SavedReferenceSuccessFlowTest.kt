@@ -19,6 +19,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class SavedReferenceSuccessFlowTest {
+    // Verify that success is shown only after persistence, then expose the saved item through History.
     @Test
     fun savedReferenceShowsSuccessAndHistoryPath() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
