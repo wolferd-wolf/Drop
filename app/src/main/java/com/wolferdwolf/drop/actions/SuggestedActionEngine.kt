@@ -34,6 +34,8 @@ object SuggestedActionEngine {
         val category = DocumentCategoryDetector.detect(originalText, results)
         val hasDeadlineLanguage = containsDeadlineLanguage(lower)
         val hasEventLanguage = containsEventLanguage(lower)
+        val hasPhone = ExtractionType.PHONE in types
+        val hasEmail = ExtractionType.EMAIL in types
         val relevant = mutableListOf<SuggestedAction>()
 
         relevant += action(
@@ -82,12 +84,16 @@ object SuggestedActionEngine {
             )
         }
 
-        if (ExtractionType.PHONE in types || ExtractionType.EMAIL in types) {
+        if (hasPhone || hasEmail) {
             relevant += action(
                 SuggestedActionType.CONTACT,
                 "Save contact",
-                "A phone number or email address was detected.",
-                86
+                when {
+                    hasPhone && hasEmail -> "A phone number and email address were detected for the same imported content."
+                    hasPhone -> "A phone number was detected; save it as a contact if you want to keep it."
+                    else -> "An email address was detected; save it as a contact if you want to keep it."
+                },
+                if (hasPhone && hasEmail) 86 else 76
             )
         }
 
@@ -113,21 +119,21 @@ object SuggestedActionEngine {
             )
         }
 
-        if (ExtractionType.EMAIL in types) {
+        if (hasEmail) {
             relevant += action(
                 SuggestedActionType.EMAIL,
                 "Send email",
-                "An email address was detected.",
-                80
+                "An email address was detected, so you can act on it directly.",
+                if (!hasPhone) 90 else 80
             )
         }
 
-        if (ExtractionType.PHONE in types) {
+        if (hasPhone) {
             relevant += action(
                 SuggestedActionType.CALL,
                 "Call number",
-                "A phone number was detected.",
-                79
+                "A phone number was detected, so you can act on it directly.",
+                if (!hasEmail) 90 else 79
             )
         }
 
@@ -155,7 +161,7 @@ object SuggestedActionEngine {
         SuggestedAction(type, title, reason, priority)
 
     private fun containsDeadlineLanguage(text: String): Boolean =
-        listOf("deadline", "due date", "last date", "apply by", "apply before", "submit by", "before ").any(text::contains)
+        listOf("deadline", "due date", "due by", "last date", "apply by", "apply before", "submit by", "submit before", "respond by", "pay by").any(text::contains)
 
     private fun containsEventLanguage(text: String): Boolean =
         listOf("event", "meeting", "appointment", "conference", "festival", "class", "interview", "launch", "workshop").any(text::contains)
@@ -169,10 +175,6 @@ object SuggestedActionEngine {
         }
         if (marked >= 2) return true
 
-        // Unmarked shopping/packing/task lists are common, but five ordinary paragraphs
-        // must not become a checklist merely because they are split across lines. Treat
-        // an unmarked block as list-like only when most lines are short, compact entries
-        // rather than sentence-shaped prose.
         if (meaningfulLines.size > 12) return false
         val compactEntries = meaningfulLines.count { line ->
             val wordCount = line.split(Regex("\\s+")).count(String::isNotBlank)
