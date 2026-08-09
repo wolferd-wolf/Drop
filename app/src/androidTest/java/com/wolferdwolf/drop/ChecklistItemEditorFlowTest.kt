@@ -4,6 +4,8 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.BySelector
+import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -36,17 +38,15 @@ class ChecklistItemEditorFlowTest {
             visible(device, "Done")
             tap(visible(device, "Move down"), device)
 
-            val newItem = visibleAfterScroll(device, "New item")
-            val newItemField = clickableAncestor(newItem)?.let { ancestor ->
-                ancestor.findObject(By.clazz("android.widget.EditText"))
-            } ?: device.findObjects(By.clazz("android.widget.EditText")).lastOrNull()
+            visibleAfterScroll(device, "New item")
+            val newItemField = device.findObjects(By.clazz("android.widget.EditText")).lastOrNull()
             assertNotNull("New checklist item field must be available", newItemField)
             newItemField!!.text = "Charge power bank"
             device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
             tap(visibleAfterScroll(device, "Add item"), device)
             visibleAfterScroll(device, "Charge power bank")
 
-            val deleteButtons = device.findObjects(By.text("Delete item")).filter { !it.visibleBounds.isEmpty }
+            val deleteButtons = freshVisibleObjects(device, By.text("Delete item"))
             assertTrue("At least one visible item must be deletable", deleteButtons.isNotEmpty())
             tap(deleteButtons.last(), device)
             assertTrue("Checklist must still contain editable items after deletion", device.hasObject(By.clazz("android.widget.EditText")))
@@ -55,9 +55,7 @@ class ChecklistItemEditorFlowTest {
             tap(visibleAfterScroll(device, "Save checklist"), device)
 
             visible(device, "Drop")
-            val historyButton = device.wait(Until.findObject(By.textStartsWith("History")), TIMEOUT)
-            assertNotNull("Saving a checklist must return to Home with History available", historyButton)
-            tap(historyButton!!, device)
+            tap(objectFor(device, By.textStartsWith("History"), "Saving a checklist must return to Home with History available"), device)
             visibleAfterScroll(device, "References and checklists")
             visibleAfterScroll(device, "Checklist")
             visibleContainingAfterScroll(device, "☒ Buy oat milk")
@@ -73,44 +71,59 @@ class ChecklistItemEditorFlowTest {
 
     private fun actionTargetAfterScroll(device: UiDevice, text: String): UiObject2 {
         repeat(10) { attempt ->
-            val candidates = device.findObjects(By.text(text))
-                .mapNotNull(::clickableAncestor)
-                .distinctBy { it.visibleBounds }
-                .filter { !it.visibleBounds.isEmpty }
-            if (candidates.isNotEmpty()) return candidates.minBy { it.visibleBounds.width() * it.visibleBounds.height() }
+            val candidates = freshVisibleObjects(device, By.text(text))
+                .mapNotNull(::clickableAncestorSafely)
+                .distinctBy { safeBounds(it)?.toShortString() }
+                .filter { safeBounds(it)?.isEmpty == false }
+            if (candidates.isNotEmpty()) return candidates.minBy { safeBounds(it)?.let { bounds -> bounds.width() * bounds.height() } ?: Int.MAX_VALUE }
             if (attempt < 9) {
-                device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
-                device.waitForIdle()
+                scrollUp(device)
             }
         }
         throw AssertionError("Expected actionable control after scrolling: $text")
     }
 
     private fun visible(device: UiDevice, text: String): UiObject2 =
-        assertNotNull("Expected visible text: $text", device.wait(Until.findObject(By.text(text)), TIMEOUT)).let { device.findObject(By.text(text)) }
+        objectFor(device, By.text(text), "Expected visible text: $text")
 
-    private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
-        device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)?.takeIf { !it.visibleBounds.isEmpty }?.let { return it }
-        repeat(10) {
-            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
-            device.waitForIdle()
-            device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)?.takeIf { !it.visibleBounds.isEmpty }?.let { return it }
+    private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 =
+        visibleSelectorAfterScroll(device, By.text(text), "Expected visible text after scrolling: $text")
+
+    private fun visibleContainingAfterScroll(device: UiDevice, text: String): UiObject2 =
+        visibleSelectorAfterScroll(device, By.textContains(text), "Expected visible text containing after scrolling: $text")
+
+    private fun visibleSelectorAfterScroll(device: UiDevice, selector: BySelector, message: String): UiObject2 {
+        repeat(11) { attempt ->
+            freshVisibleObject(device, selector)?.let { return it }
+            if (attempt < 10) scrollUp(device)
         }
-        throw AssertionError("Expected visible text after scrolling: $text")
+        throw AssertionError(message)
     }
 
-    private fun visibleContainingAfterScroll(device: UiDevice, text: String): UiObject2 {
-        device.wait(Until.findObject(By.textContains(text)), SHORT_TIMEOUT)?.takeIf { !it.visibleBounds.isEmpty }?.let { return it }
-        repeat(10) {
-            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
-            device.waitForIdle()
-            device.wait(Until.findObject(By.textContains(text)), SHORT_TIMEOUT)?.takeIf { !it.visibleBounds.isEmpty }?.let { return it }
-        }
-        throw AssertionError("Expected visible text containing after scrolling: $text")
+    private fun freshVisibleObject(device: UiDevice, selector: BySelector): UiObject2? {
+        device.wait(Until.hasObject(selector), SHORT_TIMEOUT)
+        return freshVisibleObjects(device, selector).firstOrNull()
     }
 
-    private fun objectFor(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
-        assertNotNull(message, device.wait(Until.findObject(selector), TIMEOUT)).let { device.findObject(selector) }
+    private fun freshVisibleObjects(device: UiDevice, selector: BySelector): List<UiObject2> =
+        device.findObjects(selector).filter { safeBounds(it)?.isEmpty == false }
+
+    private fun safeBounds(node: UiObject2): android.graphics.Rect? = try {
+        node.visibleBounds
+    } catch (_: StaleObjectException) {
+        null
+    }
+
+    private fun objectFor(device: UiDevice, selector: BySelector, message: String): UiObject2 {
+        assertTrue(message, device.wait(Until.hasObject(selector), TIMEOUT))
+        return device.findObject(selector) ?: throw AssertionError(message)
+    }
+
+    private fun clickableAncestorSafely(node: UiObject2): UiObject2? = try {
+        clickableAncestor(node)
+    } catch (_: StaleObjectException) {
+        null
+    }
 
     private fun clickableAncestor(node: UiObject2): UiObject2? {
         var current: UiObject2? = node
@@ -122,10 +135,15 @@ class ChecklistItemEditorFlowTest {
     }
 
     private fun tap(node: UiObject2, device: UiDevice) {
-        val target = clickableAncestor(node) ?: node
-        val bounds = target.visibleBounds
+        val target = clickableAncestorSafely(node) ?: node
+        val bounds = safeBounds(target) ?: throw AssertionError("Target became stale before tap")
         assertTrue("Target has no tappable area", !bounds.isEmpty)
         assertTrue("Coordinate tap failed", device.click(bounds.centerX(), bounds.centerY()))
+        device.waitForIdle()
+    }
+
+    private fun scrollUp(device: UiDevice) {
+        device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
         device.waitForIdle()
     }
 
