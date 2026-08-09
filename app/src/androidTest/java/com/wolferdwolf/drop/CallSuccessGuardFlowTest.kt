@@ -1,6 +1,7 @@
 package com.wolferdwolf.drop
 
 import android.app.Activity
+import android.app.Instrumentation
 import android.content.Intent
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.intent.Intents
@@ -43,7 +44,7 @@ class CallSuccessGuardFlowTest {
             hasAction(Intent.ACTION_DIAL),
             hasData("tel:%2B919876543210")
         )
-        intending(expectedDialIntent).respondWith(androidx.test.espresso.intent.ActivityResult(Activity.RESULT_OK, null))
+        intending(expectedDialIntent).respondWith(Instrumentation.ActivityResult(Activity.RESULT_OK, null))
 
         val intent = Intent(context, CallConfirmationActivity::class.java)
             .putExtra(CallConfirmationActivity.EXTRA_PHONE, "+919876543210")
