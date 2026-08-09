@@ -111,6 +111,7 @@ screenshots=(
   drop-apostrophe-email-action
   drop-open-link-confirmation
   drop-call-confirmation
+  drop-call-opened-guard
   drop-image-review
   drop-pdf-review
   drop-paste-intake-actions
