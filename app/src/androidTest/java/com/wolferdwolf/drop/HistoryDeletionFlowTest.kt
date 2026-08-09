@@ -241,11 +241,18 @@ class HistoryDeletionFlowTest {
         // than the card's clipped bottom edge; the latter can land in the system gesture
         // area and never reach Compose's vertical History container.
         repeat(8) {
-            val anchor = visibleNode(device, UNIQUE_TITLE) ?: visibleNode(device, UNIQUE_CONTENT)
-            if (anchor != null) {
-                swipeUpFromNode(device, anchor)
+            // Ask the accessibility-recognised scroll container to advance first.
+            // Compose can consume a raw swipe started on the partially visible card,
+            // leaving the action row below the fold even though the card text is visible.
+            // Keep the anchored raw swipe as a fallback so this also works when the
+            // platform does not expose the LazyColumn as UiScrollable.
+            val advanced = accessibilityScrollForward()
+            if (advanced) {
+                device.waitForIdle()
+                Thread.sleep(200)
             } else {
-                swipeUp(device)
+                val anchor = visibleNode(device, UNIQUE_TITLE) ?: visibleNode(device, UNIQUE_CONTENT)
+                if (anchor != null) swipeUpFromNode(device, anchor) else swipeUp(device)
             }
             visibleNode(device, text)?.let { return it }
         }
