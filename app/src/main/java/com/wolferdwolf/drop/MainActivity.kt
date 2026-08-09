@@ -114,7 +114,7 @@ class MainActivity : ComponentActivity() {
         )
         screen = savedInstanceState?.getString(STATE_SCREEN)?.let { runCatching { Screen.valueOf(it) }.getOrNull() }
             ?: if (sourceText == null) Screen.HOME else Screen.PREVIEW
-        if (screen == Screen.REFERENCE_DETAIL && selectedReference == null) screen = Screen.HISTORY
+        if ((screen == Screen.REFERENCE_DETAIL || screen == Screen.REFERENCE_SAVED) && selectedReference == null) screen = Screen.HISTORY
 
         setContent {
             DropTheme {
@@ -190,9 +190,28 @@ class MainActivity : ComponentActivity() {
                         { screen = Screen.ACTIONS }
                     ) { title ->
                         runCatching { referenceStore.save(title, text, sourceType = sourceType) }
-                            .onSuccess { refreshHistory(); reset() }
+                            .onSuccess { saved ->
+                                selectedReference = saved
+                                refreshHistory()
+                                screen = Screen.REFERENCE_SAVED
+                            }
                             .exceptionOrNull()?.message
                     }
+                    Screen.REFERENCE_SAVED -> selectedReference?.let { saved ->
+                        ReferenceSavedScreen(
+                            saved,
+                            onViewHistory = {
+                                sourceText = null
+                                sourceType = SavedSourceType.UNKNOWN
+                                editedResults = null
+                                selectedReference = null
+                                actionError = null
+                                importStatus = null
+                                screen = Screen.HISTORY
+                            },
+                            onDone = ::reset
+                        )
+                    } ?: run { screen = Screen.HISTORY }
                     Screen.CHECKLIST -> if (text == null) reset() else ChecklistScreen(
                         text,
                         { screen = Screen.ACTIONS }
@@ -344,7 +363,7 @@ class MainActivity : ComponentActivity() {
         screen = Screen.HOME
     }
 
-    private enum class Screen { HOME, HISTORY, REFERENCE_DETAIL, TEXT_ENTRY, LINK_ENTRY, PREVIEW, EXTRACTION, ACTIONS, ALL_ACTIONS, SAVE, CHECKLIST, CHECKLIST_SAVED }
+    private enum class Screen { HOME, HISTORY, REFERENCE_DETAIL, TEXT_ENTRY, LINK_ENTRY, PREVIEW, EXTRACTION, ACTIONS, ALL_ACTIONS, SAVE, REFERENCE_SAVED, CHECKLIST, CHECKLIST_SAVED }
 
     companion object {
         const val EXTRA_SOURCE_TYPE = "drop_source_type"
@@ -786,6 +805,33 @@ private fun SaveScreen(value: String, suggestedTitle: String, onBack: () -> Unit
             error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
             item { Button(onClick = { error = onSave(title) }, modifier = Modifier.fillMaxWidth()) { Text("Save") } }
             item { OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Back") } }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReferenceSavedScreen(reference: SavedReference, onViewHistory: () -> Unit, onDone: () -> Unit) {
+    Scaffold(topBar = { TopAppBar(title = { Text("Reference saved") }) }) { padding ->
+        LazyColumn(
+            Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item { Text("Reference saved", style = MaterialTheme.typography.headlineSmall) }
+            item { Text("Your reference is stored locally on this device and recorded in History.") }
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Saved successfully", style = MaterialTheme.typography.titleMedium)
+                        Text(reference.title, style = MaterialTheme.typography.titleMedium)
+                        Text("Source: ${reference.sourceType.label}", style = MaterialTheme.typography.labelLarge)
+                        Text("Open History to review or edit the saved item, add notes, or delete it later.")
+                    }
+                }
+            }
+            item { Button(onClick = onViewHistory, modifier = Modifier.fillMaxWidth()) { Text("View in History") } }
+            item { OutlinedButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text("Done") } }
         }
     }
 }

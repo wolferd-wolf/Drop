@@ -109,6 +109,8 @@ screenshots=(
   drop-checklist-item-editor
   drop-checklist-saved-success
   drop-checklist-saved-history
+  drop-reference-saved-success
+  drop-reference-saved-history
   drop-contact-confirmation
   drop-contact-curated-values
   drop-email-confirmation
