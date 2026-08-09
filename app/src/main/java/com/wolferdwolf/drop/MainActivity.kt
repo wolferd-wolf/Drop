@@ -198,9 +198,21 @@ class MainActivity : ComponentActivity() {
                         { screen = Screen.ACTIONS }
                     ) { value ->
                         runCatching { referenceStore.save("Checklist", value, sourceType = sourceType) }
-                            .onSuccess { refreshHistory(); reset() }
+                            .onSuccess { refreshHistory(); screen = Screen.CHECKLIST_SAVED }
                             .exceptionOrNull()?.message
                     }
+                    Screen.CHECKLIST_SAVED -> ChecklistSavedScreen(
+                        onViewHistory = {
+                            sourceText = null
+                            sourceType = SavedSourceType.UNKNOWN
+                            editedResults = null
+                            selectedReference = null
+                            actionError = null
+                            importStatus = null
+                            screen = Screen.HISTORY
+                        },
+                        onDone = ::reset
+                    )
                 }
             }
         }
@@ -326,7 +338,7 @@ class MainActivity : ComponentActivity() {
         screen = Screen.HOME
     }
 
-    private enum class Screen { HOME, HISTORY, REFERENCE_DETAIL, TEXT_ENTRY, LINK_ENTRY, PREVIEW, EXTRACTION, ACTIONS, ALL_ACTIONS, SAVE, CHECKLIST }
+    private enum class Screen { HOME, HISTORY, REFERENCE_DETAIL, TEXT_ENTRY, LINK_ENTRY, PREVIEW, EXTRACTION, ACTIONS, ALL_ACTIONS, SAVE, CHECKLIST, CHECKLIST_SAVED }
 
     companion object {
         const val EXTRA_SOURCE_TYPE = "drop_source_type"
@@ -853,6 +865,31 @@ private fun ChecklistScreen(value: String, onBack: () -> Unit, onSave: (String) 
                 ) { Text("Save checklist") }
             }
             item { OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Back") } }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChecklistSavedScreen(onViewHistory: () -> Unit, onDone: () -> Unit) {
+    Scaffold(topBar = { TopAppBar(title = { Text("Checklist saved") }) }) { padding ->
+        LazyColumn(
+            Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item { Text("Checklist saved", style = MaterialTheme.typography.headlineSmall) }
+            item { Text("Your checklist is stored locally on this device and recorded in History.") }
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Saved successfully", style = MaterialTheme.typography.titleMedium)
+                        Text("Open History to review, edit metadata, or delete this checklist later.")
+                    }
+                }
+            }
+            item { Button(onClick = onViewHistory, modifier = Modifier.fillMaxWidth()) { Text("View in History") } }
+            item { OutlinedButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text("Done") } }
         }
     }
 }
