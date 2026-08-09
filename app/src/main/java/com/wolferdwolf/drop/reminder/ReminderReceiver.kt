@@ -12,8 +12,6 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.wolferdwolf.drop.MainActivity
-import java.text.DateFormat
-import java.util.Date
 
 class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -32,15 +30,7 @@ class ReminderReceiver : BroadcastReceiver() {
         val notes = intent.getStringExtra(EXTRA_NOTES).orEmpty()
         val triggerAtMillis = intent.getLongExtra(EXTRA_TRIGGER_AT_MILLIS, 0L)
         val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, title.hashCode())
-        val scheduledFor = triggerAtMillis.takeIf { it > 0L }?.let { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(it)) }
-        val notificationText = buildString {
-            if (scheduledFor != null) append("Scheduled for ").append(scheduledFor)
-            if (notes.isNotBlank()) {
-                if (isNotEmpty()) append(" · ")
-                append(notes)
-            }
-            if (isEmpty()) append("Open Drop to view your saved content")
-        }
+        val notificationText = ReminderNotificationText.build(triggerAtMillis, notes)
         val openApp = PendingIntent.getActivity(
             context,
             notificationId,
