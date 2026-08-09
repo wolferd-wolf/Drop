@@ -31,8 +31,9 @@ class HistoryReferenceEditFlowTest {
             dismissKeyboard(device)
             clickText(device, "Save")
 
-            visible(device, "Turn anything into the next useful action")
-            clickTextMatching(device, "History")
+            visible(device, "Reference saved")
+            clickText(device, "View in History")
+            visible(device, "History")
             visibleAfterScroll(device, ORIGINAL_TITLE)
             val cardTitle = visibleAfterScroll(device, ORIGINAL_TITLE)
             val card = ancestorWithDescendantText(cardTitle, "View details")
