@@ -5,6 +5,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiScrollable
+import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import com.wolferdwolf.drop.reminder.ReminderHistoryStore
 import com.wolferdwolf.drop.reminder.ReminderValidator
@@ -66,7 +68,7 @@ class HistoryReminderStatusFlowTest {
     private fun visibleAfterScroll(device: UiDevice, text: String) {
         repeat(10) { attempt ->
             if (device.wait(Until.hasObject(By.text(text)), 750L)) return
-            if (attempt < 9) scroll(device)
+            if (attempt < 9) scrollHistoryForward(device)
         }
         throw AssertionError("Expected visible text after scrolling: $text")
     }
@@ -74,19 +76,28 @@ class HistoryReminderStatusFlowTest {
     private fun visibleAfterScrollPrefix(device: UiDevice, prefix: String) {
         repeat(10) { attempt ->
             if (device.wait(Until.hasObject(By.textStartsWith(prefix)), 750L)) return
-            if (attempt < 9) scroll(device)
+            if (attempt < 9) scrollHistoryForward(device)
         }
         throw AssertionError("Expected visible text beginning with after scrolling: $prefix")
     }
 
-    private fun scroll(device: UiDevice) {
-        device.swipe(
-            device.displayWidth / 2,
-            device.displayHeight * 3 / 4,
-            device.displayWidth / 2,
-            device.displayHeight / 4,
-            18
-        )
+    private fun scrollHistoryForward(device: UiDevice) {
+        val list = UiScrollable(UiSelector().scrollable(true))
+        if (list.exists()) {
+            list.setAsVerticalList()
+            list.scrollForward()
+        } else {
+            // Keep a coordinate fallback for emulator/accessibility edge cases, but
+            // prefer the actual Compose scrollable container so filter controls do
+            // not absorb the gesture.
+            device.swipe(
+                device.displayWidth / 2,
+                device.displayHeight * 3 / 4,
+                device.displayWidth / 2,
+                device.displayHeight / 4,
+                18
+            )
+        }
         device.waitForIdle()
     }
 
