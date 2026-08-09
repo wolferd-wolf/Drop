@@ -60,9 +60,9 @@ class ChecklistItemEditorFlowTest {
             tap(historyButton!!, device)
             visibleAfterScroll(device, "References and checklists")
             visibleAfterScroll(device, "Checklist")
-            visibleAfterScroll(device, "☒ Buy oat milk")
-            visibleAfterScroll(device, "☒ Call supplier")
-            visibleAfterScroll(device, "☐ Pack charger")
+            visibleContainingAfterScroll(device, "☒ Buy oat milk")
+            visibleContainingAfterScroll(device, "☒ Call supplier")
+            visibleContainingAfterScroll(device, "☐ Pack charger")
             assertTrue(
                 "Deleted checklist item must not be present after saving",
                 !device.hasObject(By.textContains("Charge power bank"))
@@ -97,6 +97,16 @@ class ChecklistItemEditorFlowTest {
             device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)?.takeIf { !it.visibleBounds.isEmpty }?.let { return it }
         }
         throw AssertionError("Expected visible text after scrolling: $text")
+    }
+
+    private fun visibleContainingAfterScroll(device: UiDevice, text: String): UiObject2 {
+        device.wait(Until.findObject(By.textContains(text)), SHORT_TIMEOUT)?.takeIf { !it.visibleBounds.isEmpty }?.let { return it }
+        repeat(10) {
+            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
+            device.waitForIdle()
+            device.wait(Until.findObject(By.textContains(text)), SHORT_TIMEOUT)?.takeIf { !it.visibleBounds.isEmpty }?.let { return it }
+        }
+        throw AssertionError("Expected visible text containing after scrolling: $text")
     }
 
     private fun objectFor(device: UiDevice, selector: androidx.test.uiautomator.BySelector, message: String): UiObject2 =
