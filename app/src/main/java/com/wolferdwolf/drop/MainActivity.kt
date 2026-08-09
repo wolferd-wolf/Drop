@@ -256,7 +256,13 @@ class MainActivity : ComponentActivity() {
         actionError = null
         when (action.type) {
             SuggestedActionType.SAVE_REFERENCE -> screen = Screen.SAVE
-            SuggestedActionType.REMINDER -> startActivity(Intent(this, ReminderActivity::class.java).putExtra(ReminderActivity.EXTRA_SOURCE_TEXT, text))
+            SuggestedActionType.REMINDER -> startActivity(
+                Intent(this, ReminderActivity::class.java)
+                    .putExtra(ReminderActivity.EXTRA_SOURCE_TEXT, text)
+                    .putExtra(ReminderActivity.EXTRA_HAS_CURATED_RESULTS, true)
+                    .putExtra(ReminderActivity.EXTRA_CURATED_DATE, first(results, ExtractionType.DATE).orEmpty())
+                    .putExtra(ReminderActivity.EXTRA_CURATED_TIME, first(results, ExtractionType.TIME).orEmpty())
+            )
             SuggestedActionType.CHECKLIST -> screen = Screen.CHECKLIST
             SuggestedActionType.CALENDAR -> startActivity(
                 Intent(this, CalendarConfirmationActivity::class.java)
