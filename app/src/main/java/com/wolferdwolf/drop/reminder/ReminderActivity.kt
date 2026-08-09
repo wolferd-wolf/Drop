@@ -86,11 +86,11 @@ private fun ReminderScreen(
     var scheduled by rememberSaveable { mutableStateOf(false) }
     var pendingReminder by remember { mutableStateOf<ReminderValidator.ValidReminder?>(null) }
 
-    fun handleScheduleResult(result: Result<Unit>) {
+    fun handleScheduleResult(reminder: ReminderValidator.ValidReminder, result: Result<Unit>) {
         result.fold(
             onSuccess = {
                 scheduled = true
-                message = "Reminder scheduled. It is saved in History."
+                message = "Reminder scheduled for ${ReminderDisplayFormatter.format(reminder.triggerAtMillis)}. It is saved in History."
             },
             onFailure = {
                 scheduled = false
@@ -107,7 +107,7 @@ private fun ReminderScreen(
         } else if (reminder == null) {
             message = "Reminder could not be prepared"
         } else {
-            handleScheduleResult(schedule(reminder))
+            handleScheduleResult(reminder, schedule(reminder))
         }
     }
 
@@ -120,7 +120,7 @@ private fun ReminderScreen(
                     pendingReminder = result.reminder
                     permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 } else {
-                    handleScheduleResult(schedule(result.reminder))
+                    handleScheduleResult(result.reminder, schedule(result.reminder))
                 }
             }
         }
