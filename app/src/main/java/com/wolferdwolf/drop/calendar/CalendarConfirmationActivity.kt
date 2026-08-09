@@ -138,19 +138,19 @@ class CalendarConfirmationActivity : ComponentActivity() {
             .putExtra(CalendarContract.Events.DESCRIPTION, cleanNotes)
 
         return try {
-            if (calendarIntent.resolveActivity(packageManager) == null) {
-                CalendarLaunchResult(false, "No compatible Calendar app is installed.")
-            } else {
-                startActivity(calendarIntent)
-                try {
-                    SavedReferenceStore(applicationContext).save(
-                        historyTitle(cleanTitle),
-                        historyContent(cleanTitle, cleanDate, cleanStartTime, cleanEndTime, cleanVenue, cleanNotes)
-                    )
-                    CalendarLaunchResult(true, null)
-                } catch (_: Exception) {
-                    CalendarLaunchResult(true, "The Calendar app opened, but Drop could not record this action in History.")
-                }
+            // Launch directly and rely on ActivityNotFoundException rather than a
+            // preflight PackageManager query. On modern Android, package-visibility
+            // restrictions can make resolveActivity() return null even when the
+            // system can still route this implicit intent successfully.
+            startActivity(calendarIntent)
+            try {
+                SavedReferenceStore(applicationContext).save(
+                    historyTitle(cleanTitle),
+                    historyContent(cleanTitle, cleanDate, cleanStartTime, cleanEndTime, cleanVenue, cleanNotes)
+                )
+                CalendarLaunchResult(true, null)
+            } catch (_: Exception) {
+                CalendarLaunchResult(true, "The Calendar app opened, but Drop could not record this action in History.")
             }
         } catch (_: ActivityNotFoundException) {
             CalendarLaunchResult(false, "No compatible Calendar app is installed.")
