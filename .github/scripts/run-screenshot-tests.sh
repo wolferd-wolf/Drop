@@ -102,6 +102,7 @@ screenshots=(
   drop-reminder-extraction-prefill
   drop-reminder-curated-values
   drop-reminder-scheduled-guard
+  drop-date-only-reminder-scheduled
   drop-calendar-missing-date-suppressed
   drop-time-only-reminder-suppressed
   drop-non-event-calendar-suppressed
