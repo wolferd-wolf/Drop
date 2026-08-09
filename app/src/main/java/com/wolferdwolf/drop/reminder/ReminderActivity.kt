@@ -35,12 +35,21 @@ class ReminderActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val sourceText = intent.getStringExtra(EXTRA_SOURCE_TEXT).orEmpty()
+        val prefill = if (intent.getBooleanExtra(EXTRA_HAS_CURATED_RESULTS, false)) {
+            ReminderPrefillResolver.fromCurated(
+                intent.getStringExtra(EXTRA_CURATED_DATE),
+                intent.getStringExtra(EXTRA_CURATED_TIME)
+            )
+        } else {
+            ReminderPrefillResolver.from(sourceText)
+        }
         val scheduler = ReminderScheduler(applicationContext)
         val historyStore = ReminderHistoryStore(applicationContext)
         setContent {
             DropTheme {
                 ReminderScreen(
                     sourceText = sourceText,
+                    prefill = prefill,
                     onClose = { finish() },
                     schedule = { reminder ->
                         scheduler.schedule(reminder).onSuccess { historyStore.save(reminder) }
@@ -52,6 +61,9 @@ class ReminderActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_SOURCE_TEXT = "source_text"
+        const val EXTRA_HAS_CURATED_RESULTS = "has_curated_results"
+        const val EXTRA_CURATED_DATE = "curated_date"
+        const val EXTRA_CURATED_TIME = "curated_time"
     }
 }
 
@@ -59,10 +71,10 @@ class ReminderActivity : ComponentActivity() {
 @Composable
 private fun ReminderScreen(
     sourceText: String,
+    prefill: ReminderPrefill,
     onClose: () -> Unit,
     schedule: (ReminderValidator.ValidReminder) -> Result<Unit>
 ) {
-    val prefill = remember(sourceText) { ReminderPrefillResolver.from(sourceText) }
     var title by rememberSaveable { mutableStateOf(sourceText.lineSequence().firstOrNull { it.isNotBlank() }?.take(120) ?: "Reminder") }
     var notes by rememberSaveable { mutableStateOf(sourceText) }
     var date by rememberSaveable { mutableStateOf(prefill.date) }
