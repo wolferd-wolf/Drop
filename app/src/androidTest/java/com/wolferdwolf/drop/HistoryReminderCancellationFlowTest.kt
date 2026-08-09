@@ -58,7 +58,7 @@ class HistoryReminderCancellationFlowTest {
                 assertFalse("Confirmed cancellation must remove the reminder from History", store.load().any { it.id == record.id })
                 assertTrue(
                     "Cancelled reminder must disappear from the filtered History list",
-                    device.wait(Until.gone(By.text(title)), TIMEOUT)
+                    device.wait(Until.gone(By.text("Cancel reminder")), TIMEOUT)
                 )
                 capture(device, "/data/local/tmp/drop-history-reminder-cancelled.png")
             }
