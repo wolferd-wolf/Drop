@@ -35,7 +35,8 @@ class ReminderActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val sourceText = intent.getStringExtra(EXTRA_SOURCE_TEXT).orEmpty()
-        val prefill = if (intent.getBooleanExtra(EXTRA_HAS_CURATED_RESULTS, false)) {
+        val hasCuratedResults = intent.getBooleanExtra(EXTRA_HAS_CURATED_RESULTS, false)
+        val prefill = if (hasCuratedResults) {
             ReminderPrefillResolver.fromCurated(
                 intent.getStringExtra(EXTRA_CURATED_DATE),
                 intent.getStringExtra(EXTRA_CURATED_TIME)
@@ -50,6 +51,7 @@ class ReminderActivity : ComponentActivity() {
                 ReminderScreen(
                     sourceText = sourceText,
                     prefill = prefill,
+                    hasCuratedResults = hasCuratedResults,
                     onClose = { finish() },
                     schedule = { reminder ->
                         scheduler.schedule(reminder).onSuccess { historyStore.save(reminder) }
@@ -72,6 +74,7 @@ class ReminderActivity : ComponentActivity() {
 private fun ReminderScreen(
     sourceText: String,
     prefill: ReminderPrefill,
+    hasCuratedResults: Boolean,
     onClose: () -> Unit,
     schedule: (ReminderValidator.ValidReminder) -> Result<Unit>
 ) {
@@ -129,6 +132,9 @@ private fun ReminderScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text("Confirm reminder details", style = MaterialTheme.typography.headlineSmall)
+            if (hasCuratedResults) {
+                Text("Date and time use the values you reviewed in Extracted information. You can still edit them before scheduling.")
+            }
             OutlinedTextField(
                 title,
                 { title = it.take(120); message = null },
