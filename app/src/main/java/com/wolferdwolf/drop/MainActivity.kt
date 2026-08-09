@@ -137,7 +137,13 @@ class MainActivity : ComponentActivity() {
                         { screen = Screen.HOME },
                         { reference -> selectedReference = reference; screen = Screen.REFERENCE_DETAIL },
                         { referenceStore.delete(it.id); refreshHistory() },
-                        { reminder -> reminderScheduler.cancel(reminder).onSuccess { reminderStore.delete(reminder.id); refreshHistory() } }
+                        { reminder ->
+                            runCatching {
+                                reminderScheduler.cancel(reminder).getOrThrow()
+                                reminderStore.delete(reminder.id)
+                                refreshHistory()
+                            }.isSuccess
+                        }
                     )
                     Screen.REFERENCE_DETAIL -> selectedReference?.let { reference ->
                         ReferenceDetailScreen(
@@ -416,9 +422,12 @@ private fun HistoryScreen(
     onBack: () -> Unit,
     onViewReference: (SavedReference) -> Unit,
     onDeleteReference: (SavedReference) -> Unit,
-    onCancelReminder: (ReminderRecord) -> Unit
+    onCancelReminder: (ReminderRecord) -> Boolean
 ) {
     var pendingDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var pendingCancelReminderId by rememberSaveable { mutableStateOf<String?>(null) }
+    var reminderCancelStatus by rememberSaveable { mutableStateOf<String?>(null) }
+    var reminderCancelFailed by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var itemFilter by rememberSaveable { mutableStateOf(HistoryItemFilter.ALL) }
     var dateFilter by rememberSaveable { mutableStateOf(HistoryDateFilter.ALL) }
@@ -457,9 +466,44 @@ private fun HistoryScreen(
         )
     }
 
+    reminders.firstOrNull { it.id == pendingCancelReminderId }?.let { reminder ->
+        AlertDialog(
+            onDismissRequest = { pendingCancelReminderId = null },
+            title = { Text("Cancel reminder?") },
+            text = {
+                Text(
+                    "“${reminder.title}” will stop notifying you and be removed from History on this device. This cannot be undone."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val cancelled = onCancelReminder(reminder)
+                    reminderCancelFailed = !cancelled
+                    reminderCancelStatus = if (cancelled) {
+                        "Reminder cancelled. Its notification was stopped and it was removed from History."
+                    } else {
+                        "Reminder could not be cancelled. It remains in History."
+                    }
+                    pendingCancelReminderId = null
+                }) { Text("Yes, cancel reminder") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { pendingCancelReminderId = null }) { Text("Keep reminder") }
+            }
+        )
+    }
+
     Scaffold(topBar = { TopAppBar(title = { Text("History") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item { Text("Saved actions", style = MaterialTheme.typography.headlineSmall) }
+            reminderCancelStatus?.let { status ->
+                item {
+                    Text(
+                        status,
+                        color = if (reminderCancelFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
             item {
                 OutlinedTextField(
                     value = searchQuery,
@@ -553,7 +597,11 @@ private fun HistoryScreen(
                         Text(reminder.title, style = MaterialTheme.typography.titleMedium)
                         Text(ReminderDisplayFormatter.format(reminder.triggerAtMillis))
                         if (reminder.notes.isNotBlank()) Text(reminder.notes, maxLines = 3)
-                        TextButton(onClick = { onCancelReminder(reminder) }) { Text("Cancel reminder") }
+                        TextButton(onClick = {
+                            reminderCancelStatus = null
+                            reminderCancelFailed = false
+                            pendingCancelReminderId = reminder.id
+                        }) { Text("Cancel reminder") }
                     }
                 }
             }

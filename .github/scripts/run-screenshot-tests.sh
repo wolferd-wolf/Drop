@@ -157,6 +157,8 @@ screenshots=(
   drop-history-filter-today
   drop-history-search-empty
   drop-history-reminder-status
+  drop-history-reminder-cancel-confirmation
+  drop-history-reminder-cancelled
   drop-history-saved-reference
   drop-history-reference-restored
   drop-history-reference-detail
