@@ -56,9 +56,14 @@ class CallConfirmationActivity : ComponentActivity() {
                             if (normalized == null) {
                                 error = "Enter a valid phone number."
                             } else {
-                                val launchError = openDialerAndRecord(normalized)
-                                error = launchError
-                                if (launchError == null) completed = true
+                                // Mark the action complete before leaving Drop so the state is
+                                // available to Android's saved-state machinery if the external
+                                // phone app immediately stops or recreates this activity. Roll it
+                                // back only when the dialer itself could not be launched.
+                                completed = true
+                                val outcome = openDialerAndRecord(normalized)
+                                completed = outcome.launched
+                                error = outcome.message
                             }
                         }
                     },
@@ -68,22 +73,44 @@ class CallConfirmationActivity : ComponentActivity() {
         }
     }
 
-    private fun openDialerAndRecord(phone: String): String? {
+    private fun openDialerAndRecord(phone: String): DialerLaunchOutcome {
         val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(phone)}"))
-        return try {
-            if (dialIntent.resolveActivity(packageManager) == null) {
-                "No compatible phone app is installed."
-            } else {
-                startActivity(dialIntent)
-                SavedReferenceStore(applicationContext).save(historyTitle(phone), historyContent(phone))
-                null
-            }
+        if (dialIntent.resolveActivity(packageManager) == null) {
+            return DialerLaunchOutcome(
+                launched = false,
+                message = "No compatible phone app is installed."
+            )
+        }
+
+        try {
+            startActivity(dialIntent)
         } catch (_: ActivityNotFoundException) {
-            "No compatible phone app is installed."
+            return DialerLaunchOutcome(
+                launched = false,
+                message = "No compatible phone app is installed."
+            )
         } catch (_: SecurityException) {
-            "Android blocked this action. Check device settings and try again."
+            return DialerLaunchOutcome(
+                launched = false,
+                message = "Android blocked this action. Check device settings and try again."
+            )
         } catch (_: Exception) {
-            "The dialer opened, but Drop could not record this action in History."
+            return DialerLaunchOutcome(
+                launched = false,
+                message = "Drop could not open the phone app. Try again."
+            )
+        }
+
+        return try {
+            SavedReferenceStore(applicationContext).save(historyTitle(phone), historyContent(phone))
+            DialerLaunchOutcome(launched = true, message = null)
+        } catch (_: Exception) {
+            // The external action already happened. Keep the confirmation read-only so
+            // retrying cannot open the dialer again just because local History failed.
+            DialerLaunchOutcome(
+                launched = true,
+                message = "The phone app opened, but Drop could not record this action in History."
+            )
         }
     }
 
@@ -95,6 +122,11 @@ class CallConfirmationActivity : ComponentActivity() {
         internal fun historyContent(phone: String) = "Status: Opened in phone app\nPhone: ${phone.trim()}"
     }
 }
+
+private data class DialerLaunchOutcome(
+    val launched: Boolean,
+    val message: String?
+)
 
 object PhoneNumberValidator {
     fun normalize(value: String): String? {
