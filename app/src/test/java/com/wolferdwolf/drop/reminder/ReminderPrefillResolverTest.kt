@@ -64,4 +64,40 @@ class ReminderPrefillResolverTest {
         assertEquals("2026-08-09", result.date)
         assertEquals("06:00", result.time)
     }
+
+    @Test
+    fun curatedValuesOverrideWhatCouldBeReextractedFromSource() {
+        val result = ReminderPrefillResolver.fromCurated(
+            dateValue = "Sep. 13, 2026",
+            timeValue = "6:45 PM",
+            today = today
+        )
+
+        assertEquals("2026-09-13", result.date)
+        assertEquals("18:45", result.time)
+    }
+
+    @Test
+    fun removedCuratedValuesStayRemovedInsteadOfReceivingFallbacks() {
+        val result = ReminderPrefillResolver.fromCurated(
+            dateValue = "",
+            timeValue = "",
+            today = today
+        )
+
+        assertEquals("", result.date)
+        assertEquals("", result.time)
+    }
+
+    @Test
+    fun unparseableUserEditsRemainVisibleForConfirmationValidation() {
+        val result = ReminderPrefillResolver.fromCurated(
+            dateValue = "next payday",
+            timeValue = "after lunch",
+            today = today
+        )
+
+        assertEquals("next payday", result.date)
+        assertEquals("after lunch", result.time)
+    }
 }
