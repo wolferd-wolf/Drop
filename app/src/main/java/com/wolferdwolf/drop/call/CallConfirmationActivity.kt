@@ -75,12 +75,6 @@ class CallConfirmationActivity : ComponentActivity() {
 
     private fun openDialerAndRecord(phone: String): DialerLaunchOutcome {
         val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(phone)}"))
-        if (dialIntent.resolveActivity(packageManager) == null) {
-            return DialerLaunchOutcome(
-                launched = false,
-                message = "No compatible phone app is installed."
-            )
-        }
 
         try {
             startActivity(dialIntent)
