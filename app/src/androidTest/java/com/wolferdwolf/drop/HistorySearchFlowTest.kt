@@ -103,19 +103,30 @@ class HistorySearchFlowTest {
     }
 
     private fun clickExactText(device: UiDevice, text: String) {
-        val node = assertNotNull(
-            "Expected visible text: $text",
-            device.wait(Until.findObject(By.text(text)), TIMEOUT)
-        ).let { device.findObject(By.text(text)) }
+        val node = waitForVisibleNode(device, By.text(text), "Expected visible text: $text")
         clickNode(device, node)
     }
 
     private fun clickTextMatching(device: UiDevice, prefix: String) {
-        val node = assertNotNull(
-            "Expected visible text beginning with: $prefix",
-            device.wait(Until.findObject(By.textStartsWith(prefix)), TIMEOUT)
-        ).let { device.findObject(By.textStartsWith(prefix)) }
+        val node = waitForVisibleNode(device, By.textStartsWith(prefix), "Expected visible text beginning with: $prefix")
         clickNode(device, node)
+    }
+
+    private fun waitForVisibleNode(
+        device: UiDevice,
+        selector: androidx.test.uiautomator.BySelector,
+        errorMessage: String
+    ): androidx.test.uiautomator.UiObject2 {
+        val deadline = System.currentTimeMillis() + TIMEOUT
+        while (System.currentTimeMillis() < deadline) {
+            val node = device.findObjects(selector).firstOrNull { candidate ->
+                runCatching { !candidate.visibleBounds.isEmpty }.getOrDefault(false)
+            }
+            if (node != null) return node
+            device.waitForIdle()
+            Thread.sleep(100)
+        }
+        throw AssertionError(errorMessage)
     }
 
     private fun clickNode(device: UiDevice, node: androidx.test.uiautomator.UiObject2) {
@@ -129,8 +140,8 @@ class HistorySearchFlowTest {
     private fun clickableAncestor(node: androidx.test.uiautomator.UiObject2): androidx.test.uiautomator.UiObject2? {
         var current: androidx.test.uiautomator.UiObject2? = node
         while (current != null) {
-            if (current.isClickable) return current
-            current = current.parent
+            if (runCatching { current.isClickable }.getOrDefault(false)) return current
+            current = runCatching { current.parent }.getOrNull()
         }
         return null
     }
