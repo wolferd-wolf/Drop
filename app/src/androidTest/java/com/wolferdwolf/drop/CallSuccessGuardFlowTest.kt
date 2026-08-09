@@ -23,20 +23,26 @@ class CallSuccessGuardFlowTest {
         val intent = Intent(context, CallConfirmationActivity::class.java)
             .putExtra(CallConfirmationActivity.EXTRA_PHONE, "+919876543210")
 
-        ActivityScenario.launch<CallConfirmationActivity>(intent).use {
+        ActivityScenario.launch<CallConfirmationActivity>(intent).use { scenario ->
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             tap(visible(device, "Continue to Phone App"), device)
 
-            // ACTION_DIAL can land on a first-run/default-phone surface before the
-            // actual dialer. Back out only until Drop is visible again; this keeps
-            // the assertion tied to the real external-intent path without depending
-            // on a specific emulator phone-app package or onboarding state.
-            for (attempt in 0 until 4) {
-                if (device.hasObject(By.text("Phone app opened"))) break
-                device.pressBack()
-                device.waitForIdle()
-                device.wait(Until.findObject(By.text("Phone app opened")), SHORT_TIMEOUT)
+            // Prove the real ACTION_DIAL path actually left Drop before bringing the
+            // existing confirmation task back to the foreground. Emulator phone-app
+            // onboarding/default-app surfaces vary and cannot be navigated reliably
+            // with a fixed number of Back presses.
+            assertNotNull(
+                "Expected the external phone app to take the foreground",
+                device.wait(Until.gone(By.pkg(context.packageName)), TIMEOUT)
+            )
+
+            scenario.onActivity { activity ->
+                activity.startActivity(
+                    Intent(activity, CallConfirmationActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                )
             }
+            device.waitForIdle()
 
             visible(device, "Phone app opened")
             visible(device, "This action is saved in History. Return to Drop when you are done with the phone app.")
@@ -83,6 +89,5 @@ class CallSuccessGuardFlowTest {
 
     private companion object {
         const val TIMEOUT = 20_000L
-        const val SHORT_TIMEOUT = 2_000L
     }
 }
