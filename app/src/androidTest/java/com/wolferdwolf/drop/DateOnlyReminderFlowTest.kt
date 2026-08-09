@@ -36,7 +36,8 @@ class DateOnlyReminderFlowTest {
 
             tap(device, "Schedule")
 
-            visible(device, "Reminder scheduled. It is saved in History.")
+            visibleContains(device, "Reminder scheduled for")
+            visibleContains(device, "It is saved in History.")
             visible(device, "Done")
             assertFalse(
                 "A successfully scheduled date-only reminder must not remain schedulable",
@@ -51,6 +52,12 @@ class DateOnlyReminderFlowTest {
             "Expected visible text: $text",
             device.wait(Until.findObject(By.text(text)), TIMEOUT)
         ).let { device.findObject(By.text(text)) }
+
+    private fun visibleContains(device: UiDevice, text: String): UiObject2 =
+        assertNotNull(
+            "Expected visible text containing: $text",
+            device.wait(Until.findObject(By.textContains(text)), TIMEOUT)
+        ).let { device.findObject(By.textContains(text)) }
 
     private fun tap(device: UiDevice, text: String) {
         val node = visible(device, text)
