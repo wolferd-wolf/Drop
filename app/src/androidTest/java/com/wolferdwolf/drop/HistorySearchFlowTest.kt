@@ -8,6 +8,8 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.wolferdwolf.drop.data.SavedReferenceStore
 import com.wolferdwolf.drop.data.SavedSourceType
+import com.wolferdwolf.drop.reminder.ReminderHistoryStore
+import com.wolferdwolf.drop.reminder.ReminderValidator
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -19,6 +21,7 @@ class HistorySearchFlowTest {
     fun historySearchAndActionTypeFilterNarrowSavedActionsWithoutDeadEnds() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val store = SavedReferenceStore(context)
+        val reminderStore = ReminderHistoryStore(context)
         val first = store.save(
             "Café quarterly wolf strategy",
             "Operations review notes for the northern region. Call +91 98765-43210.",
@@ -27,6 +30,13 @@ class HistorySearchFlowTest {
         )
         val second = store.save("Supplier invoice", "Replacement bearings and machine oil.", now = 9_002L, sourceType = SavedSourceType.PDF)
         val recent = store.save("Today field note", "Fresh maintenance note saved today.", now = System.currentTimeMillis(), sourceType = SavedSourceType.IMAGE)
+        val reminder = reminderStore.save(
+            ReminderValidator.ValidReminder(
+                title = "History filter reminder sentinel",
+                notes = "Owned by HistorySearchFlowTest",
+                triggerAtMillis = Long.MAX_VALUE
+            )
+        )
 
         try {
             ActivityScenario.launch(MainActivity::class.java).use {
@@ -66,10 +76,10 @@ class HistorySearchFlowTest {
                 setSearchText(device, "")
                 scrollToTop(device)
                 clickExactText(device, "Reminders")
-                visibleAfterScroll(device, "No saved actions are available in the selected filters.")
+                visibleAfterScroll(device, "History filter reminder sentinel")
                 assertTrue("Reminder filter must hide saved references", device.wait(Until.gone(By.text("Café quarterly wolf strategy")), TIMEOUT))
                 assertTrue("Reminder filter must hide unrelated saved references", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
-                capture(device, "/data/local/tmp/drop-history-filter-reminders-empty.png")
+                capture(device, "/data/local/tmp/drop-history-filter-reminders.png")
 
                 scrollToTop(device)
                 clickExactText(device, "All")
@@ -88,6 +98,7 @@ class HistorySearchFlowTest {
                 capture(device, "/data/local/tmp/drop-history-search-empty.png")
             }
         } finally {
+            reminderStore.delete(reminder.id)
             store.delete(first.id)
             store.delete(second.id)
             store.delete(recent.id)
