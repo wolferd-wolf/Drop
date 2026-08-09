@@ -28,11 +28,16 @@ class CallSuccessGuardFlowTest {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             tap(visible(device, "Continue to Phone App"), device)
 
-            // ACTION_DIAL moves Drop to the background. Return without placing a call
-            // and verify the confirmation cannot launch or record the same action again.
-            device.waitForIdle()
-            device.pressBack()
-            device.waitForIdle()
+            // ACTION_DIAL can land on a first-run/default-phone surface before the
+            // actual dialer. Back out only until Drop is visible again; this keeps
+            // the assertion tied to the real external-intent path without depending
+            // on a specific emulator phone-app package or onboarding state.
+            repeat(4) {
+                if (device.hasObject(By.text("Phone app opened"))) return@repeat
+                device.pressBack()
+                device.waitForIdle()
+                device.wait(Until.findObject(By.text("Phone app opened")), SHORT_TIMEOUT)
+            }
 
             visible(device, "Phone app opened")
             visible(device, "This action is saved in History. Return to Drop when you are done with the phone app.")
@@ -79,5 +84,6 @@ class CallSuccessGuardFlowTest {
 
     private companion object {
         const val TIMEOUT = 20_000L
+        const val SHORT_TIMEOUT = 2_000L
     }
 }
