@@ -118,6 +118,7 @@ screenshots=(
   drop-email-curated-values
   drop-apostrophe-email-action
   drop-open-link-confirmation
+  drop-open-link-opened-guard
   drop-call-confirmation
   drop-call-opened-guard
   drop-image-review
@@ -152,7 +153,7 @@ screenshots=(
   drop-removed-address-maps-suppressed
   drop-history-search-result
   drop-history-filter-pdf-source
-  drop-history-filter-reminders-empty
+  drop-history-filter-reminders
   drop-history-filter-today
   drop-history-search-empty
   drop-history-reminder-status
