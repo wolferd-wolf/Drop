@@ -51,42 +51,46 @@ class HistorySearchFlowTest {
 
                 search.text = "cafe"
                 dismissKeyboard(device)
-                visible(device, "Café quarterly wolf strategy")
+                visibleAfterScroll(device, "Café quarterly wolf strategy")
                 assertTrue("History search must match accented saved text without requiring accent input", device.wait(Until.hasObject(By.text("Café quarterly wolf strategy")), TIMEOUT))
                 assertTrue("Unrelated reference must be filtered out", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-search-result.png")
 
                 search.text = ""
                 dismissKeyboard(device)
+                scrollToTop(device)
                 clickExactText(device, "PDF")
-                visible(device, "Supplier invoice")
-                visible(device, "Source: PDF")
+                visibleAfterScroll(device, "Supplier invoice")
+                visibleAfterScroll(device, "Source: PDF")
                 assertTrue("PDF source filter must hide text references", device.wait(Until.gone(By.text("Café quarterly wolf strategy")), TIMEOUT))
                 assertTrue("PDF source filter must hide image references", device.wait(Until.gone(By.text("Today field note")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-filter-pdf-source.png")
+                scrollToTop(device)
                 clickExactText(device, "All sources")
 
                 search.text = ""
                 dismissKeyboard(device)
+                scrollToTop(device)
                 clickExactText(device, "Reminders")
-                visible(device, "No saved actions are available in the selected filters.")
+                visibleAfterScroll(device, "No saved actions are available in the selected filters.")
                 assertTrue("Reminder filter must hide saved references", device.wait(Until.gone(By.text("Café quarterly wolf strategy")), TIMEOUT))
                 assertTrue("Reminder filter must hide unrelated saved references", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-filter-reminders-empty.png")
 
-                // Reset action type before validating the date filter. The date filter itself
-                // proves the reset worked because its only matching record is a saved reference.
+                scrollToTop(device)
                 clickExactText(device, "All")
                 clickExactText(device, "Today")
-                visible(device, "Today field note")
+                visibleAfterScroll(device, "Today field note")
                 assertTrue("Today filter must hide older saved references", device.wait(Until.gone(By.text("Café quarterly wolf strategy")), TIMEOUT))
                 assertTrue("Today filter must hide unrelated older references", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-filter-today.png")
 
+                scrollToTop(device)
                 clickExactText(device, "All dates")
-                search.text = "quarterly invoice"
+                val searchAgain = visibleEditText(device)
+                searchAgain.text = "quarterly invoice"
                 dismissKeyboard(device)
-                visible(device, "No saved actions match “quarterly invoice” in these filters. Try a different search, action type, or date.")
+                visibleAfterScroll(device, "No saved actions match “quarterly invoice” in these filters. Try a different search, action type, or date.")
                 assertTrue("Search must require every entered term to match the same saved item", device.wait(Until.gone(By.text("Café quarterly wolf strategy")), TIMEOUT))
                 assertTrue("Search must not combine terms across separate saved items", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-search-empty.png")
@@ -139,6 +143,47 @@ class HistorySearchFlowTest {
     private fun visible(device: UiDevice, text: String) =
         assertNotNull("Expected visible text: $text", device.wait(Until.findObject(By.text(text)), TIMEOUT))
 
+    private fun visibleAfterScroll(device: UiDevice, text: String) {
+        repeat(14) { attempt ->
+            val node = device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)
+            if (node != null && !node.visibleBounds.isEmpty) return
+            if (attempt < 13) swipeUp(device)
+        }
+        throw AssertionError("Expected visible text after scrolling: $text")
+    }
+
+    private fun visibleEditText(device: UiDevice) =
+        assertNotNull(
+            "History search field is missing after scrolling to top",
+            device.wait(Until.findObject(By.clazz("android.widget.EditText")), TIMEOUT)
+        ).let { device.findObject(By.clazz("android.widget.EditText")) }
+
+    private fun scrollToTop(device: UiDevice) {
+        repeat(14) { swipeDown(device) }
+    }
+
+    private fun swipeUp(device: UiDevice) {
+        device.swipe(
+            device.displayWidth / 2,
+            device.displayHeight * 3 / 4,
+            device.displayWidth / 2,
+            device.displayHeight / 4,
+            20
+        )
+        device.waitForIdle()
+    }
+
+    private fun swipeDown(device: UiDevice) {
+        device.swipe(
+            device.displayWidth / 2,
+            device.displayHeight / 4,
+            device.displayWidth / 2,
+            device.displayHeight * 3 / 4,
+            20
+        )
+        device.waitForIdle()
+    }
+
     private fun capture(device: UiDevice, path: String) {
         device.waitForIdle()
         device.executeShellCommand("rm -f $path")
@@ -148,5 +193,6 @@ class HistorySearchFlowTest {
 
     private companion object {
         const val TIMEOUT = 20_000L
+        const val SHORT_TIMEOUT = 2_000L
     }
 }
