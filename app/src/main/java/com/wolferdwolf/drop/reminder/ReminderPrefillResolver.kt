@@ -45,6 +45,7 @@ object ReminderPrefillResolver {
     private fun parseDate(raw: String, today: LocalDate): LocalDate? {
         val clean = raw.trim().replace(Regex("(?i)(\\d)(st|nd|rd|th)"), "$1")
             .replace(Regex("(?i)\\bof\\s+"), "")
+            .replace(Regex("(?<=[A-Za-z])\\."), "")
             .replace(",", "")
             .replace(Regex("\\s+"), " ")
         when (clean.lowercase(Locale.ROOT)) {
