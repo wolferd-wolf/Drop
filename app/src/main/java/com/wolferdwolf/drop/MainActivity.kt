@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -802,23 +801,19 @@ private fun ChecklistScreen(value: String, onBack: () -> Unit, onSave: (String) 
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(
                                 onClick = { encodedItems = ChecklistEditor.encode(ChecklistEditor.move(checklistItems, index, -1)) },
-                                enabled = index > 0,
-                                modifier = Modifier.weight(1f)
+                                enabled = index > 0
                             ) { Text("Move up") }
                             OutlinedButton(
                                 onClick = { encodedItems = ChecklistEditor.encode(ChecklistEditor.move(checklistItems, index, 1)) },
-                                enabled = index < checklistItems.lastIndex,
-                                modifier = Modifier.weight(1f)
+                                enabled = index < checklistItems.lastIndex
                             ) { Text("Move down") }
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilledTonalButton(
-                                onClick = { encodedItems = ChecklistEditor.encode(ChecklistEditor.toggle(checklistItems, index)) },
-                                modifier = Modifier.weight(1f)
+                                onClick = { encodedItems = ChecklistEditor.encode(ChecklistEditor.toggle(checklistItems, index)) }
                             ) { Text(if (checklistItem.checked) "Mark not done" else "Mark done") }
                             TextButton(
-                                onClick = { encodedItems = ChecklistEditor.encode(ChecklistEditor.delete(checklistItems, index)) },
-                                modifier = Modifier.weight(1f)
+                                onClick = { encodedItems = ChecklistEditor.encode(ChecklistEditor.delete(checklistItems, index)) }
                             ) { Text("Delete item") }
                         }
                     }
