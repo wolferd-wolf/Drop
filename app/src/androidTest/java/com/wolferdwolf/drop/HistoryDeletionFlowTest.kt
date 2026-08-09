@@ -45,8 +45,8 @@ class HistoryDeletionFlowTest {
         dismissKeyboardWithoutNavigation(device)
         clickText(device, "Save")
 
-        visible(device, "Turn anything into the next useful action")
-        clickTextMatching(device, "History")
+        visible(device, "Reference saved")
+        clickText(device, "View in History")
         visible(device, "Saved actions")
         visible(device, UNIQUE_TITLE)
         visible(device, UNIQUE_CONTENT)
