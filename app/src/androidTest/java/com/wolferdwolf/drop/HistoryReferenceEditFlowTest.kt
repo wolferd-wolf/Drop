@@ -55,7 +55,7 @@ class HistoryReferenceEditFlowTest {
 
             clickText(device, "Back to History", scroll = true)
             visibleAfterScroll(device, EDITED_TITLE)
-            val search = objectFor(device, By.clazz("android.widget.EditText"), "History search field is missing")
+            val search = editTextAfterScrollingToTop(device, "History search field is missing")
             search.text = "followupwolf"
             dismissKeyboard(device)
             visibleAfterScroll(device, EDITED_TITLE)
@@ -65,6 +65,16 @@ class HistoryReferenceEditFlowTest {
                 ?: throw AssertionError("Delete dialog missing")
             tap(device, dialog.findObject(By.text("Delete")) ?: throw AssertionError("Delete confirmation missing"))
         }
+    }
+
+    private fun editTextAfterScrollingToTop(device: UiDevice, message: String): UiObject2 {
+        repeat(18) {
+            device.findObject(By.clazz("android.widget.EditText"))?.let { node ->
+                if (!node.visibleBounds.isEmpty) return node
+            }
+            swipeDown(device)
+        }
+        return objectFor(device, By.clazz("android.widget.EditText"), message)
     }
 
     private fun clickTextAndWaitForDestination(
@@ -112,25 +122,12 @@ class HistoryReferenceEditFlowTest {
         device.waitForIdle()
     }
 
-    private fun clickTextMatching(device: UiDevice, prefix: String) {
-        val node = assertNotNull(
-            "Expected visible text beginning with: $prefix",
-            device.wait(Until.findObject(By.textStartsWith(prefix)), TIMEOUT)
-        ).let { device.findObject(By.textStartsWith(prefix)) }
-        tap(device, node)
-        device.waitForIdle()
-    }
-
     private fun visible(device: UiDevice, text: String): UiObject2 =
         assertNotNull("Expected visible text: $text", device.wait(Until.findObject(By.text(text)), TIMEOUT))
             .let { device.findObject(By.text(text)) }
 
     private fun visibleAfterScroll(device: UiDevice, text: String): UiObject2 {
         visibleNode(device, text)?.let { return it }
-
-        // History can preserve scroll position across detail/edit navigation. Search both directions
-        // so a filtered result is verified regardless of whether the previous screen left us near
-        // the top or bottom of the list.
         repeat(8) {
             swipeUp(device)
             visibleNode(device, text)?.let { return it }
