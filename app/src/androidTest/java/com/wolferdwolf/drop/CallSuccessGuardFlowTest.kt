@@ -22,7 +22,6 @@ class CallSuccessGuardFlowTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val intent = Intent(context, CallConfirmationActivity::class.java)
             .putExtra(CallConfirmationActivity.EXTRA_PHONE, "+919876543210")
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
         ActivityScenario.launch<CallConfirmationActivity>(intent).use {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
