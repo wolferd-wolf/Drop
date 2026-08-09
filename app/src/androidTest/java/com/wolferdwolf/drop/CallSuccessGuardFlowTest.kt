@@ -9,6 +9,7 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import com.wolferdwolf.drop.call.CallConfirmationActivity
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -23,26 +24,30 @@ class CallSuccessGuardFlowTest {
         val intent = Intent(context, CallConfirmationActivity::class.java)
             .putExtra(CallConfirmationActivity.EXTRA_PHONE, "+919876543210")
 
-        ActivityScenario.launch<CallConfirmationActivity>(intent).use { scenario ->
+        ActivityScenario.launch<CallConfirmationActivity>(intent).use {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             tap(visible(device, "Continue to Phone App"), device)
 
-            // Prove the real ACTION_DIAL path actually left Drop before bringing the
-            // existing confirmation task back to the foreground. Emulator phone-app
-            // onboarding/default-app surfaces vary and cannot be navigated reliably
-            // with a fixed number of Back presses.
+            // Prove the real ACTION_DIAL path actually left Drop. Then unwind whatever
+            // dialer/default-app surface the emulator showed until Android restores the
+            // same Drop task. This preserves the real confirmation activity state instead
+            // of starting a second activity instance just for the verifier.
             assertNotNull(
                 "Expected the external phone app to take the foreground",
                 device.wait(Until.gone(By.pkg(context.packageName)), TIMEOUT)
             )
 
-            scenario.onActivity { activity ->
-                activity.startActivity(
-                    Intent(activity, CallConfirmationActivity::class.java)
-                        .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                )
+            repeat(MAX_BACK_ATTEMPTS) {
+                if (device.currentPackageName == context.packageName) return@repeat
+                device.pressBack()
+                device.waitForIdle()
+                device.wait(Until.findObject(By.pkg(context.packageName)), BACK_WAIT)
             }
-            device.waitForIdle()
+            assertEquals(
+                "Expected Back navigation to restore Drop after the external phone app",
+                context.packageName,
+                device.currentPackageName
+            )
 
             visible(device, "Phone app opened")
             visible(device, "This action is saved in History. Return to Drop when you are done with the phone app.")
@@ -89,5 +94,7 @@ class CallSuccessGuardFlowTest {
 
     private companion object {
         const val TIMEOUT = 20_000L
+        const val BACK_WAIT = 1_500L
+        const val MAX_BACK_ATTEMPTS = 6
     }
 }
