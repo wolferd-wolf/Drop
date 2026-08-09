@@ -80,7 +80,7 @@ class ReminderValidatorTest {
 
     @Test
     fun explainsPastDateOnlyDefaultInsteadOfSilentlyChangingTime() {
-        val result = ReminderValidator.validate("Today task", "", "2026-08-01", "", clock)
+        val result = ReminderValidator.validate("Old date-only task", "", "2026-07-31", "", clock)
         assertEquals(
             "Date-only reminders use 09:00; choose a future date or add a time",
             (result as ReminderValidator.Result.Error).message
