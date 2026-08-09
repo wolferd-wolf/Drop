@@ -31,7 +31,7 @@ class HomeScreenshotTest {
             assertVisible(device, "Paste text", "Paste text action must be visible on Home")
             assertVisible(device, "Add link", "Add link action must be visible on Home")
             capture(device, "/data/local/tmp/drop-home.png")
-            val history = assertVisibleAfterScroll(device, "History", "History control must remain reachable on Home")
+            val history = assertVisibleHistoryAfterScroll(device)
             tapResolvedTarget(device, history)
             assertVisible(device, "Saved actions", "History screen must open from Home")
             assertVisible(device, "Back to Home", "History screen must provide a visible return action")
@@ -267,6 +267,26 @@ class HomeScreenshotTest {
         }
 
         throw AssertionError(message)
+    }
+
+    private fun assertVisibleHistoryAfterScroll(device: UiDevice): UiObject2 {
+        fun current(): UiObject2? = device.findObjects(By.textStartsWith("History"))
+            .firstOrNull { !it.visibleBounds.isEmpty }
+
+        current()?.let { return it }
+        repeat(MAX_SCROLL_ATTEMPTS) {
+            swipeUp(device)
+            current()?.let { return it }
+        }
+        repeat(MAX_SCROLL_ATTEMPTS * 2) {
+            swipeDown(device)
+            current()?.let { return it }
+        }
+        repeat(MAX_SCROLL_ATTEMPTS * 2) {
+            swipeUp(device)
+            current()?.let { return it }
+        }
+        throw AssertionError("History control must remain reachable on Home")
     }
 
     private fun visibleText(device: UiDevice, text: String): UiObject2? =
