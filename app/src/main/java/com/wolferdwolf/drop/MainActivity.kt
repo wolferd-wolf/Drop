@@ -520,7 +520,7 @@ private fun HistoryScreen(
             }
             if (filteredReferences.isNotEmpty()) item { Text("References and checklists", style = MaterialTheme.typography.titleLarge) }
             items(filteredReferences, key = SavedReference::id) { reference ->
-                Card(Modifier.fillMaxWidth()) {
+                Card(onClick = { onViewReference(reference) }, modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(reference.title, style = MaterialTheme.typography.titleMedium)
                         Text("Source: ${reference.sourceType.label}", style = MaterialTheme.typography.labelLarge)

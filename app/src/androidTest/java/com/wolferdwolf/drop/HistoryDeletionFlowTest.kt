@@ -61,10 +61,10 @@ class HistoryDeletionFlowTest {
         visible(device, UNIQUE_CONTENT)
         capture(device, "/data/local/tmp/drop-history-reference-restored.png")
 
-        // Use the same card-anchored scroll helper that already handles this long
-        // History layout. Keeping one path avoids bypassing the verified fallback
-        // logic with a separate fixed-coordinate gesture.
-        clickText(device, "View details", scroll = true)
+        // The saved reference card itself is a deliberate navigation target. This keeps
+        // item detail reachable even when the explicit action row sits below the fold
+        // behind History's search and filter controls.
+        clickText(device, UNIQUE_TITLE)
         visible(device, "Saved item details")
         visible(device, UNIQUE_TITLE)
         visible(device, "Saved reference")
