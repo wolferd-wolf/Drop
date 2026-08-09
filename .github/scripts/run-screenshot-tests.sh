@@ -105,6 +105,7 @@ screenshots=(
   drop-time-only-reminder-suppressed
   drop-non-event-calendar-suppressed
   drop-paragraph-checklist-suppressed
+  drop-checklist-item-editor
   drop-contact-confirmation
   drop-contact-curated-values
   drop-email-confirmation

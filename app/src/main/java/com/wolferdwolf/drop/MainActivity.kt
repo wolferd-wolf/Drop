@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -41,6 +43,7 @@ import com.wolferdwolf.drop.actions.SuggestedActionEngine
 import com.wolferdwolf.drop.actions.SuggestedActionType
 import com.wolferdwolf.drop.calendar.CalendarConfirmationActivity
 import com.wolferdwolf.drop.call.CallConfirmationActivity
+import com.wolferdwolf.drop.checklist.ChecklistEditor
 import com.wolferdwolf.drop.contact.ContactConfirmationActivity
 import com.wolferdwolf.drop.data.SavedReference
 import com.wolferdwolf.drop.data.SavedReferenceStore
@@ -773,15 +776,87 @@ private fun SaveScreen(value: String, suggestedTitle: String, onBack: () -> Unit
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChecklistScreen(value: String, onBack: () -> Unit, onSave: (String) -> String?) {
-    val suggested = value.lineSequence().map(String::trim).filter(String::isNotBlank).joinToString("\n") { "☐ ${it.trimStart('-', '•', ' ')}" }
-    var checklist by rememberSaveable { mutableStateOf(suggested) }
+    var encodedItems by rememberSaveable(value) {
+        mutableStateOf(ChecklistEditor.encode(ChecklistEditor.fromSource(value)))
+    }
+    var newItem by rememberSaveable(value) { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
+    val checklistItems = ChecklistEditor.decode(encodedItems)
+    val saveValue = ChecklistEditor.serializeForSave(checklistItems)
+
     Scaffold(topBar = { TopAppBar(title = { Text("Create checklist") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            item { Text("Edit the checklist before saving", style = MaterialTheme.typography.headlineSmall) }
-            item { OutlinedTextField(checklist, { checklist = it }, Modifier.fillMaxWidth(), label = { Text("Checklist items") }, minLines = 10) }
+            item { Text("Edit checklist items before saving", style = MaterialTheme.typography.headlineSmall) }
+            item { Text("Add, edit, reorder, mark done, or remove items. The checklist stays on this device until you choose to export it.") }
+            itemsIndexed(checklistItems) { index, checklistItem ->
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(if (checklistItem.checked) "Done" else "To do", style = MaterialTheme.typography.labelLarge)
+                        OutlinedTextField(
+                            value = checklistItem.text,
+                            onValueChange = { encodedItems = ChecklistEditor.encode(ChecklistEditor.edit(checklistItems, index, it)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Item ${index + 1}") },
+                            singleLine = true
+                        )
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = { encodedItems = ChecklistEditor.encode(ChecklistEditor.move(checklistItems, index, -1)) },
+                                enabled = index > 0,
+                                modifier = Modifier.weight(1f)
+                            ) { Text("Move up") }
+                            OutlinedButton(
+                                onClick = { encodedItems = ChecklistEditor.encode(ChecklistEditor.move(checklistItems, index, 1)) },
+                                enabled = index < checklistItems.lastIndex,
+                                modifier = Modifier.weight(1f)
+                            ) { Text("Move down") }
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilledTonalButton(
+                                onClick = { encodedItems = ChecklistEditor.encode(ChecklistEditor.toggle(checklistItems, index)) },
+                                modifier = Modifier.weight(1f)
+                            ) { Text(if (checklistItem.checked) "Mark not done" else "Mark done") }
+                            TextButton(
+                                onClick = { encodedItems = ChecklistEditor.encode(ChecklistEditor.delete(checklistItems, index)) },
+                                modifier = Modifier.weight(1f)
+                            ) { Text("Delete item") }
+                        }
+                    }
+                }
+            }
+            if (checklistItems.isEmpty()) item {
+                Text("No checklist items yet. Add at least one item before saving.", color = MaterialTheme.colorScheme.error)
+            }
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = newItem,
+                            onValueChange = { newItem = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("New item") },
+                            singleLine = true
+                        )
+                        Button(
+                            onClick = {
+                                encodedItems = ChecklistEditor.encode(ChecklistEditor.add(checklistItems, newItem))
+                                newItem = ""
+                                error = null
+                            },
+                            enabled = newItem.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Add item") }
+                    }
+                }
+            }
             error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
-            item { Button(onClick = { error = onSave(checklist.trim()) }, enabled = checklist.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Save checklist") } }
+            item {
+                Button(
+                    onClick = { error = onSave(saveValue) },
+                    enabled = ChecklistEditor.hasSavableItems(checklistItems),
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Save checklist") }
+            }
             item { OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Back") } }
         }
     }
