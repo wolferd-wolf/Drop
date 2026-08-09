@@ -140,8 +140,9 @@ class HistorySearchFlowTest {
     private fun clickableAncestor(node: androidx.test.uiautomator.UiObject2): androidx.test.uiautomator.UiObject2? {
         var current: androidx.test.uiautomator.UiObject2? = node
         while (current != null) {
-            if (runCatching { current.isClickable }.getOrDefault(false)) return current
-            current = runCatching { current.parent }.getOrNull()
+            val snapshot = current
+            if (runCatching { snapshot.isClickable }.getOrDefault(false)) return snapshot
+            current = runCatching { snapshot.parent }.getOrNull()
         }
         return null
     }
