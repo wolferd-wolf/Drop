@@ -106,6 +106,7 @@ screenshots=(
   drop-non-event-calendar-suppressed
   drop-paragraph-checklist-suppressed
   drop-checklist-item-editor
+  drop-checklist-saved-history
   drop-contact-confirmation
   drop-contact-curated-values
   drop-email-confirmation
