@@ -41,17 +41,25 @@ class CallConfirmationActivity : ComponentActivity() {
             DropTheme {
                 var phone by rememberSaveable { mutableStateOf(detectedNumber) }
                 var error by rememberSaveable { mutableStateOf<String?>(null) }
+                var completed by rememberSaveable { mutableStateOf(false) }
 
                 CallConfirmationScreen(
                     phone = phone,
                     error = error,
+                    completed = completed,
                     onPhoneChange = { phone = it.take(MAX_PHONE_LENGTH) },
                     onContinue = {
-                        val normalized = PhoneNumberValidator.normalize(phone)
-                        error = if (normalized == null) {
-                            "Enter a valid phone number."
+                        if (completed) {
+                            finish()
                         } else {
-                            openDialerAndRecord(normalized)
+                            val normalized = PhoneNumberValidator.normalize(phone)
+                            if (normalized == null) {
+                                error = "Enter a valid phone number."
+                            } else {
+                                val launchError = openDialerAndRecord(normalized)
+                                error = launchError
+                                if (launchError == null) completed = true
+                            }
                         }
                     },
                     onCancel = ::finish
@@ -104,6 +112,7 @@ object PhoneNumberValidator {
 private fun CallConfirmationScreen(
     phone: String,
     error: String?,
+    completed: Boolean,
     onPhoneChange: (String) -> Unit,
     onContinue: () -> Unit,
     onCancel: () -> Unit
@@ -115,8 +124,17 @@ private fun CallConfirmationScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Text("Confirm the phone number", style = MaterialTheme.typography.headlineSmall)
-                Text("Review and edit the detected number before Drop opens your phone app.")
+                Text(
+                    if (completed) "Phone app opened" else "Confirm the phone number",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+                Text(
+                    if (completed) {
+                        "This action is saved in History. Return to Drop when you are done with the phone app."
+                    } else {
+                        "Review and edit the detected number before Drop opens your phone app."
+                    }
+                )
             }
             item {
                 OutlinedTextField(
@@ -124,25 +142,34 @@ private fun CallConfirmationScreen(
                     onValueChange = onPhoneChange,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Phone number") },
-                    singleLine = true
+                    singleLine = true,
+                    enabled = !completed
                 )
             }
             item {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("You stay in control", style = MaterialTheme.typography.titleMedium)
-                        Text("Drop opens the dialer with this number. It never places the call automatically. A record is added to History after the phone app opens.")
+                        Text(
+                            if (completed) {
+                                "Drop cannot place a call automatically. The dialer was opened once with the confirmed number."
+                            } else {
+                                "Drop opens the dialer with this number. It never places the call automatically. A record is added to History after the phone app opens."
+                            }
+                        )
                     }
                 }
             }
             error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
             item {
                 Button(onClick = onContinue, enabled = phone.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
-                    Text("Continue to Phone App")
+                    Text(if (completed) "Done" else "Continue to Phone App")
                 }
             }
-            item {
-                OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
+            if (!completed) {
+                item {
+                    OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
+                }
             }
         }
     }
