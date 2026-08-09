@@ -32,8 +32,8 @@ class CallSuccessGuardFlowTest {
             // actual dialer. Back out only until Drop is visible again; this keeps
             // the assertion tied to the real external-intent path without depending
             // on a specific emulator phone-app package or onboarding state.
-            repeat(4) {
-                if (device.hasObject(By.text("Phone app opened"))) return@repeat
+            for (attempt in 0 until 4) {
+                if (device.hasObject(By.text("Phone app opened"))) break
                 device.pressBack()
                 device.waitForIdle()
                 device.wait(Until.findObject(By.text("Phone app opened")), SHORT_TIMEOUT)
