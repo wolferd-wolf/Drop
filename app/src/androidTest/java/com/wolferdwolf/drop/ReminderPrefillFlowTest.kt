@@ -15,13 +15,13 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ReminderPrefillFlowTest {
     @Test
-    fun detectedDateAndTimeReachReminderConfirmation() {
+    fun detectedAbbreviatedDateAndTimeReachReminderConfirmation() {
         ActivityScenario.launch(MainActivity::class.java).use {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             clickText(device, "Paste text")
             visible(device, "Add content for Drop to understand and turn into an action.")
             val input = objectFor(device, By.clazz("android.widget.EditText"), "Paste intake must provide an editable field")
-            input.text = "Site visit on 2026-08-15 at 9:30 PM."
+            input.text = "Supplier review on Sep. 12, 2026 at 10:15 AM."
             device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
             device.waitForIdle()
 
@@ -29,12 +29,13 @@ class ReminderPrefillFlowTest {
             visible(device, "Import preview")
             clickText(device, "Extract details")
             visible(device, "Extracted information")
+            objectFor(device, By.text("Sep. 12, 2026"), "Abbreviated date must remain visible in extracted information")
             clickText(device, "See suggested actions", scroll = true)
             visible(device, "Suggested actions")
             clickTextAndWaitForDestination(device, "Create reminder", "Confirm reminder details")
 
-            objectFor(device, By.clazz("android.widget.EditText").text("2026-08-15"), "Detected date must prefill Reminder confirmation")
-            objectFor(device, By.clazz("android.widget.EditText").text("21:30"), "Detected time must prefill Reminder confirmation")
+            objectFor(device, By.clazz("android.widget.EditText").text("2026-09-12"), "Abbreviated extracted date must prefill Reminder confirmation")
+            objectFor(device, By.clazz("android.widget.EditText").text("10:15"), "Detected time must prefill Reminder confirmation")
             visibleAfterScroll(device, "Schedule")
             visibleAfterScroll(device, "Cancel")
             capture(device, "/data/local/tmp/drop-reminder-extraction-prefill.png")
