@@ -20,7 +20,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -160,7 +159,8 @@ private fun ReminderScreen(
                 time,
                 { time = it; message = null },
                 Modifier.fillMaxWidth(),
-                label = { Text("Time (HH:MM)") },
+                label = { Text("Time (optional, HH:MM)") },
+                supportingText = { Text("Leave blank to remind at 09:00 on the selected date.") },
                 enabled = !scheduled
             )
             message?.let {
