@@ -1,0 +1,21 @@
+name: Apply reminder cancellation patch
+
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'automation/calendar-normal-flow-verification'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: automation/calendar-normal-flow-verification
+          fetch-depth: 0
+      - name: Apply product patch
+        run: bash .github/scripts/apply-reminder-cancel-confirmation.sh
