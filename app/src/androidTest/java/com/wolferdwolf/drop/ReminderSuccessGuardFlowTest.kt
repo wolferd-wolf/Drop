@@ -31,7 +31,11 @@ class ReminderSuccessGuardFlowTest {
 
             assertNotNull(
                 "Successful reminder creation must show durable success feedback",
-                device.wait(Until.findObject(By.text("Reminder scheduled. It is saved in History.")), TIMEOUT)
+                device.wait(Until.findObject(By.textContains("Reminder scheduled for")), TIMEOUT)
+            )
+            assertNotNull(
+                "The success feedback must confirm the reminder was saved in History",
+                device.wait(Until.findObject(By.textContains("It is saved in History.")), TIMEOUT)
             )
             assertNotNull(
                 "After a successful schedule the confirmation must offer a single safe exit",
