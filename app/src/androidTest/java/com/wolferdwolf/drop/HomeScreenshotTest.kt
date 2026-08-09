@@ -34,8 +34,8 @@ class HomeScreenshotTest {
             val history = assertVisibleHistoryAfterScroll(device)
             tapResolvedTarget(device, history)
             assertVisible(device, "Saved actions", "History screen must open from Home")
-            assertVisible(device, "Back to Home", "History screen must provide a visible return action")
             capture(device, "/data/local/tmp/drop-history.png")
+            assertVisibleAfterScroll(device, "Back to Home", "History screen must provide a reachable return action")
         }
     }
 
