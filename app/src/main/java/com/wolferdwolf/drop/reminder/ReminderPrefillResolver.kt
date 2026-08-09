@@ -42,6 +42,26 @@ object ReminderPrefillResolver {
         return ReminderPrefill(date.toString(), time.format(outputTime))
     }
 
+    fun fromCurated(
+        dateValue: String?,
+        timeValue: String?,
+        today: LocalDate = LocalDate.now()
+    ): ReminderPrefill {
+        val cleanDate = dateValue.orEmpty().trim()
+        val cleanTime = timeValue.orEmpty().trim()
+        val normalizedDate = if (cleanDate.isBlank()) {
+            ""
+        } else {
+            parseDate(cleanDate, today)?.toString() ?: cleanDate
+        }
+        val normalizedTime = if (cleanTime.isBlank()) {
+            ""
+        } else {
+            parseTime(cleanTime)?.format(outputTime) ?: cleanTime
+        }
+        return ReminderPrefill(normalizedDate, normalizedTime)
+    }
+
     private fun parseDate(raw: String, today: LocalDate): LocalDate? {
         val clean = raw.trim().replace(Regex("(?i)(\\d)(st|nd|rd|th)"), "$1")
             .replace(Regex("(?i)\\bof\\s+"), "")
