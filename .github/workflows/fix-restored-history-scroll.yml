@@ -1,0 +1,38 @@
+name: Fix restored History verifier scroll path
+
+on:
+  push:
+    branches:
+      - automation/calendar-normal-flow-verification
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: automation/calendar-normal-flow-verification
+      - name: Use scrollable-container movement before card swipe
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/androidTest/java/com/wolferdwolf/drop/HistoryDeletionFlowTest.kt')
+          s = p.read_text()
+          old = '''        repeat(8) {\n            val anchor = visibleNode(device, UNIQUE_TITLE) ?: visibleNode(device, UNIQUE_CONTENT)\n            if (anchor != null) {\n                swipeUpFromNode(device, anchor)\n            } else {\n                swipeUp(device)\n            }\n            visibleNode(device, text)?.let { return it }\n        }'''
+          new = '''        repeat(8) {\n            // Ask the accessibility-recognised scroll container to advance first.\n            // Compose can consume a raw swipe started on the partially visible card,\n            // leaving the action row below the fold even though the card text is visible.\n            // Keep the anchored raw swipe as a fallback so this also works when the\n            // platform does not expose the LazyColumn as UiScrollable.\n            val advanced = accessibilityScrollForward()\n            if (advanced) {\n                device.waitForIdle()\n                Thread.sleep(200)\n            } else {\n                val anchor = visibleNode(device, UNIQUE_TITLE) ?: visibleNode(device, UNIQUE_CONTENT)\n                if (anchor != null) swipeUpFromNode(device, anchor) else swipeUp(device)\n            }\n            visibleNode(device, text)?.let { return it }\n        }'''
+          if old not in s:
+              raise SystemExit('expected restored History scroll loop not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Commit verifier fix and remove temporary workflow
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/fix-restored-history-scroll.yml
+          git add app/src/androidTest/java/com/wolferdwolf/drop/HistoryDeletionFlowTest.kt
+          git commit -m "Advance History scroll container before card swipe"
+          git push origin HEAD:automation/calendar-normal-flow-verification
