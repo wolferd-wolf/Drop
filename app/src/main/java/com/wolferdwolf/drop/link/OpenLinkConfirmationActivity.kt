@@ -76,9 +76,9 @@ class OpenLinkConfirmationActivity : ComponentActivity() {
     private fun launchBrowserAndRecord(url: String): BrowserLaunchOutcome {
         val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
         try {
-            if (browserIntent.resolveActivity(packageManager) == null) {
-                return BrowserLaunchOutcome(false, "No compatible browser is installed.")
-            }
+            // Let Android attempt the actual launch instead of relying on a
+            // resolveActivity preflight. Package visibility can make that preflight
+            // return null even when a compatible browser can handle ACTION_VIEW.
             startActivity(browserIntent)
         } catch (_: ActivityNotFoundException) {
             return BrowserLaunchOutcome(false, "No compatible browser is installed.")
