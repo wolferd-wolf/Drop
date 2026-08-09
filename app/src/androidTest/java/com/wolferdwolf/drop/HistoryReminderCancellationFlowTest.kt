@@ -56,6 +56,7 @@ class HistoryReminderCancellationFlowTest {
 
                 visibleAfterScroll(device, "Reminder cancelled. Its notification was stopped and it was removed from History.")
                 assertFalse("Confirmed cancellation must remove the reminder from History", store.load().any { it.id == record.id })
+                assertFalse("Cancelled reminder must disappear from the filtered History list", device.hasObject(By.text(title)))
                 capture(device, "/data/local/tmp/drop-history-reminder-cancelled.png")
             }
         } finally {
