@@ -11,6 +11,7 @@ class PhoneNumberValidatorTest {
         assertEquals("04012345678", PhoneNumberValidator.normalize("040-1234-5678"))
         assertEquals("02079460958", PhoneNumberValidator.normalize("020 7946 0958"))
         assertEquals("+14155552671", PhoneNumberValidator.normalize("+1 (415) 555-2671"))
+        assertEquals("+919876543210", PhoneNumberValidator.normalize("  +91 98765 43210  "))
     }
 
     @Test
