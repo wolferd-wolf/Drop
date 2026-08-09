@@ -78,8 +78,9 @@ class HistoryReminderCancellationFlowTest {
 
     private fun tapTextAfterScroll(device: UiDevice, text: String) {
         repeat(12) { attempt ->
-            device.findObjects(By.text(text)).firstOrNull { !it.visibleBounds.isEmpty }?.let {
-                tap(it, device)
+            val visible = device.findObjects(By.text(text)).firstOrNull { !it.visibleBounds.isEmpty }
+            if (visible != null) {
+                tap(visible, device)
                 return
             }
             if (attempt < 11) scrollForward(device)
@@ -115,7 +116,13 @@ class HistoryReminderCancellationFlowTest {
             list.setAsVerticalList()
             list.scrollForward()
         } else {
-            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 18)
+            device.swipe(
+                device.displayWidth / 2,
+                device.displayHeight * 3 / 4,
+                device.displayWidth / 2,
+                device.displayHeight / 4,
+                18
+            )
         }
         device.waitForIdle()
     }
