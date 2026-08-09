@@ -44,20 +44,14 @@ class HistorySearchFlowTest {
                 visible(device, "Image")
                 visible(device, "PDF")
 
-                val search = assertNotNull(
-                    "History search field is missing",
-                    device.wait(Until.findObject(By.clazz("android.widget.EditText")), TIMEOUT)
-                ).let { device.findObject(By.clazz("android.widget.EditText")) }
-
-                search.text = "cafe"
-                dismissKeyboard(device)
+                setSearchText(device, "cafe")
                 visibleAfterScroll(device, "Café quarterly wolf strategy")
                 assertTrue("History search must match accented saved text without requiring accent input", device.wait(Until.hasObject(By.text("Café quarterly wolf strategy")), TIMEOUT))
                 assertTrue("Unrelated reference must be filtered out", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-search-result.png")
 
-                search.text = ""
-                dismissKeyboard(device)
+                scrollToTop(device)
+                setSearchText(device, "")
                 scrollToTop(device)
                 clickExactText(device, "PDF")
                 visibleAfterScroll(device, "Supplier invoice")
@@ -65,11 +59,11 @@ class HistorySearchFlowTest {
                 assertTrue("PDF source filter must hide text references", device.wait(Until.gone(By.text("Café quarterly wolf strategy")), TIMEOUT))
                 assertTrue("PDF source filter must hide image references", device.wait(Until.gone(By.text("Today field note")), TIMEOUT))
                 capture(device, "/data/local/tmp/drop-history-filter-pdf-source.png")
+
                 scrollToTop(device)
                 clickExactText(device, "All sources")
-
-                search.text = ""
-                dismissKeyboard(device)
+                scrollToTop(device)
+                setSearchText(device, "")
                 scrollToTop(device)
                 clickExactText(device, "Reminders")
                 visibleAfterScroll(device, "No saved actions are available in the selected filters.")
@@ -87,9 +81,7 @@ class HistorySearchFlowTest {
 
                 scrollToTop(device)
                 clickExactText(device, "All dates")
-                val searchAgain = visibleEditText(device)
-                searchAgain.text = "quarterly invoice"
-                dismissKeyboard(device)
+                setSearchText(device, "quarterly invoice")
                 visibleAfterScroll(device, "No saved actions match “quarterly invoice” in these filters. Try a different search, action type, or date.")
                 assertTrue("Search must require every entered term to match the same saved item", device.wait(Until.gone(By.text("Café quarterly wolf strategy")), TIMEOUT))
                 assertTrue("Search must not combine terms across separate saved items", device.wait(Until.gone(By.text("Supplier invoice")), TIMEOUT))
@@ -100,6 +92,14 @@ class HistorySearchFlowTest {
             store.delete(second.id)
             store.delete(recent.id)
         }
+    }
+
+    private fun setSearchText(device: UiDevice, value: String) {
+        scrollToTop(device)
+        val search = visibleEditText(device)
+        search.text = value
+        dismissKeyboard(device)
+        device.waitForIdle()
     }
 
     private fun clickExactText(device: UiDevice, text: String) {
@@ -146,7 +146,7 @@ class HistorySearchFlowTest {
     private fun visibleAfterScroll(device: UiDevice, text: String) {
         repeat(14) { attempt ->
             val node = device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT)
-            if (node != null && !node.visibleBounds.isEmpty) return
+            if (node != null && runCatching { !node.visibleBounds.isEmpty }.getOrDefault(false)) return
             if (attempt < 13) swipeUp(device)
         }
         throw AssertionError("Expected visible text after scrolling: $text")
