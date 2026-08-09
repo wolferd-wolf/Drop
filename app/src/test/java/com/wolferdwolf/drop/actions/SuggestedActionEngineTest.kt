@@ -9,7 +9,7 @@ import org.junit.Test
 
 class SuggestedActionEngineTest {
     @Test
-    fun jobDeadlineRanksDetectedActionsAheadOfGenericSaveFallback() {
+    fun jobDeadlineRanksDirectEmailAheadOfOptionalContactSaving() {
         val text = "Job vacancy. Apply before 12 August 2026 at 5:30 PM. Email jobs@example.com or visit https://example.com/jobs"
         val results = listOf(
             result(ExtractionType.DATE, "12 August 2026"),
@@ -23,14 +23,52 @@ class SuggestedActionEngineTest {
 
         assertEquals(4, actions.size)
         assertEquals(SuggestedActionType.REMINDER, types[0])
-        assertEquals(SuggestedActionType.OPEN_LINK, types[1])
-        assertEquals(SuggestedActionType.CONTACT, types[2])
-        assertEquals(SuggestedActionType.EMAIL, types[3])
+        assertEquals(SuggestedActionType.EMAIL, types[1])
+        assertEquals(SuggestedActionType.OPEN_LINK, types[2])
+        assertEquals(SuggestedActionType.CONTACT, types[3])
         assertFalse(SuggestedActionType.SAVE_REFERENCE in types)
         assertFalse(SuggestedActionType.CALENDAR in types)
         assertTrue(actions.first { it.type == SuggestedActionType.REMINDER }.reason.contains("deadline", true))
+        assertTrue(actions.first { it.type == SuggestedActionType.EMAIL }.reason.contains("directly", true))
         assertTrue(actions.first { it.type == SuggestedActionType.OPEN_LINK }.reason.contains("application", true))
         assertEquals(actions.size, types.distinct().size)
+    }
+
+    @Test
+    fun phoneOnlyRanksCallAheadOfOptionalContactSaving() {
+        val actions = SuggestedActionEngine.suggest(
+            "Call +91 98765 43210 about the delivery",
+            listOf(result(ExtractionType.PHONE, "+91 98765 43210"))
+        )
+
+        assertEquals(SuggestedActionType.CALL, actions.first().type)
+        assertTrue(actions.first().reason.contains("directly", true))
+        assertTrue(actions.indexOfFirst { it.type == SuggestedActionType.CALL } < actions.indexOfFirst { it.type == SuggestedActionType.CONTACT })
+    }
+
+    @Test
+    fun phoneAndEmailTogetherStillPrioritizeContactAsACombinedRecord() {
+        val actions = SuggestedActionEngine.suggest(
+            "Supplier: +91 98765 43210, sales@example.com",
+            listOf(
+                result(ExtractionType.PHONE, "+91 98765 43210"),
+                result(ExtractionType.EMAIL, "sales@example.com")
+            )
+        )
+
+        assertEquals(SuggestedActionType.CONTACT, actions.first().type)
+        assertTrue(actions.first().reason.contains("phone number and email", true))
+        assertTrue(SuggestedActionType.EMAIL in actions.map { it.type })
+        assertTrue(SuggestedActionType.CALL in actions.map { it.type })
+    }
+
+    @Test
+    fun ordinaryBeforePhraseDoesNotMislabelReminderAsDeadline() {
+        val text = "Meet Riya before lunch on 12 August 2026"
+        val actions = SuggestedActionEngine.suggest(text, listOf(result(ExtractionType.DATE, "12 August 2026")))
+        val reminder = actions.first { it.type == SuggestedActionType.REMINDER }
+
+        assertEquals("A date was detected.", reminder.reason)
     }
 
     @Test
