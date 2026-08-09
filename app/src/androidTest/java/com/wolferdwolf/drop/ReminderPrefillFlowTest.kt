@@ -18,18 +18,7 @@ class ReminderPrefillFlowTest {
     fun detectedAbbreviatedDateAndTimeReachReminderConfirmation() {
         ActivityScenario.launch(MainActivity::class.java).use {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-            clickText(device, "Paste text")
-            visible(device, "Add content for Drop to understand and turn into an action.")
-            val input = objectFor(device, By.clazz("android.widget.EditText"), "Paste intake must provide an editable field")
-            input.text = "Supplier review on Sep. 12, 2026 at 10:15 AM."
-            device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
-            device.waitForIdle()
-
-            clickText(device, "Continue")
-            visible(device, "Import preview")
-            clickText(device, "Extract details")
-            visible(device, "Extracted information")
-            objectFor(device, By.text("Sep. 12, 2026"), "Abbreviated date must remain visible in extracted information")
+            beginReminderFlow(device)
             clickText(device, "See suggested actions", scroll = true)
             visible(device, "Suggested actions")
             clickTextAndWaitForDestination(device, "Create reminder", "Confirm reminder details")
@@ -40,6 +29,57 @@ class ReminderPrefillFlowTest {
             visibleAfterScroll(device, "Cancel")
             capture(device, "/data/local/tmp/drop-reminder-extraction-prefill.png")
         }
+    }
+
+    @Test
+    fun editedDateAndTimeReachReminderConfirmationWithoutReextractingOriginalValues() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            beginReminderFlow(device)
+
+            val dateField = objectFor(
+                device,
+                By.clazz("android.widget.EditText").text("Sep. 12, 2026"),
+                "Detected date must be editable before Suggested Actions"
+            )
+            dateField.text = "Sep. 13, 2026"
+            device.waitForIdle()
+
+            val timeField = objectFor(
+                device,
+                By.clazz("android.widget.EditText").text("10:15 AM"),
+                "Detected time must be editable before Suggested Actions"
+            )
+            timeField.text = "6:45 PM"
+            device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
+            device.waitForIdle()
+
+            clickText(device, "See suggested actions", scroll = true)
+            visible(device, "Suggested actions")
+            clickTextAndWaitForDestination(device, "Create reminder", "Confirm reminder details")
+
+            objectFor(device, By.clazz("android.widget.EditText").text("2026-09-13"), "Reminder must use the edited date rather than the source date")
+            objectFor(device, By.clazz("android.widget.EditText").text("18:45"), "Reminder must use the edited time rather than the source time")
+            assertTrue("Stale source date must not return in Reminder confirmation", device.findObjects(By.clazz("android.widget.EditText").text("2026-09-12")).isEmpty())
+            assertTrue("Stale source time must not return in Reminder confirmation", device.findObjects(By.clazz("android.widget.EditText").text("10:15")).isEmpty())
+            visibleAfterScroll(device, "Schedule")
+            capture(device, "/data/local/tmp/drop-reminder-curated-values.png")
+        }
+    }
+
+    private fun beginReminderFlow(device: UiDevice) {
+        clickText(device, "Paste text")
+        visible(device, "Add content for Drop to understand and turn into an action.")
+        val input = objectFor(device, By.clazz("android.widget.EditText"), "Paste intake must provide an editable field")
+        input.text = "Supplier review on Sep. 12, 2026 at 10:15 AM."
+        device.executeShellCommand("input keyevent KEYCODE_ESCAPE")
+        device.waitForIdle()
+
+        clickText(device, "Continue")
+        visible(device, "Import preview")
+        clickText(device, "Extract details")
+        visible(device, "Extracted information")
+        objectFor(device, By.text("Sep. 12, 2026"), "Abbreviated date must remain visible in extracted information")
     }
 
     private fun clickText(device: UiDevice, text: String, scroll: Boolean = false) {
