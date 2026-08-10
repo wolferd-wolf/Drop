@@ -43,7 +43,7 @@ class HomeScreenshotTest {
         ActivityScenario.launch(MainActivity::class.java).use {
             val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             assertVisible(device, "Import screenshot or image", "Home must reach the foreground")
-            assertVisible(device, "Paste text", "Paste text action must be visible").click()
+            assertVisible(device, "Paste text", "Text entry must open").click()
             assertVisible(device, "Add content for Drop to understand and turn into an action.", "Text entry must open")
             val input = assertObject(device, By.clazz("android.widget.EditText"), "Text entry must provide an editable field")
             input.text = "Team meeting on 2026-08-12 at 5:30 PM at MG Road, Vijayawada. Email team@example.com, call +91 98765 43210, or open drop.app/meeting"
