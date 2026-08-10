@@ -164,6 +164,13 @@ private fun ReminderScreen(
                 supportingText = { Text("Leave blank to remind at 09:00 on the selected date.") },
                 enabled = !scheduled
             )
+            if (!scheduled && Build.VERSION.SDK_INT >= 33) {
+                Text(
+                    "Drop uses an Android notification to deliver this reminder. The next step may ask for notification permission.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             message?.let {
                 Text(
                     it,
