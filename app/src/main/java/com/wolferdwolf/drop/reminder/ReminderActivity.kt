@@ -33,6 +33,8 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.wolferdwolf.drop.extraction.ExtractionType
+import com.wolferdwolf.drop.extraction.RuleBasedExtractor
 import com.wolferdwolf.drop.ui.theme.DropTheme
 import java.time.LocalDate
 import java.time.LocalTime
@@ -76,10 +78,20 @@ private fun ReminderScreen(
     schedule: (ReminderValidator.ValidReminder) -> Result<Unit>
 ) {
     val today = remember { LocalDate.now() }
+    val extracted = remember(sourceText) { RuleBasedExtractor.extract(sourceText) }
+    val extractedDate = extracted.firstOrNull { it.type == ExtractionType.DATE }?.value
+    val extractedTime = extracted.firstOrNull { it.type == ExtractionType.TIME }?.value
+    val defaultDate = runCatching { LocalDate.parse(extractedDate.orEmpty()) }.getOrNull()?.toString()
+        ?: today.plusDays(1).toString()
+    val defaultTime = runCatching {
+        LocalTime.parse(extractedTime.orEmpty(), DateTimeFormatter.ofPattern("HH:mm"))
+            .format(DateTimeFormatter.ofPattern("HH:mm"))
+    }.getOrNull() ?: LocalTime.now().plusHours(1).format(DateTimeFormatter.ofPattern("HH:mm"))
+
     var title by rememberSaveable { mutableStateOf(sourceText.lineSequence().firstOrNull { it.isNotBlank() }?.take(120) ?: "Reminder") }
     var notes by rememberSaveable { mutableStateOf(sourceText) }
-    var date by rememberSaveable { mutableStateOf(today.plusDays(1).toString()) }
-    var time by rememberSaveable { mutableStateOf(LocalTime.now().plusHours(1).format(DateTimeFormatter.ofPattern("HH:mm"))) }
+    var date by rememberSaveable { mutableStateOf(defaultDate) }
+    var time by rememberSaveable { mutableStateOf(defaultTime) }
     var message by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingReminder by remember { mutableStateOf<ReminderValidator.ValidReminder?>(null) }
 
