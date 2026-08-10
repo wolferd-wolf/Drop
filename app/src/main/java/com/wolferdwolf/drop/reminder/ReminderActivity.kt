@@ -30,7 +30,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.wolferdwolf.drop.ui.theme.DropTheme
@@ -128,10 +130,43 @@ private fun ReminderScreen(
                     modifier = Modifier.liveRegion(LiveRegionMode.Polite)
                 )
             }
-            OutlinedTextField(title, { title = it.take(120) }, Modifier.fillMaxWidth(), label = { Text("Title") })
-            OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth().weight(1f), label = { Text("Notes") })
-            OutlinedTextField(date, { date = it }, Modifier.fillMaxWidth(), label = { Text("Date (YYYY-MM-DD)") })
-            OutlinedTextField(time, { time = it }, Modifier.fillMaxWidth(), label = { Text("Time (HH:MM)") })
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it.take(120) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "Reminder title" },
+                label = { Text("Title") },
+                supportingText = { Text("A short label for the reminder") }
+            )
+            OutlinedTextField(
+                value = notes,
+                onValueChange = { notes = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .semantics { contentDescription = "Reminder notes" },
+                label = { Text("Notes") },
+                supportingText = { Text("Optional details from the source") }
+            )
+            OutlinedTextField(
+                value = date,
+                onValueChange = { date = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "Reminder date, format YYYY-MM-DD" },
+                label = { Text("Date (YYYY-MM-DD)") },
+                supportingText = { Text("Use four-digit year, month, and day") }
+            )
+            OutlinedTextField(
+                value = time,
+                onValueChange = { time = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "Reminder time, 24-hour format HH colon MM" },
+                label = { Text("Time (HH:MM)") },
+                supportingText = { Text("Use 24-hour time") }
+            )
             message?.let {
                 Text(
                     it,
@@ -140,8 +175,18 @@ private fun ReminderScreen(
                 )
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onClose, modifier = Modifier.weight(1f)) { Text("Cancel") }
-                Button(onClick = ::submit, modifier = Modifier.weight(1f)) { Text("Schedule") }
+                OutlinedButton(
+                    onClick = onClose,
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { contentDescription = "Cancel reminder" }
+                ) { Text("Cancel") }
+                Button(
+                    onClick = ::submit,
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { contentDescription = "Schedule reminder" }
+                ) { Text("Schedule") }
             }
         }
     }
