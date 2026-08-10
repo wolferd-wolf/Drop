@@ -176,7 +176,7 @@ object SuggestedActionEngine {
     private fun looksLikeChecklist(text: String): Boolean {
         val meaningfulLines = text.lineSequence().map(String::trim).filter(String::isNotBlank).toList()
         val marked = meaningfulLines.count {
-            it.startsWith("-") || it.startsWith("•") || it.matches(Regex("^\\\\d+[.)].+"))
+            it.startsWith("-") || it.startsWith("•") || it.matches(Regex("""^\d+[.)].+"""))
         }
         return meaningfulLines.size >= 3 && (marked >= 2 || meaningfulLines.size >= 5)
     }
