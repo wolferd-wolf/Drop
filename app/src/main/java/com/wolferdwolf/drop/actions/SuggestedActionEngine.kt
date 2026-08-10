@@ -49,14 +49,17 @@ object SuggestedActionEngine {
             100
         )
 
-        if (ExtractionType.DATE in types || ExtractionType.TIME in types || hasDeadlineLanguage) {
+        // A deadline phrase alone is not enough to create a schedulable reminder.
+        // Keep the suggestion hidden until extraction provides a concrete date;
+        // the manual chooser still offers an editable Reminder path.
+        if (ExtractionType.DATE in types) {
             relevant += action(
                 SuggestedActionType.REMINDER,
                 "Create reminder",
                 if (hasDeadlineLanguage) {
-                    "A deadline-like phrase was detected."
+                    "A deadline-like phrase and a concrete date were detected."
                 } else {
-                    "A date or time was detected."
+                    "A concrete date or time was detected."
                 },
                 95
             )
