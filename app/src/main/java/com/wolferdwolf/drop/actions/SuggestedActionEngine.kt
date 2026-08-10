@@ -29,10 +29,14 @@ object SuggestedActionEngine {
     private const val MAX_RELEVANT_ACTIONS = 4
 
     fun suggest(originalText: String, results: List<ExtractionResult>): List<SuggestedAction> {
-        val types = results.mapTo(mutableSetOf()) { it.type }
         val lower = originalText.lowercase()
         val address = AddressCandidateDetector.detect(originalText)
         val category = DocumentCategoryDetector.detect(originalText, results)
+        val hasDate = hasValue(results, ExtractionType.DATE)
+        val hasTime = hasValue(results, ExtractionType.TIME)
+        val hasPhone = hasValue(results, ExtractionType.PHONE)
+        val hasEmail = hasValue(results, ExtractionType.EMAIL)
+        val hasUrl = hasValue(results, ExtractionType.URL)
         val hasDeadlineLanguage = containsDeadlineLanguage(lower)
         val hasEventLanguage = containsEventLanguage(lower)
         val relevant = mutableListOf<SuggestedAction>()
@@ -49,10 +53,9 @@ object SuggestedActionEngine {
             100
         )
 
-        // A reminder is only actionable when a concrete date is available.
-        // Deadline language alone is not enough because the confirmation screen
-        // cannot safely schedule a useful reminder without a target date.
-        if (ExtractionType.DATE in types) {
+        // A reminder is only actionable when a non-blank concrete date exists.
+        // Deadline language or a time alone cannot safely schedule a useful reminder.
+        if (hasDate) {
             relevant += action(
                 SuggestedActionType.REMINDER,
                 "Create reminder",
@@ -65,8 +68,8 @@ object SuggestedActionEngine {
             )
         }
 
-        val isLikelyEvent = category == DocumentCategory.EVENT || ExtractionType.DATE in types && (
-            hasEventLanguage || (ExtractionType.TIME in types && !hasDeadlineLanguage)
+        val isLikelyEvent = category == DocumentCategory.EVENT || hasDate && (
+            hasEventLanguage || (hasTime && !hasDeadlineLanguage)
         )
         if (isLikelyEvent) {
             relevant += action(
@@ -86,7 +89,7 @@ object SuggestedActionEngine {
             )
         }
 
-        if (ExtractionType.PHONE in types || ExtractionType.EMAIL in types) {
+        if (hasPhone || hasEmail) {
             relevant += action(
                 SuggestedActionType.CONTACT,
                 "Save contact",
@@ -104,7 +107,7 @@ object SuggestedActionEngine {
             )
         }
 
-        if (ExtractionType.URL in types) {
+        if (hasUrl) {
             relevant += action(
                 SuggestedActionType.OPEN_LINK,
                 "Open link",
@@ -117,7 +120,7 @@ object SuggestedActionEngine {
             )
         }
 
-        if (ExtractionType.EMAIL in types) {
+        if (hasEmail) {
             relevant += action(
                 SuggestedActionType.EMAIL,
                 "Send email",
@@ -126,7 +129,7 @@ object SuggestedActionEngine {
             )
         }
 
-        if (ExtractionType.PHONE in types) {
+        if (hasPhone) {
             relevant += action(
                 SuggestedActionType.CALL,
                 "Call number",
@@ -142,23 +145,25 @@ object SuggestedActionEngine {
     }
 
     fun manualActions(results: List<ExtractionResult>): List<SuggestedAction> {
-        val types = results.mapTo(mutableSetOf()) { it.type }
+        val hasPhone = hasValue(results, ExtractionType.PHONE)
+        val hasEmail = hasValue(results, ExtractionType.EMAIL)
+        val hasUrl = hasValue(results, ExtractionType.URL)
         return buildList {
             add(action(SuggestedActionType.SAVE_REFERENCE, "Save reference", "Save the imported content in Drop.", 0))
             add(action(SuggestedActionType.REMINDER, "Create reminder", "Choose the reminder title, date, and time.", 0))
             add(action(SuggestedActionType.CALENDAR, "Add calendar event", "Review and edit the event details before opening Calendar.", 0))
             add(action(SuggestedActionType.CHECKLIST, "Create checklist", "Turn the content into an editable checklist.", 0))
             add(action(SuggestedActionType.MAPS, "Search in Maps", "Review and edit a location before opening Maps.", 0))
-            if (ExtractionType.PHONE in types || ExtractionType.EMAIL in types) {
+            if (hasPhone || hasEmail) {
                 add(action(SuggestedActionType.CONTACT, "Save contact", "Review and edit the detected contact details.", 0))
             }
-            if (ExtractionType.URL in types) {
+            if (hasUrl) {
                 add(action(SuggestedActionType.OPEN_LINK, "Open link", "Open the detected web link.", 0))
             }
-            if (ExtractionType.EMAIL in types) {
+            if (hasEmail) {
                 add(action(SuggestedActionType.EMAIL, "Send email", "Compose an email to the detected address.", 0))
             }
-            if (ExtractionType.PHONE in types) {
+            if (hasPhone) {
                 add(action(SuggestedActionType.CALL, "Call number", "Open the dialer with the detected number.", 0))
             }
         }
@@ -166,6 +171,9 @@ object SuggestedActionEngine {
 
     private fun action(type: SuggestedActionType, title: String, reason: String, priority: Int) =
         SuggestedAction(type, title, reason, priority)
+
+    private fun hasValue(results: List<ExtractionResult>, type: ExtractionType): Boolean =
+        results.any { it.type == type && it.value.isNotBlank() }
 
     private fun containsDeadlineLanguage(text: String): Boolean =
         listOf("deadline", "due date", "last date", "apply by", "apply before", "submit by", "before ").any(text::contains)
