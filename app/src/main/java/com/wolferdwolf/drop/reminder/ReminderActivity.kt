@@ -119,6 +119,13 @@ private fun ReminderScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text("Confirm reminder details", style = MaterialTheme.typography.headlineSmall)
+            if (Build.VERSION.SDK_INT >= 33 && !notificationPermissionGranted) {
+                Text(
+                    "Drop needs notification permission so Android can deliver this reminder at the scheduled time. Your reminder is not saved until you approve it.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
             OutlinedTextField(title, { title = it.take(120) }, Modifier.fillMaxWidth(), label = { Text("Title") })
             OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth().weight(1f), label = { Text("Notes") })
             OutlinedTextField(date, { date = it }, Modifier.fillMaxWidth(), label = { Text("Date (YYYY-MM-DD)") })
