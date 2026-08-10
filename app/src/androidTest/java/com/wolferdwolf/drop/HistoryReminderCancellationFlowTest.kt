@@ -77,21 +77,33 @@ class HistoryReminderCancellationFlowTest {
     }
 
     private fun tapTextAfterScroll(device: UiDevice, text: String) {
-        repeat(12) { attempt ->
-            val visible = device.findObjects(By.text(text)).firstOrNull { !it.visibleBounds.isEmpty }
-            if (visible != null) {
-                tap(visible, device)
+        repeat(16) { attempt ->
+            val matching = device.findObjects(By.text(text))
+                .filter { !it.visibleBounds.isEmpty }
+                .mapNotNull(::clickableAncestor)
+                .distinctBy { it.visibleBounds }
+            if (matching.isNotEmpty()) {
+                tap(matching.minBy { it.visibleBounds.width() * it.visibleBounds.height() }, device)
                 return
             }
-            if (attempt < 11) scrollForward(device)
+            if (attempt < 15) scrollForward(device)
         }
         throw AssertionError("Expected tappable text after scrolling: $text")
     }
 
+    private fun clickableAncestor(node: UiObject2): UiObject2? {
+        var current: UiObject2? = node
+        while (current != null) {
+            if (current.isClickable) return current
+            current = current.parent
+        }
+        return null
+    }
+
     private fun visibleAfterScroll(device: UiDevice, text: String) {
-        repeat(12) { attempt ->
+        repeat(16) { attempt ->
             if (device.wait(Until.hasObject(By.text(text)), 750L)) return
-            if (attempt < 11) scrollForward(device)
+            if (attempt < 15) scrollForward(device)
         }
         throw AssertionError("Expected visible text after scrolling: $text")
     }
@@ -102,9 +114,8 @@ class HistoryReminderCancellationFlowTest {
     }
 
     private fun tap(node: UiObject2, device: UiDevice) {
-        var target: UiObject2? = node
-        while (target != null && !target.isClickable) target = target.parent
-        val bounds = (target ?: node).visibleBounds
+        val target = clickableAncestor(node) ?: node
+        val bounds = target.visibleBounds
         assertTrue("Target has no tappable area", !bounds.isEmpty)
         assertTrue("Tap failed", device.click(bounds.centerX(), bounds.centerY()))
         device.waitForIdle()
