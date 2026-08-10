@@ -76,10 +76,15 @@ private fun ReminderScreen(
     schedule: (ReminderValidator.ValidReminder) -> Result<Unit>
 ) {
     val today = remember { LocalDate.now() }
+    val defaults = remember(sourceText) { ReminderSourceDefaults.from(sourceText) }
     var title by rememberSaveable { mutableStateOf(sourceText.lineSequence().firstOrNull { it.isNotBlank() }?.take(120) ?: "Reminder") }
     var notes by rememberSaveable { mutableStateOf(sourceText) }
-    var date by rememberSaveable { mutableStateOf(today.plusDays(1).toString()) }
-    var time by rememberSaveable { mutableStateOf(LocalTime.now().plusHours(1).format(DateTimeFormatter.ofPattern("HH:mm"))) }
+    var date by rememberSaveable { mutableStateOf(defaults.date ?: today.plusDays(1).toString()) }
+    var time by rememberSaveable {
+        mutableStateOf(
+            defaults.time ?: LocalTime.now().plusHours(1).format(DateTimeFormatter.ofPattern("HH:mm"))
+        )
+    }
     var message by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingReminder by remember { mutableStateOf<ReminderValidator.ValidReminder?>(null) }
 
