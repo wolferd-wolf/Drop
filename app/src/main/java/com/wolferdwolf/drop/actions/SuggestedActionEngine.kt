@@ -49,21 +49,21 @@ object SuggestedActionEngine {
             100
         )
 
-        if (ExtractionType.DATE in types || ExtractionType.TIME in types || hasDeadlineLanguage) {
+        if (hasValue(results, ExtractionType.DATE)) {
             relevant += action(
                 SuggestedActionType.REMINDER,
                 "Create reminder",
                 if (hasDeadlineLanguage) {
-                    "A deadline-like phrase was detected."
+                    "A deadline-like phrase and a date were detected."
                 } else {
-                    "A date or time was detected."
+                    "A date was detected."
                 },
                 95
             )
         }
 
-        val isLikelyEvent = category == DocumentCategory.EVENT || ExtractionType.DATE in types && (
-            hasEventLanguage || (ExtractionType.TIME in types && !hasDeadlineLanguage)
+        val isLikelyEvent = category == DocumentCategory.EVENT || hasValue(results, ExtractionType.DATE) && (
+            hasEventLanguage || (hasValue(results, ExtractionType.TIME) && !hasDeadlineLanguage)
         )
         if (isLikelyEvent) {
             relevant += action(
@@ -83,7 +83,7 @@ object SuggestedActionEngine {
             )
         }
 
-        if (ExtractionType.PHONE in types || ExtractionType.EMAIL in types) {
+        if (hasValue(results, ExtractionType.PHONE) || hasValue(results, ExtractionType.EMAIL)) {
             relevant += action(
                 SuggestedActionType.CONTACT,
                 "Save contact",
@@ -101,7 +101,7 @@ object SuggestedActionEngine {
             )
         }
 
-        if (ExtractionType.URL in types) {
+        if (hasValue(results, ExtractionType.URL)) {
             relevant += action(
                 SuggestedActionType.OPEN_LINK,
                 "Open link",
@@ -114,7 +114,7 @@ object SuggestedActionEngine {
             )
         }
 
-        if (ExtractionType.EMAIL in types) {
+        if (hasValue(results, ExtractionType.EMAIL)) {
             relevant += action(
                 SuggestedActionType.EMAIL,
                 "Send email",
@@ -123,7 +123,7 @@ object SuggestedActionEngine {
             )
         }
 
-        if (ExtractionType.PHONE in types) {
+        if (hasValue(results, ExtractionType.PHONE)) {
             relevant += action(
                 SuggestedActionType.CALL,
                 "Call number",
@@ -139,23 +139,22 @@ object SuggestedActionEngine {
     }
 
     fun manualActions(results: List<ExtractionResult>): List<SuggestedAction> {
-        val types = results.mapTo(mutableSetOf()) { it.type }
         return buildList {
             add(action(SuggestedActionType.SAVE_REFERENCE, "Save reference", "Save the imported content in Drop.", 0))
             add(action(SuggestedActionType.REMINDER, "Create reminder", "Choose the reminder title, date, and time.", 0))
             add(action(SuggestedActionType.CALENDAR, "Add calendar event", "Review and edit the event details before opening Calendar.", 0))
             add(action(SuggestedActionType.CHECKLIST, "Create checklist", "Turn the content into an editable checklist.", 0))
             add(action(SuggestedActionType.MAPS, "Search in Maps", "Review and edit a location before opening Maps.", 0))
-            if (ExtractionType.PHONE in types || ExtractionType.EMAIL in types) {
+            if (hasValue(results, ExtractionType.PHONE) || hasValue(results, ExtractionType.EMAIL)) {
                 add(action(SuggestedActionType.CONTACT, "Save contact", "Review and edit the detected contact details.", 0))
             }
-            if (ExtractionType.URL in types) {
+            if (hasValue(results, ExtractionType.URL)) {
                 add(action(SuggestedActionType.OPEN_LINK, "Open link", "Open the detected web link.", 0))
             }
-            if (ExtractionType.EMAIL in types) {
+            if (hasValue(results, ExtractionType.EMAIL)) {
                 add(action(SuggestedActionType.EMAIL, "Send email", "Compose an email to the detected address.", 0))
             }
-            if (ExtractionType.PHONE in types) {
+            if (hasValue(results, ExtractionType.PHONE)) {
                 add(action(SuggestedActionType.CALL, "Call number", "Open the dialer with the detected number.", 0))
             }
         }
@@ -163,6 +162,12 @@ object SuggestedActionEngine {
 
     private fun action(type: SuggestedActionType, title: String, reason: String, priority: Int) =
         SuggestedAction(type, title, reason, priority)
+
+    private fun hasValue(results: List<ExtractionResult>, type: ExtractionType): Boolean =
+        results.any { it.type == type && it.value.hasMeaningfulContent() }
+
+    private fun String.hasMeaningfulContent(): Boolean =
+        trim { it.isWhitespace() || it == '\u200B' || it == '\uFEFF' }.isNotEmpty()
 
     private fun containsDeadlineLanguage(text: String): Boolean =
         listOf("deadline", "due date", "last date", "apply by", "apply before", "submit by", "before ").any(text::contains)
