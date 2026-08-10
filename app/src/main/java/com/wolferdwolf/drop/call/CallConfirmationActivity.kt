@@ -41,17 +41,30 @@ class CallConfirmationActivity : ComponentActivity() {
             DropTheme {
                 var phone by rememberSaveable { mutableStateOf(detectedNumber) }
                 var error by rememberSaveable { mutableStateOf<String?>(null) }
+                var completed by rememberSaveable { mutableStateOf(false) }
 
                 CallConfirmationScreen(
                     phone = phone,
                     error = error,
+                    completed = completed,
                     onPhoneChange = { phone = it.take(MAX_PHONE_LENGTH) },
                     onContinue = {
-                        val normalized = PhoneNumberValidator.normalize(phone)
-                        error = if (normalized == null) {
-                            "Enter a valid phone number."
+                        if (completed) {
+                            finish()
                         } else {
-                            openDialerAndRecord(normalized)
+                            val normalized = PhoneNumberValidator.normalize(phone)
+                            if (normalized == null) {
+                                error = "Enter a valid phone number."
+                            } else {
+                                // Mark the action complete before leaving Drop so the state is
+                                // available to Android's saved-state machinery if the external
+                                // phone app immediately stops or recreates this activity. Roll it
+                                // back only when the dialer itself could not be launched.
+                                completed = true
+                                val outcome = openDialerAndRecord(normalized)
+                                completed = outcome.launched
+                                error = outcome.message
+                            }
                         }
                     },
                     onCancel = ::finish
@@ -60,22 +73,38 @@ class CallConfirmationActivity : ComponentActivity() {
         }
     }
 
-    private fun openDialerAndRecord(phone: String): String? {
+    private fun openDialerAndRecord(phone: String): DialerLaunchOutcome {
         val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(phone)}"))
-        return try {
-            if (dialIntent.resolveActivity(packageManager) == null) {
-                "No compatible phone app is installed."
-            } else {
-                startActivity(dialIntent)
-                SavedReferenceStore(applicationContext).save(historyTitle(phone), historyContent(phone))
-                null
-            }
+
+        try {
+            startActivity(dialIntent)
         } catch (_: ActivityNotFoundException) {
-            "No compatible phone app is installed."
+            return DialerLaunchOutcome(
+                launched = false,
+                message = "No compatible phone app is installed."
+            )
         } catch (_: SecurityException) {
-            "Android blocked this action. Check device settings and try again."
+            return DialerLaunchOutcome(
+                launched = false,
+                message = "Android blocked this action. Check device settings and try again."
+            )
         } catch (_: Exception) {
-            "The dialer opened, but Drop could not record this action in History."
+            return DialerLaunchOutcome(
+                launched = false,
+                message = "Drop could not open the phone app. Try again."
+            )
+        }
+
+        return try {
+            SavedReferenceStore(applicationContext).save(historyTitle(phone), historyContent(phone))
+            DialerLaunchOutcome(launched = true, message = null)
+        } catch (_: Exception) {
+            // The external action already happened. Keep the confirmation read-only so
+            // retrying cannot open the dialer again just because local History failed.
+            DialerLaunchOutcome(
+                launched = true,
+                message = "The phone app opened, but Drop could not record this action in History."
+            )
         }
     }
 
@@ -87,6 +116,11 @@ class CallConfirmationActivity : ComponentActivity() {
         internal fun historyContent(phone: String) = "Status: Opened in phone app\nPhone: ${phone.trim()}"
     }
 }
+
+private data class DialerLaunchOutcome(
+    val launched: Boolean,
+    val message: String?
+)
 
 object PhoneNumberValidator {
     fun normalize(value: String): String? {
@@ -104,6 +138,7 @@ object PhoneNumberValidator {
 private fun CallConfirmationScreen(
     phone: String,
     error: String?,
+    completed: Boolean,
     onPhoneChange: (String) -> Unit,
     onContinue: () -> Unit,
     onCancel: () -> Unit
@@ -115,8 +150,17 @@ private fun CallConfirmationScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Text("Confirm the phone number", style = MaterialTheme.typography.headlineSmall)
-                Text("Review and edit the detected number before Drop opens your phone app.")
+                Text(
+                    if (completed) "Phone app opened" else "Confirm the phone number",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+                Text(
+                    if (completed) {
+                        "This action is saved in History. Return to Drop when you are done with the phone app."
+                    } else {
+                        "Review and edit the detected number before Drop opens your phone app."
+                    }
+                )
             }
             item {
                 OutlinedTextField(
@@ -124,25 +168,34 @@ private fun CallConfirmationScreen(
                     onValueChange = onPhoneChange,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Phone number") },
-                    singleLine = true
+                    singleLine = true,
+                    enabled = !completed
                 )
             }
             item {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("You stay in control", style = MaterialTheme.typography.titleMedium)
-                        Text("Drop opens the dialer with this number. It never places the call automatically. A record is added to History after the phone app opens.")
+                        Text(
+                            if (completed) {
+                                "Drop cannot place a call automatically. The dialer was opened once with the confirmed number."
+                            } else {
+                                "Drop opens the dialer with this number. It never places the call automatically. A record is added to History after the phone app opens."
+                            }
+                        )
                     }
                 }
             }
             error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
             item {
                 Button(onClick = onContinue, enabled = phone.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
-                    Text("Continue to Phone App")
+                    Text(if (completed) "Done" else "Continue to Phone App")
                 }
             }
-            item {
-                OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
+            if (!completed) {
+                item {
+                    OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
+                }
             }
         }
     }

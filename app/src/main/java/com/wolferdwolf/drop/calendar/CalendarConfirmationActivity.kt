@@ -75,6 +75,7 @@ class CalendarConfirmationActivity : ComponentActivity() {
                 var venue by rememberSaveable { mutableStateOf(initialVenue) }
                 var notes by rememberSaveable { mutableStateOf(source.take(MAX_NOTES_LENGTH)) }
                 var error by rememberSaveable { mutableStateOf<String?>(null) }
+                var completed by rememberSaveable { mutableStateOf(false) }
 
                 CalendarConfirmationScreen(
                     title = title,
@@ -84,14 +85,21 @@ class CalendarConfirmationActivity : ComponentActivity() {
                     venue = venue,
                     notes = notes,
                     error = error,
-                    onTitleChange = { title = it.take(MAX_TITLE_LENGTH) },
-                    onDateChange = { eventDate = it.take(DATE_LENGTH) },
-                    onStartTimeChange = { startTime = it.take(TIME_LENGTH) },
-                    onEndTimeChange = { endTime = it.take(TIME_LENGTH) },
-                    onVenueChange = { venue = it.take(MAX_VENUE_LENGTH) },
-                    onNotesChange = { notes = it.take(MAX_NOTES_LENGTH) },
+                    completed = completed,
+                    onTitleChange = { if (!completed) title = it.take(MAX_TITLE_LENGTH) },
+                    onDateChange = { if (!completed) eventDate = it.take(DATE_LENGTH) },
+                    onStartTimeChange = { if (!completed) startTime = it.take(TIME_LENGTH) },
+                    onEndTimeChange = { if (!completed) endTime = it.take(TIME_LENGTH) },
+                    onVenueChange = { if (!completed) venue = it.take(MAX_VENUE_LENGTH) },
+                    onNotesChange = { if (!completed) notes = it.take(MAX_NOTES_LENGTH) },
                     onAdd = {
-                        error = validateLaunchAndRecord(title, eventDate, startTime, endTime, venue, notes)
+                        if (completed) {
+                            finish()
+                        } else {
+                            val result = validateLaunchAndRecord(title, eventDate, startTime, endTime, venue, notes)
+                            error = result.message
+                            completed = result.opened
+                        }
                     },
                     onCancel = ::finish
                 )
@@ -106,7 +114,7 @@ class CalendarConfirmationActivity : ComponentActivity() {
         endTime: String,
         venue: String,
         notes: String
-    ): String? {
+    ): CalendarLaunchResult {
         val cleanTitle = title.trim()
         val cleanDate = date.trim()
         val cleanStartTime = startTime.trim()
@@ -114,12 +122,12 @@ class CalendarConfirmationActivity : ComponentActivity() {
         val cleanVenue = venue.trim()
         val cleanNotes = notes.trim()
 
-        if (cleanTitle.isBlank()) return "Enter an event title."
+        if (cleanTitle.isBlank()) return CalendarLaunchResult(false, "Enter an event title.")
         val start = parseDateTime(cleanDate, cleanStartTime)
-            ?: return "Use a valid date and start time, such as 2026-08-21 and 16:00."
+            ?: return CalendarLaunchResult(false, "Use a valid date and start time, such as 2026-08-21 and 16:00.")
         val end = if (cleanEndTime.isBlank()) start + ONE_HOUR_MILLIS else parseDateTime(cleanDate, cleanEndTime)
-            ?: return "Use a valid end time, such as 17:00."
-        if (end <= start) return "End time must be after the start time."
+            ?: return CalendarLaunchResult(false, "Use a valid end time, such as 17:00.")
+        if (end <= start) return CalendarLaunchResult(false, "End time must be after the start time.")
 
         val calendarIntent = Intent(Intent.ACTION_INSERT)
             .setData(CalendarContract.Events.CONTENT_URI)
@@ -130,24 +138,31 @@ class CalendarConfirmationActivity : ComponentActivity() {
             .putExtra(CalendarContract.Events.DESCRIPTION, cleanNotes)
 
         return try {
-            if (calendarIntent.resolveActivity(packageManager) == null) {
-                "No compatible Calendar app is installed."
-            } else {
-                startActivity(calendarIntent)
+            // Launch directly and rely on ActivityNotFoundException rather than a
+            // preflight PackageManager query. On modern Android, package-visibility
+            // restrictions can make resolveActivity() return null even when the
+            // system can still route this implicit intent successfully.
+            startActivity(calendarIntent)
+            try {
                 SavedReferenceStore(applicationContext).save(
                     historyTitle(cleanTitle),
                     historyContent(cleanTitle, cleanDate, cleanStartTime, cleanEndTime, cleanVenue, cleanNotes)
                 )
-                null
+                CalendarLaunchResult(true, null)
+            } catch (_: Exception) {
+                CalendarLaunchResult(true, "The Calendar app opened, but Drop could not record this action in History.")
             }
         } catch (_: ActivityNotFoundException) {
-            "No compatible Calendar app is installed."
+            CalendarLaunchResult(false, "No compatible Calendar app is installed.")
         } catch (_: SecurityException) {
-            "Android blocked this action. Check device settings and try again."
-        } catch (_: Exception) {
-            "The Calendar app opened, but Drop could not record this action in History."
+            CalendarLaunchResult(false, "Android blocked this action. Check device settings and try again.")
         }
     }
+
+    private data class CalendarLaunchResult(
+        val opened: Boolean,
+        val message: String?
+    )
 
     companion object {
         const val EXTRA_SOURCE_TEXT = "source_text"
@@ -237,6 +252,7 @@ private fun CalendarConfirmationScreen(
     venue: String,
     notes: String,
     error: String?,
+    completed: Boolean,
     onTitleChange: (String) -> Unit,
     onDateChange: (String) -> Unit,
     onStartTimeChange: (String) -> Unit,
@@ -253,30 +269,50 @@ private fun CalendarConfirmationScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             item {
-                Text("Confirm event details", style = MaterialTheme.typography.headlineSmall)
-                Text("Review and edit every field before Drop opens your Calendar app.")
+                Text(
+                    if (completed) "Calendar app opened" else "Confirm event details",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+                Text(
+                    if (completed) {
+                        "This action is saved in History. Return to Drop when you are done with the Calendar app."
+                    } else {
+                        "Review and edit every field before Drop opens your Calendar app."
+                    }
+                )
             }
-            item { OutlinedTextField(title, onTitleChange, Modifier.fillMaxWidth(), label = { Text("Event title") }, singleLine = true) }
-            item { OutlinedTextField(date, onDateChange, Modifier.fillMaxWidth(), label = { Text("Date (YYYY-MM-DD)") }, singleLine = true) }
+            item { OutlinedTextField(title, onTitleChange, Modifier.fillMaxWidth(), label = { Text("Event title") }, singleLine = true, enabled = !completed) }
+            item { OutlinedTextField(date, onDateChange, Modifier.fillMaxWidth(), label = { Text("Date (YYYY-MM-DD)") }, singleLine = true, enabled = !completed) }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(startTime, onStartTimeChange, Modifier.weight(1f), label = { Text("Start (HH:MM)") }, singleLine = true)
-                    OutlinedTextField(endTime, onEndTimeChange, Modifier.weight(1f), label = { Text("End (HH:MM)") }, singleLine = true)
+                    OutlinedTextField(startTime, onStartTimeChange, Modifier.weight(1f), label = { Text("Start (HH:MM)") }, singleLine = true, enabled = !completed)
+                    OutlinedTextField(endTime, onEndTimeChange, Modifier.weight(1f), label = { Text("End (HH:MM)") }, singleLine = true, enabled = !completed)
                 }
             }
-            item { OutlinedTextField(venue, onVenueChange, Modifier.fillMaxWidth(), label = { Text("Venue") }, singleLine = true) }
-            item { OutlinedTextField(notes, onNotesChange, Modifier.fillMaxWidth(), label = { Text("Notes") }, minLines = 2, maxLines = 3) }
+            item { OutlinedTextField(venue, onVenueChange, Modifier.fillMaxWidth(), label = { Text("Venue") }, singleLine = true, enabled = !completed) }
+            item { OutlinedTextField(notes, onNotesChange, Modifier.fillMaxWidth(), label = { Text("Notes") }, minLines = 2, maxLines = 3, enabled = !completed) }
             item {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Nothing is added automatically", style = MaterialTheme.typography.titleMedium)
-                        Text("Drop only passes these edited details to Calendar after you confirm. You still choose whether to save the event. A record is added to History after the Calendar app opens.")
+                        Text(
+                            if (completed) "Ready to return to Drop" else "Nothing is added automatically",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            if (completed) {
+                                "The event details are locked here so this screen cannot launch the Calendar app a second time."
+                            } else {
+                                "Drop only passes these edited details to Calendar after you confirm. You still choose whether to save the event. A record is added to History after the Calendar app opens."
+                            }
+                        )
                     }
                 }
             }
             error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
-            item { Button(onClick = onAdd, modifier = Modifier.fillMaxWidth()) { Text("Continue to Calendar") } }
-            item { OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Cancel") } }
+            item { Button(onClick = onAdd, modifier = Modifier.fillMaxWidth()) { Text(if (completed) "Done" else "Continue to Calendar") } }
+            if (!completed) {
+                item { OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Cancel") } }
+            }
         }
     }
 }

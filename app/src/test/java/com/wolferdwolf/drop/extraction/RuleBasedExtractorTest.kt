@@ -21,13 +21,15 @@ class RuleBasedExtractorTest {
 
     @Test
     fun extractsCommonModernBareDomains() {
-        val text = "Portfolio wolfpack.me, services wolfpack.tech/build, store wolfpack.store, and AI wolfpack.ai."
+        val text = "Portfolio wolfpack.me, services wolfpack.tech/build, store wolfpack.store, AI wolfpack.ai, travel wolfpack.travel/visits, and support wolfpack.solutions/help."
         val links = RuleBasedExtractor.extract(text).filter { it.type == ExtractionType.URL }
 
         assertTrue(links.any { it.value == "wolfpack.me" })
         assertTrue(links.any { it.value == "wolfpack.tech/build" })
         assertTrue(links.any { it.value == "wolfpack.store" })
         assertTrue(links.any { it.value == "wolfpack.ai" })
+        assertTrue(links.any { it.value == "wolfpack.travel/visits" })
+        assertTrue(links.any { it.value == "wolfpack.solutions/help" })
         links.forEach { link ->
             assertEquals(link.value, text.substring(link.sourceStart, link.sourceEndExclusive))
         }

@@ -39,6 +39,7 @@ class SharedStreamActivity : ComponentActivity() {
                                     .setAction(Intent.ACTION_SEND)
                                     .setType("text/plain")
                                     .putExtra(Intent.EXTRA_TEXT, clean)
+                                    .putExtra(MainActivity.EXTRA_SOURCE_TYPE, com.wolferdwolf.drop.data.SavedSourceType.IMAGE.name)
                             )
                             finish()
                         }

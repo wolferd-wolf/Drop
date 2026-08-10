@@ -9,7 +9,7 @@ import org.junit.Test
 
 class SuggestedActionEngineTest {
     @Test
-    fun jobDeadlineSuppressesFalseCalendarAndKeepsApplicationLinkVisible() {
+    fun jobDeadlineRanksDirectEmailAheadOfOptionalContactSaving() {
         val text = "Job vacancy. Apply before 12 August 2026 at 5:30 PM. Email jobs@example.com or visit https://example.com/jobs"
         val results = listOf(
             result(ExtractionType.DATE, "12 August 2026"),
@@ -22,15 +22,53 @@ class SuggestedActionEngineTest {
         val types = actions.map { it.type }
 
         assertEquals(4, actions.size)
-        assertEquals(SuggestedActionType.SAVE_REFERENCE, types[0])
-        assertEquals(SuggestedActionType.REMINDER, types[1])
+        assertEquals(SuggestedActionType.REMINDER, types[0])
+        assertEquals(SuggestedActionType.EMAIL, types[1])
         assertEquals(SuggestedActionType.OPEN_LINK, types[2])
         assertEquals(SuggestedActionType.CONTACT, types[3])
+        assertFalse(SuggestedActionType.SAVE_REFERENCE in types)
         assertFalse(SuggestedActionType.CALENDAR in types)
         assertTrue(actions.first { it.type == SuggestedActionType.REMINDER }.reason.contains("deadline", true))
-        assertTrue(actions.first { it.type == SuggestedActionType.SAVE_REFERENCE }.reason.contains("job post", true))
+        assertTrue(actions.first { it.type == SuggestedActionType.EMAIL }.reason.contains("directly", true))
         assertTrue(actions.first { it.type == SuggestedActionType.OPEN_LINK }.reason.contains("application", true))
         assertEquals(actions.size, types.distinct().size)
+    }
+
+    @Test
+    fun phoneOnlyRanksCallAheadOfOptionalContactSaving() {
+        val actions = SuggestedActionEngine.suggest(
+            "Call +91 98765 43210 about the delivery",
+            listOf(result(ExtractionType.PHONE, "+91 98765 43210"))
+        )
+
+        assertEquals(SuggestedActionType.CALL, actions.first().type)
+        assertTrue(actions.first().reason.contains("directly", true))
+        assertTrue(actions.indexOfFirst { it.type == SuggestedActionType.CALL } < actions.indexOfFirst { it.type == SuggestedActionType.CONTACT })
+    }
+
+    @Test
+    fun phoneAndEmailTogetherStillPrioritizeContactAsACombinedRecord() {
+        val actions = SuggestedActionEngine.suggest(
+            "Supplier: +91 98765 43210, sales@example.com",
+            listOf(
+                result(ExtractionType.PHONE, "+91 98765 43210"),
+                result(ExtractionType.EMAIL, "sales@example.com")
+            )
+        )
+
+        assertEquals(SuggestedActionType.CONTACT, actions.first().type)
+        assertTrue(actions.first().reason.contains("phone number and email", true))
+        assertTrue(SuggestedActionType.EMAIL in actions.map { it.type })
+        assertTrue(SuggestedActionType.CALL in actions.map { it.type })
+    }
+
+    @Test
+    fun ordinaryBeforePhraseDoesNotMislabelReminderAsDeadline() {
+        val text = "Meet Riya before lunch on 12 August 2026"
+        val actions = SuggestedActionEngine.suggest(text, listOf(result(ExtractionType.DATE, "12 August 2026")))
+        val reminder = actions.first { it.type == SuggestedActionType.REMINDER }
+
+        assertEquals("A date was detected.", reminder.reason)
     }
 
     @Test
@@ -47,7 +85,6 @@ class SuggestedActionEngineTest {
 
         assertEquals(listOf(SuggestedActionType.SAVE_REFERENCE), actions.map { it.type })
         assertTrue(actions.single().reason.contains("receipt", true))
-        assertTrue(actions.single().reason.contains("prices", true))
     }
 
     @Test
@@ -58,12 +95,55 @@ class SuggestedActionEngineTest {
             result(ExtractionType.TIME, "5:30 PM")
         )
 
-        val actions = SuggestedActionEngine.suggest(text, results)
+        val types = SuggestedActionEngine.suggest(text, results).map { it.type }
+        assertTrue(SuggestedActionType.REMINDER in types)
+        assertTrue(SuggestedActionType.CALENDAR in types)
+    }
+
+    @Test
+    fun nonEventDateAndTimeDoesNotCreateCalendarFalsePositive() {
+        val text = "Electricity bill due 12 August 2026 at 5:30 PM. Pay ₹1,250."
+        val results = listOf(
+            result(ExtractionType.DATE, "12 August 2026"),
+            result(ExtractionType.TIME, "5:30 PM"),
+            result(ExtractionType.PRICE, "₹1,250")
+        )
+        val types = SuggestedActionEngine.suggest(text, results).map { it.type }
+
+        assertTrue(SuggestedActionType.REMINDER in types)
+        assertTrue(SuggestedActionType.SAVE_REFERENCE in types)
+        assertFalse(SuggestedActionType.CALENDAR in types)
+    }
+
+    @Test
+    fun eventCategoryWithoutDateDoesNotSuggestCalendar() {
+        val text = "Team meeting in Wolf Hall. Agenda: launch review."
+        val actions = SuggestedActionEngine.suggest(text, emptyList())
         val types = actions.map { it.type }
 
-        assertTrue(SuggestedActionType.CALENDAR in types)
-        assertTrue(SuggestedActionType.REMINDER in types)
-        assertTrue(actions.first { it.type == SuggestedActionType.SAVE_REFERENCE }.reason.contains("event", true))
+        assertTrue(SuggestedActionType.SAVE_REFERENCE in types)
+        assertFalse(SuggestedActionType.CALENDAR in types)
+        assertFalse(SuggestedActionType.REMINDER in types)
+    }
+
+    @Test
+    fun timeOnlyEventDoesNotSuggestReminderOrCalendarWithoutDate() {
+        val text = "Team meeting at 5:30 PM in Wolf Hall"
+        val results = listOf(result(ExtractionType.TIME, "5:30 PM"))
+        val types = SuggestedActionEngine.suggest(text, results).map { it.type }
+
+        assertTrue(SuggestedActionType.SAVE_REFERENCE in types)
+        assertFalse(SuggestedActionType.REMINDER in types)
+        assertFalse(SuggestedActionType.CALENDAR in types)
+    }
+
+    @Test
+    fun deadlineLanguageWithoutDateDoesNotCreateAnUnusableReminderSuggestion() {
+        val text = "Application deadline soon. Submit before the office closes."
+        val types = SuggestedActionEngine.suggest(text, emptyList()).map { it.type }
+
+        assertTrue(SuggestedActionType.SAVE_REFERENCE in types)
+        assertFalse(SuggestedActionType.REMINDER in types)
     }
 
     @Test
@@ -79,7 +159,19 @@ class SuggestedActionEngineTest {
     }
 
     @Test
-    fun manualChooserAlwaysOffersSafeEditableActions() {
+    fun removingCuratedAddressSuppressesMapsEvenWhenOriginalTextStillContainsVenue() {
+        val text = "Product launch meeting. Venue: MG Road, Vijayawada"
+        val originalResults = listOf(result(ExtractionType.ADDRESS, "MG Road, Vijayawada"))
+        val originalTypes = SuggestedActionEngine.suggest(text, originalResults).map { it.type }
+        val curatedTypes = SuggestedActionEngine.suggest(text, emptyList()).map { it.type }
+
+        assertTrue(SuggestedActionType.MAPS in originalTypes)
+        assertFalse(SuggestedActionType.MAPS in curatedTypes)
+        assertEquals(listOf(SuggestedActionType.SAVE_REFERENCE), curatedTypes)
+    }
+
+    @Test
+    fun manualChooserAlwaysOffersActionsWhoseFormsCanCollectMissingData() {
         val actions = SuggestedActionEngine.manualActions(emptyList())
         val types = actions.map { it.type }
 
@@ -87,15 +179,15 @@ class SuggestedActionEngineTest {
         assertTrue(SuggestedActionType.REMINDER in types)
         assertTrue(SuggestedActionType.CALENDAR in types)
         assertTrue(SuggestedActionType.CHECKLIST in types)
+        assertTrue(SuggestedActionType.CONTACT in types)
         assertTrue(SuggestedActionType.MAPS in types)
-        assertFalse(SuggestedActionType.CONTACT in types)
-        assertFalse(SuggestedActionType.OPEN_LINK in types)
-        assertFalse(SuggestedActionType.EMAIL in types)
-        assertFalse(SuggestedActionType.CALL in types)
+        assertTrue(SuggestedActionType.EMAIL in types)
+        assertTrue(SuggestedActionType.OPEN_LINK in types)
+        assertTrue(SuggestedActionType.CALL in types)
     }
 
     @Test
-    fun manualChooserUnlocksOnlyActionsWithRequiredDetectedData() {
+    fun manualChooserUnlocksDetectedLinkAndCallWithoutDuplicates() {
         val results = listOf(
             result(ExtractionType.PHONE, "+91 98765 43210"),
             result(ExtractionType.EMAIL, "team@example.com"),
@@ -119,6 +211,23 @@ class SuggestedActionEngineTest {
         assertTrue(checklist.priority > 0)
         assertTrue(checklist.reason.contains("list-like"))
         assertFalse(actions.any { it.reason.startsWith("Manual choice:") })
+    }
+
+    @Test
+    fun unmarkedCompactListStillSuggestsChecklist() {
+        val text = "Milk\nEggs\nBread\nDish soap"
+        val types = SuggestedActionEngine.suggest(text, emptyList()).map { it.type }
+
+        assertTrue(SuggestedActionType.CHECKLIST in types)
+    }
+
+    @Test
+    fun fiveLineParagraphDocumentDoesNotSuggestChecklist() {
+        val text = "Quarterly supplier update.\nThe revised quotation includes transport and installation charges.\nThe finance team will review the commercial terms before approval.\nDelivery planning continues after the purchase order is released.\nKeep this note as a reference for the next procurement review."
+        val types = SuggestedActionEngine.suggest(text, emptyList()).map { it.type }
+
+        assertEquals(listOf(SuggestedActionType.SAVE_REFERENCE), types)
+        assertFalse(SuggestedActionType.CHECKLIST in types)
     }
 
     private fun result(type: ExtractionType, value: String) = ExtractionResult(

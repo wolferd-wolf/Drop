@@ -42,17 +42,29 @@ class OpenLinkConfirmationActivity : ComponentActivity() {
             DropTheme {
                 var url by rememberSaveable { mutableStateOf(detectedUrl) }
                 var error by rememberSaveable { mutableStateOf<String?>(null) }
+                var completed by rememberSaveable { mutableStateOf(false) }
 
                 OpenLinkConfirmationScreen(
                     url = url,
                     error = error,
+                    completed = completed,
                     onUrlChange = { url = it.take(MAX_URL_LENGTH) },
                     onOpen = {
-                        val normalized = OpenLinkValidator.normalize(url)
-                        error = if (normalized == null) {
-                            "Enter a valid http or https website link."
+                        if (completed) {
+                            finish()
                         } else {
-                            launchBrowserAndRecord(normalized)
+                            val normalized = OpenLinkValidator.normalize(url)
+                            if (normalized == null) {
+                                error = "Enter a valid http or https website link."
+                            } else {
+                                // Lock the confirmation before leaving Drop so Android can save
+                                // the completed state even if the browser immediately stops or
+                                // recreates this activity. Roll back only if no browser launches.
+                                completed = true
+                                val outcome = launchBrowserAndRecord(normalized)
+                                completed = outcome.launched
+                                error = outcome.message
+                            }
                         }
                     },
                     onCancel = ::finish
@@ -61,22 +73,28 @@ class OpenLinkConfirmationActivity : ComponentActivity() {
         }
     }
 
-    private fun launchBrowserAndRecord(url: String): String? {
+    private fun launchBrowserAndRecord(url: String): BrowserLaunchOutcome {
         val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        return try {
-            if (browserIntent.resolveActivity(packageManager) == null) {
-                "No compatible browser is installed."
-            } else {
-                startActivity(browserIntent)
-                SavedReferenceStore(applicationContext).save(historyTitle(url), historyContent(url))
-                null
-            }
+        try {
+            // Let Android attempt the actual launch instead of relying on a
+            // resolveActivity preflight. Package visibility can make that preflight
+            // return null even when a compatible browser can handle ACTION_VIEW.
+            startActivity(browserIntent)
         } catch (_: ActivityNotFoundException) {
-            "No compatible browser is installed."
+            return BrowserLaunchOutcome(false, "No compatible browser is installed.")
         } catch (_: SecurityException) {
-            "Android blocked this action. Check device settings and try again."
+            return BrowserLaunchOutcome(false, "Android blocked this action. Check device settings and try again.")
         } catch (_: Exception) {
-            "The browser opened, but Drop could not record this action in History."
+            return BrowserLaunchOutcome(false, "Drop could not open the browser. Try again.")
+        }
+
+        return try {
+            SavedReferenceStore(applicationContext).save(historyTitle(url), historyContent(url))
+            BrowserLaunchOutcome(true, null)
+        } catch (_: Exception) {
+            // The external action already happened. Keep this screen read-only so a
+            // History write failure cannot cause the browser to be opened twice.
+            BrowserLaunchOutcome(true, "The browser opened, but Drop could not record this action in History.")
         }
     }
 
@@ -92,6 +110,11 @@ class OpenLinkConfirmationActivity : ComponentActivity() {
         internal fun historyContent(url: String): String = "Status: Opened in browser\nURL: ${url.trim()}"
     }
 }
+
+private data class BrowserLaunchOutcome(
+    val launched: Boolean,
+    val message: String?
+)
 
 object OpenLinkValidator {
     fun normalize(value: String): String? {
@@ -114,6 +137,7 @@ object OpenLinkValidator {
 private fun OpenLinkConfirmationScreen(
     url: String,
     error: String?,
+    completed: Boolean,
     onUrlChange: (String) -> Unit,
     onOpen: () -> Unit,
     onCancel: () -> Unit
@@ -125,8 +149,17 @@ private fun OpenLinkConfirmationScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Text("Confirm the website", style = MaterialTheme.typography.headlineSmall)
-                Text("Review and edit the detected link before Drop opens your browser.")
+                Text(
+                    if (completed) "Browser opened" else "Confirm the website",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+                Text(
+                    if (completed) {
+                        "This action is saved in History. Return to Drop when you are done with the browser."
+                    } else {
+                        "Review and edit the detected link before Drop opens your browser."
+                    }
+                )
             }
             item {
                 OutlinedTextField(
@@ -134,25 +167,34 @@ private fun OpenLinkConfirmationScreen(
                     onValueChange = onUrlChange,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Website link") },
-                    singleLine = true
+                    singleLine = true,
+                    enabled = !completed
                 )
             }
             item {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("You stay in control", style = MaterialTheme.typography.titleMedium)
-                        Text("Drop only opens http or https links after confirmation. It never opens a detected link automatically. A record is added to History after the browser opens.")
+                        Text(
+                            if (completed) {
+                                "Drop opened the browser once with the confirmed link. This screen is locked to prevent a second launch."
+                            } else {
+                                "Drop only opens http or https links after confirmation. It never opens a detected link automatically. A record is added to History after the browser opens."
+                            }
+                        )
                     }
                 }
             }
             error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
             item {
                 Button(onClick = onOpen, enabled = url.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
-                    Text("Continue to Browser")
+                    Text(if (completed) "Done" else "Continue to Browser")
                 }
             }
-            item {
-                OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
+            if (!completed) {
+                item {
+                    OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
+                }
             }
         }
     }

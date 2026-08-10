@@ -1,6 +1,7 @@
 package com.wolferdwolf.drop.reminder
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -29,21 +30,35 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.wolferdwolf.drop.ui.theme.DropTheme
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
 
 class ReminderActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val sourceText = intent.getStringExtra(EXTRA_SOURCE_TEXT).orEmpty()
+        val hasCuratedResults = intent.getBooleanExtra(EXTRA_HAS_CURATED_RESULTS, false)
+        val prefill = if (hasCuratedResults) {
+            ReminderPrefillResolver.fromCurated(
+                intent.getStringExtra(EXTRA_CURATED_DATE),
+                intent.getStringExtra(EXTRA_CURATED_TIME)
+            )
+        } else {
+            ReminderPrefillResolver.from(sourceText)
+        }
         val scheduler = ReminderScheduler(applicationContext)
         val historyStore = ReminderHistoryStore(applicationContext)
         setContent {
             DropTheme {
                 ReminderScreen(
                     sourceText = sourceText,
+                    prefill = prefill,
+                    hasCuratedResults = hasCuratedResults,
+                    notificationPermissionGranted = Build.VERSION.SDK_INT < 33 ||
+                        ContextCompat.checkSelfPermission(
+                            this,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        ) == PackageManager.PERMISSION_GRANTED,
                     onClose = { finish() },
                     schedule = { reminder ->
                         scheduler.schedule(reminder).onSuccess { historyStore.save(reminder) }
@@ -55,6 +70,9 @@ class ReminderActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_SOURCE_TEXT = "source_text"
+        const val EXTRA_HAS_CURATED_RESULTS = "has_curated_results"
+        const val EXTRA_CURATED_DATE = "curated_date"
+        const val EXTRA_CURATED_TIME = "curated_time"
     }
 }
 
@@ -62,44 +80,55 @@ class ReminderActivity : ComponentActivity() {
 @Composable
 private fun ReminderScreen(
     sourceText: String,
+    prefill: ReminderPrefill,
+    hasCuratedResults: Boolean,
+    notificationPermissionGranted: Boolean,
     onClose: () -> Unit,
     schedule: (ReminderValidator.ValidReminder) -> Result<Unit>
 ) {
-    val today = remember { LocalDate.now() }
     var title by rememberSaveable { mutableStateOf(sourceText.lineSequence().firstOrNull { it.isNotBlank() }?.take(120) ?: "Reminder") }
     var notes by rememberSaveable { mutableStateOf(sourceText) }
-    var date by rememberSaveable { mutableStateOf(today.plusDays(1).toString()) }
-    var time by rememberSaveable { mutableStateOf(LocalTime.now().plusHours(1).format(DateTimeFormatter.ofPattern("HH:mm"))) }
+    var date by rememberSaveable { mutableStateOf(prefill.date) }
+    var time by rememberSaveable { mutableStateOf(prefill.time) }
     var message by rememberSaveable { mutableStateOf<String?>(null) }
+    var scheduled by rememberSaveable { mutableStateOf(false) }
     var pendingReminder by remember { mutableStateOf<ReminderValidator.ValidReminder?>(null) }
+
+    fun handleScheduleResult(reminder: ReminderValidator.ValidReminder, result: Result<Unit>) {
+        result.fold(
+            onSuccess = {
+                scheduled = true
+                message = "Reminder scheduled for ${ReminderDisplayFormatter.format(reminder.triggerAtMillis)}. It is saved in History."
+            },
+            onFailure = {
+                scheduled = false
+                message = it.message ?: "Reminder could not be scheduled"
+            }
+        )
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val reminder = pendingReminder
         pendingReminder = null
-        message = if (!granted) {
-            "Notification permission is required to deliver this reminder"
+        if (!granted) {
+            message = "Notification permission is required to deliver this reminder"
         } else if (reminder == null) {
-            "Reminder could not be prepared"
+            message = "Reminder could not be prepared"
         } else {
-            schedule(reminder).fold(
-                onSuccess = { "Reminder scheduled" },
-                onFailure = { it.message ?: "Reminder could not be scheduled" }
-            )
+            handleScheduleResult(reminder, schedule(reminder))
         }
     }
 
     fun submit() {
+        if (scheduled) return
         when (val result = ReminderValidator.validate(title, notes, date, time)) {
             is ReminderValidator.Result.Error -> message = result.message
             is ReminderValidator.Result.Success -> {
-                if (Build.VERSION.SDK_INT >= 33) {
+                if (Build.VERSION.SDK_INT >= 33 && !notificationPermissionGranted) {
                     pendingReminder = result.reminder
                     permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 } else {
-                    message = schedule(result.reminder).fold(
-                        onSuccess = { "Reminder scheduled" },
-                        onFailure = { it.message ?: "Reminder could not be scheduled" }
-                    )
+                    handleScheduleResult(result.reminder, schedule(result.reminder))
                 }
             }
         }
@@ -111,14 +140,58 @@ private fun ReminderScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text("Confirm reminder details", style = MaterialTheme.typography.headlineSmall)
-            OutlinedTextField(title, { title = it.take(120) }, Modifier.fillMaxWidth(), label = { Text("Title") })
-            OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth().weight(1f), label = { Text("Notes") })
-            OutlinedTextField(date, { date = it }, Modifier.fillMaxWidth(), label = { Text("Date (YYYY-MM-DD)") })
-            OutlinedTextField(time, { time = it }, Modifier.fillMaxWidth(), label = { Text("Time (HH:MM)") })
-            message?.let { Text(it, color = if (it == "Reminder scheduled") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error) }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onClose, modifier = Modifier.weight(1f)) { Text("Cancel") }
-                Button(onClick = ::submit, modifier = Modifier.weight(1f)) { Text("Schedule") }
+            if (hasCuratedResults) {
+                Text("Date and time use the values you reviewed in Extracted information. You can still edit them before scheduling.")
+            }
+            OutlinedTextField(
+                title,
+                { title = it.take(120); message = null },
+                Modifier.fillMaxWidth(),
+                label = { Text("Title") },
+                enabled = !scheduled
+            )
+            OutlinedTextField(
+                notes,
+                { notes = it; message = null },
+                Modifier.fillMaxWidth().weight(1f),
+                label = { Text("Notes") },
+                enabled = !scheduled
+            )
+            OutlinedTextField(
+                date,
+                { date = it; message = null },
+                Modifier.fillMaxWidth(),
+                label = { Text("Date (YYYY-MM-DD)") },
+                enabled = !scheduled
+            )
+            OutlinedTextField(
+                time,
+                { time = it; message = null },
+                Modifier.fillMaxWidth(),
+                label = { Text("Time (optional, HH:MM)") },
+                supportingText = { Text("Leave blank to remind at 09:00 on the selected date.") },
+                enabled = !scheduled
+            )
+            if (!scheduled && Build.VERSION.SDK_INT >= 33 && !notificationPermissionGranted) {
+                Text(
+                    "Drop uses an Android notification to deliver this reminder. The next step may ask for notification permission.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            message?.let {
+                Text(
+                    it,
+                    color = if (scheduled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                )
+            }
+            if (scheduled) {
+                Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("Done") }
+            } else {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = onClose, modifier = Modifier.weight(1f)) { Text("Cancel") }
+                    Button(onClick = ::submit, modifier = Modifier.weight(1f)) { Text("Schedule") }
+                }
             }
         }
     }

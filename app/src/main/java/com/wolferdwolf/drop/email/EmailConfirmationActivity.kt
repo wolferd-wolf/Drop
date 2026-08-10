@@ -38,10 +38,15 @@ class EmailConfirmationActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val source = intent.getStringExtra(EXTRA_SOURCE_TEXT).orEmpty()
-        val extractedEmail = RuleBasedExtractor.extract(source)
-            .firstOrNull { it.type == ExtractionType.EMAIL }
-            ?.value
-            .orEmpty()
+        val hasCuratedResults = intent.getBooleanExtra(EXTRA_HAS_CURATED_RESULTS, false)
+        val extractedEmail = if (hasCuratedResults) {
+            intent.getStringExtra(EXTRA_CURATED_EMAIL).orEmpty()
+        } else {
+            RuleBasedExtractor.extract(source)
+                .firstOrNull { it.type == ExtractionType.EMAIL }
+                ?.value
+                .orEmpty()
+        }
         val initialSubject = subjectFrom(source)
 
         setContent {
@@ -100,10 +105,12 @@ class EmailConfirmationActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_SOURCE_TEXT = "source_text"
+        const val EXTRA_HAS_CURATED_RESULTS = "has_curated_results"
+        const val EXTRA_CURATED_EMAIL = "curated_email"
         private const val MAX_EMAIL_LENGTH = 254
         private const val MAX_SUBJECT_LENGTH = 200
         private const val MAX_MESSAGE_LENGTH = 5_000
-        private val EMAIL_PATTERN = Regex("^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$", RegexOption.IGNORE_CASE)
+        private val EMAIL_PATTERN = Regex("^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$", RegexOption.IGNORE_CASE)
 
         internal fun validateRecipient(recipient: String): String? = when {
             recipient.isBlank() -> "Enter an email address."

@@ -28,7 +28,9 @@ class ReminderReceiver : BroadcastReceiver() {
 
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty().ifBlank { "Drop reminder" }
         val notes = intent.getStringExtra(EXTRA_NOTES).orEmpty()
+        val triggerAtMillis = intent.getLongExtra(EXTRA_TRIGGER_AT_MILLIS, 0L)
         val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, title.hashCode())
+        val notificationText = ReminderNotificationText.build(triggerAtMillis, notes)
         val openApp = PendingIntent.getActivity(
             context,
             notificationId,
@@ -41,8 +43,8 @@ class ReminderReceiver : BroadcastReceiver() {
             NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_popup_reminder)
                 .setContentTitle(title)
-                .setContentText(notes.ifBlank { "Open Drop to view your saved content" })
-                .setStyle(NotificationCompat.BigTextStyle().bigText(notes))
+                .setContentText(notificationText)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(notificationText))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true)
                 .setContentIntent(openApp)
@@ -54,6 +56,7 @@ class ReminderReceiver : BroadcastReceiver() {
         const val CHANNEL_ID = "drop_reminders"
         const val EXTRA_TITLE = "title"
         const val EXTRA_NOTES = "notes"
+        const val EXTRA_TRIGGER_AT_MILLIS = "trigger_at_millis"
         const val EXTRA_NOTIFICATION_ID = "notification_id"
     }
 }

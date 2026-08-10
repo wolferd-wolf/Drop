@@ -23,7 +23,7 @@ class ReminderScheduler(private val context: Context) {
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             requestCode,
-            receiverIntent(record.title, record.notes, requestCode),
+            receiverIntent(record.title, record.notes, record.triggerAtMillis, requestCode),
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
         )
         if (pendingIntent != null) {
@@ -41,7 +41,7 @@ class ReminderScheduler(private val context: Context) {
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             requestCode,
-            receiverIntent(title, notes, requestCode),
+            receiverIntent(title, notes, triggerAtMillis, requestCode),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         alarmManager().setAndAllowWhileIdle(
@@ -51,12 +51,17 @@ class ReminderScheduler(private val context: Context) {
         )
     }
 
-    private fun receiverIntent(title: String, notes: String, requestCode: Int) =
-        Intent(context, ReminderReceiver::class.java).apply {
-            putExtra(ReminderReceiver.EXTRA_TITLE, title)
-            putExtra(ReminderReceiver.EXTRA_NOTES, notes)
-            putExtra(ReminderReceiver.EXTRA_NOTIFICATION_ID, requestCode)
-        }
+    private fun receiverIntent(
+        title: String,
+        notes: String,
+        triggerAtMillis: Long,
+        requestCode: Int
+    ) = Intent(context, ReminderReceiver::class.java).apply {
+        putExtra(ReminderReceiver.EXTRA_TITLE, title)
+        putExtra(ReminderReceiver.EXTRA_NOTES, notes)
+        putExtra(ReminderReceiver.EXTRA_TRIGGER_AT_MILLIS, triggerAtMillis)
+        putExtra(ReminderReceiver.EXTRA_NOTIFICATION_ID, requestCode)
+    }
 
     private fun alarmManager(): AlarmManager =
         context.getSystemService(AlarmManager::class.java)

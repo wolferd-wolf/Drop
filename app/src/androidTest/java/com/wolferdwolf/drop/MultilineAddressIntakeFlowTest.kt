@@ -41,19 +41,50 @@ class MultilineAddressIntakeFlowTest {
             .let { device.findObject(By.text(text)) }
 
     private fun assertVisibleAfterScroll(device: UiDevice, text: String): UiObject2 {
-        device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT_MILLIS)?.let { return it }
-        repeat(10) {
-            device.swipe(
-                device.displayWidth / 2,
-                device.displayHeight * 3 / 4,
-                device.displayWidth / 2,
-                device.displayHeight / 4,
-                20
-            )
-            device.waitForIdle()
-            device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT_MILLIS)?.let { return it }
+        visibleText(device, text)?.let { return it }
+
+        repeat(SCROLL_STEPS) {
+            swipeUp(device)
+            visibleText(device, text)?.let { return it }
         }
-        throw AssertionError("Expected visible text after scrolling: $text")
+
+        repeat(SCROLL_STEPS * 2) {
+            swipeDown(device)
+            visibleText(device, text)?.let { return it }
+        }
+
+        repeat(SCROLL_STEPS * 2) {
+            swipeUp(device)
+            visibleText(device, text)?.let { return it }
+        }
+
+        throw AssertionError("Expected visible text after bidirectional scrolling: $text")
+    }
+
+    private fun visibleText(device: UiDevice, text: String): UiObject2? =
+        device.wait(Until.findObject(By.text(text)), SHORT_TIMEOUT_MILLIS)
+            ?.takeIf { !it.visibleBounds.isEmpty }
+
+    private fun swipeUp(device: UiDevice) {
+        device.swipe(
+            device.displayWidth / 2,
+            device.displayHeight * 3 / 4,
+            device.displayWidth / 2,
+            device.displayHeight / 4,
+            20
+        )
+        device.waitForIdle()
+    }
+
+    private fun swipeDown(device: UiDevice) {
+        device.swipe(
+            device.displayWidth / 2,
+            device.displayHeight / 4,
+            device.displayWidth / 2,
+            device.displayHeight * 3 / 4,
+            20
+        )
+        device.waitForIdle()
     }
 
     private fun assertObject(device: UiDevice, selector: androidx.test.uiautomator.BySelector): UiObject2 =
@@ -69,6 +100,7 @@ class MultilineAddressIntakeFlowTest {
 
     private companion object {
         const val TIMEOUT_MILLIS = 20_000L
-        const val SHORT_TIMEOUT_MILLIS = 2_000L
+        const val SHORT_TIMEOUT_MILLIS = 750L
+        const val SCROLL_STEPS = 8
     }
 }
