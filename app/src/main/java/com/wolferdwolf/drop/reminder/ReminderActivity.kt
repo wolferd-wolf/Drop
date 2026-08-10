@@ -1,6 +1,7 @@
 package com.wolferdwolf.drop.reminder
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -29,6 +30,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.wolferdwolf.drop.ui.theme.DropTheme
 
 class ReminderActivity : ComponentActivity() {
@@ -52,6 +54,11 @@ class ReminderActivity : ComponentActivity() {
                     sourceText = sourceText,
                     prefill = prefill,
                     hasCuratedResults = hasCuratedResults,
+                    notificationPermissionGranted = Build.VERSION.SDK_INT < 33 ||
+                        ContextCompat.checkSelfPermission(
+                            this,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        ) == PackageManager.PERMISSION_GRANTED,
                     onClose = { finish() },
                     schedule = { reminder ->
                         scheduler.schedule(reminder).onSuccess { historyStore.save(reminder) }
@@ -75,6 +82,7 @@ private fun ReminderScreen(
     sourceText: String,
     prefill: ReminderPrefill,
     hasCuratedResults: Boolean,
+    notificationPermissionGranted: Boolean,
     onClose: () -> Unit,
     schedule: (ReminderValidator.ValidReminder) -> Result<Unit>
 ) {
@@ -116,7 +124,7 @@ private fun ReminderScreen(
         when (val result = ReminderValidator.validate(title, notes, date, time)) {
             is ReminderValidator.Result.Error -> message = result.message
             is ReminderValidator.Result.Success -> {
-                if (Build.VERSION.SDK_INT >= 33) {
+                if (Build.VERSION.SDK_INT >= 33 && !notificationPermissionGranted) {
                     pendingReminder = result.reminder
                     permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 } else {
@@ -164,7 +172,7 @@ private fun ReminderScreen(
                 supportingText = { Text("Leave blank to remind at 09:00 on the selected date.") },
                 enabled = !scheduled
             )
-            if (!scheduled && Build.VERSION.SDK_INT >= 33) {
+            if (!scheduled && Build.VERSION.SDK_INT >= 33 && !notificationPermissionGranted) {
                 Text(
                     "Drop uses an Android notification to deliver this reminder. The next step may ask for notification permission.",
                     style = MaterialTheme.typography.bodySmall,
