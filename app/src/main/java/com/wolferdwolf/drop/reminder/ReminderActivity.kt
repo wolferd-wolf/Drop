@@ -82,6 +82,7 @@ private fun ReminderScreen(
     var time by rememberSaveable { mutableStateOf(LocalTime.now().plusHours(1).format(DateTimeFormatter.ofPattern("HH:mm"))) }
     var message by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingReminder by remember { mutableStateOf<ReminderValidator.ValidReminder?>(null) }
+    var isSubmitting by rememberSaveable { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val reminder = pendingReminder
@@ -96,11 +97,17 @@ private fun ReminderScreen(
                 onFailure = { it.message ?: "Reminder could not be scheduled" }
             )
         }
+        isSubmitting = false
     }
 
     fun submit() {
+        if (isSubmitting) return
+        isSubmitting = true
         when (val result = ReminderValidator.validate(title, notes, date, time)) {
-            is ReminderValidator.Result.Error -> message = result.message
+            is ReminderValidator.Result.Error -> {
+                message = result.message
+                isSubmitting = false
+            }
             is ReminderValidator.Result.Success -> {
                 if (Build.VERSION.SDK_INT >= 33 && !notificationsGranted) {
                     pendingReminder = result.reminder
@@ -110,6 +117,7 @@ private fun ReminderScreen(
                         onSuccess = { "Reminder scheduled and saved in History" },
                         onFailure = { it.message ?: "Reminder could not be scheduled" }
                     )
+                    isSubmitting = false
                 }
             }
         }
@@ -128,10 +136,10 @@ private fun ReminderScreen(
                     modifier = Modifier.liveRegion(LiveRegionMode.Polite)
                 )
             }
-            OutlinedTextField(title, { title = it.take(120) }, Modifier.fillMaxWidth(), label = { Text("Title") })
-            OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth().weight(1f), label = { Text("Notes") })
-            OutlinedTextField(date, { date = it }, Modifier.fillMaxWidth(), label = { Text("Date (YYYY-MM-DD)") })
-            OutlinedTextField(time, { time = it }, Modifier.fillMaxWidth(), label = { Text("Time (HH:MM)") })
+            OutlinedTextField(title, { title = it.take(120) }, Modifier.fillMaxWidth(), label = { Text("Title") }, enabled = !isSubmitting)
+            OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth().weight(1f), label = { Text("Notes") }, enabled = !isSubmitting)
+            OutlinedTextField(date, { date = it }, Modifier.fillMaxWidth(), label = { Text("Date (YYYY-MM-DD)") }, enabled = !isSubmitting)
+            OutlinedTextField(time, { time = it }, Modifier.fillMaxWidth(), label = { Text("Time (HH:MM)") }, enabled = !isSubmitting)
             message?.let {
                 Text(
                     it,
@@ -140,8 +148,10 @@ private fun ReminderScreen(
                 )
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onClose, modifier = Modifier.weight(1f)) { Text("Cancel") }
-                Button(onClick = ::submit, modifier = Modifier.weight(1f)) { Text("Schedule") }
+                OutlinedButton(onClick = onClose, modifier = Modifier.weight(1f), enabled = !isSubmitting) { Text("Cancel") }
+                Button(onClick = ::submit, modifier = Modifier.weight(1f), enabled = !isSubmitting) {
+                    Text(if (isSubmitting) "Scheduling…" else "Schedule")
+                }
             }
         }
     }
