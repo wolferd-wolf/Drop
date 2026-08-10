@@ -79,6 +79,24 @@ class SuggestedActionEngineTest {
     }
 
     @Test
+    fun invisibleBlankValuesDoNotUnlockDependentActions() {
+        val results = listOf(
+            result(ExtractionType.PHONE, "\u200B\uFEFF"),
+            result(ExtractionType.EMAIL, "   "),
+            result(ExtractionType.URL, "\u200B")
+        )
+
+        val suggestedTypes = SuggestedActionEngine.suggest("Keep this note for later", results).map { it.type }
+        val manualTypes = SuggestedActionEngine.manualActions(results).map { it.type }
+
+        assertEquals(listOf(SuggestedActionType.SAVE_REFERENCE), suggestedTypes)
+        assertFalse(SuggestedActionType.CONTACT in manualTypes)
+        assertFalse(SuggestedActionType.OPEN_LINK in manualTypes)
+        assertFalse(SuggestedActionType.EMAIL in manualTypes)
+        assertFalse(SuggestedActionType.CALL in manualTypes)
+    }
+
+    @Test
     fun manualChooserAlwaysOffersSafeEditableActions() {
         val actions = SuggestedActionEngine.manualActions(emptyList())
         val types = actions.map { it.type }
