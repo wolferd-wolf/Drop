@@ -1,6 +1,7 @@
 package com.wolferdwolf.drop.reminder
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -29,6 +30,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.wolferdwolf.drop.ui.theme.DropTheme
 import java.time.LocalDate
 import java.time.LocalTime
@@ -44,6 +46,11 @@ class ReminderActivity : ComponentActivity() {
             DropTheme {
                 ReminderScreen(
                     sourceText = sourceText,
+                    notificationPermissionGranted = Build.VERSION.SDK_INT < 33 ||
+                        ContextCompat.checkSelfPermission(
+                            this,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        ) == PackageManager.PERMISSION_GRANTED,
                     onClose = { finish() },
                     schedule = { reminder ->
                         scheduler.schedule(reminder).onSuccess { historyStore.save(reminder) }
@@ -62,6 +69,7 @@ class ReminderActivity : ComponentActivity() {
 @Composable
 private fun ReminderScreen(
     sourceText: String,
+    notificationPermissionGranted: Boolean,
     onClose: () -> Unit,
     schedule: (ReminderValidator.ValidReminder) -> Result<Unit>
 ) {
@@ -92,7 +100,7 @@ private fun ReminderScreen(
         when (val result = ReminderValidator.validate(title, notes, date, time)) {
             is ReminderValidator.Result.Error -> message = result.message
             is ReminderValidator.Result.Success -> {
-                if (Build.VERSION.SDK_INT >= 33) {
+                if (Build.VERSION.SDK_INT >= 33 && !notificationPermissionGranted) {
                     pendingReminder = result.reminder
                     permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 } else {
