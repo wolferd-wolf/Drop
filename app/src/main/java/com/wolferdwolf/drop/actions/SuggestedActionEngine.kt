@@ -35,6 +35,7 @@ object SuggestedActionEngine {
         val category = DocumentCategoryDetector.detect(originalText, results)
         val hasDeadlineLanguage = containsDeadlineLanguage(lower)
         val hasEventLanguage = containsEventLanguage(lower)
+        val hasConcreteDate = ExtractionType.DATE in types
         val relevant = mutableListOf<SuggestedAction>()
 
         relevant += action(
@@ -49,14 +50,19 @@ object SuggestedActionEngine {
             100
         )
 
-        if (ExtractionType.DATE in types || ExtractionType.TIME in types || hasDeadlineLanguage) {
+        // A reminder is only actionable when Drop has a concrete date to schedule.
+        // Deadline wording or a time by itself is not enough and must stay available
+        // through the manual chooser instead of becoming a dead-end recommendation.
+        if (hasConcreteDate) {
             relevant += action(
                 SuggestedActionType.REMINDER,
                 "Create reminder",
                 if (hasDeadlineLanguage) {
-                    "A deadline-like phrase was detected."
+                    "A deadline-like phrase and a concrete date were detected."
+                } else if (ExtractionType.TIME in types) {
+                    "A concrete date and time were detected."
                 } else {
-                    "A date or time was detected."
+                    "A concrete date was detected."
                 },
                 95
             )
