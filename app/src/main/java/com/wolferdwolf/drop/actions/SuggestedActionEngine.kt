@@ -49,14 +49,17 @@ object SuggestedActionEngine {
             100
         )
 
-        if (ExtractionType.DATE in types || ExtractionType.TIME in types || hasDeadlineLanguage) {
+        // A reminder is only actionable when a concrete date is available.
+        // Deadline language alone is not enough because the confirmation screen
+        // cannot safely schedule a useful reminder without a target date.
+        if (ExtractionType.DATE in types) {
             relevant += action(
                 SuggestedActionType.REMINDER,
                 "Create reminder",
                 if (hasDeadlineLanguage) {
-                    "A deadline-like phrase was detected."
+                    "A deadline-like phrase and a date were detected."
                 } else {
-                    "A date or time was detected."
+                    "A date was detected."
                 },
                 95
             )
@@ -173,7 +176,7 @@ object SuggestedActionEngine {
     private fun looksLikeChecklist(text: String): Boolean {
         val meaningfulLines = text.lineSequence().map(String::trim).filter(String::isNotBlank).toList()
         val marked = meaningfulLines.count {
-            it.startsWith("-") || it.startsWith("•") || it.matches(Regex("^\\d+[.)].+"))
+            it.startsWith("-") || it.startsWith("•") || it.matches(Regex("""^\d+[.)].+"""))
         }
         return meaningfulLines.size >= 3 && (marked >= 2 || meaningfulLines.size >= 5)
     }
