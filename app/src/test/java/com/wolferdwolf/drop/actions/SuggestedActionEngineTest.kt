@@ -28,9 +28,22 @@ class SuggestedActionEngineTest {
         assertEquals(SuggestedActionType.CONTACT, types[3])
         assertFalse(SuggestedActionType.CALENDAR in types)
         assertTrue(actions.first { it.type == SuggestedActionType.REMINDER }.reason.contains("deadline", true))
+        assertTrue(actions.first { it.type == SuggestedActionType.REMINDER }.reason.contains("concrete date", true))
         assertTrue(actions.first { it.type == SuggestedActionType.SAVE_REFERENCE }.reason.contains("job post", true))
         assertTrue(actions.first { it.type == SuggestedActionType.OPEN_LINK }.reason.contains("application", true))
         assertEquals(actions.size, types.distinct().size)
+    }
+
+    @Test
+    fun deadlineLanguageWithoutDateSuppressesReminderButKeepsManualPath() {
+        val text = "Please submit by Friday."
+
+        val suggestedTypes = SuggestedActionEngine.suggest(text, emptyList()).map { it.type }
+        val manualTypes = SuggestedActionEngine.manualActions(emptyList()).map { it.type }
+
+        assertEquals(listOf(SuggestedActionType.SAVE_REFERENCE), suggestedTypes)
+        assertFalse(SuggestedActionType.REMINDER in suggestedTypes)
+        assertTrue(SuggestedActionType.REMINDER in manualTypes)
     }
 
     @Test
