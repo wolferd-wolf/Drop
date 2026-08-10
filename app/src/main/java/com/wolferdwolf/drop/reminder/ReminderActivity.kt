@@ -1,6 +1,7 @@
 package com.wolferdwolf.drop.reminder
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -28,7 +29,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.wolferdwolf.drop.ui.theme.DropTheme
 import java.time.LocalDate
 import java.time.LocalTime
@@ -44,6 +48,11 @@ class ReminderActivity : ComponentActivity() {
             DropTheme {
                 ReminderScreen(
                     sourceText = sourceText,
+                    notificationPermissionGranted = Build.VERSION.SDK_INT < 33 ||
+                        ContextCompat.checkSelfPermission(
+                            this,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        ) == PackageManager.PERMISSION_GRANTED,
                     onClose = { finish() },
                     schedule = { reminder ->
                         scheduler.schedule(reminder).onSuccess { historyStore.save(reminder) }
@@ -62,6 +71,7 @@ class ReminderActivity : ComponentActivity() {
 @Composable
 private fun ReminderScreen(
     sourceText: String,
+    notificationPermissionGranted: Boolean,
     onClose: () -> Unit,
     schedule: (ReminderValidator.ValidReminder) -> Result<Unit>
 ) {
@@ -92,7 +102,7 @@ private fun ReminderScreen(
         when (val result = ReminderValidator.validate(title, notes, date, time)) {
             is ReminderValidator.Result.Error -> message = result.message
             is ReminderValidator.Result.Success -> {
-                if (Build.VERSION.SDK_INT >= 33) {
+                if (Build.VERSION.SDK_INT >= 33 && !notificationPermissionGranted) {
                     pendingReminder = result.reminder
                     permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 } else {
@@ -111,11 +121,25 @@ private fun ReminderScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text("Confirm reminder details", style = MaterialTheme.typography.headlineSmall)
+            if (Build.VERSION.SDK_INT >= 33 && !notificationPermissionGranted) {
+                Text(
+                    "Drop needs notification permission so Android can deliver this reminder at the scheduled time. Your reminder is not saved until you approve it.",
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
             OutlinedTextField(title, { title = it.take(120) }, Modifier.fillMaxWidth(), label = { Text("Title") })
             OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth().weight(1f), label = { Text("Notes") })
             OutlinedTextField(date, { date = it }, Modifier.fillMaxWidth(), label = { Text("Date (YYYY-MM-DD)") })
             OutlinedTextField(time, { time = it }, Modifier.fillMaxWidth(), label = { Text("Time (HH:MM)") })
-            message?.let { Text(it, color = if (it == "Reminder scheduled") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error) }
+            message?.let {
+                Text(
+                    it,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    color = if (it == "Reminder scheduled") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                )
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = onClose, modifier = Modifier.weight(1f)) { Text("Cancel") }
                 Button(onClick = ::submit, modifier = Modifier.weight(1f)) { Text("Schedule") }
